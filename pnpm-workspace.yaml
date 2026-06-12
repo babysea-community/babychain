@@ -6,7 +6,7 @@ catalog:
   '@next/eslint-plugin-next': 16.2.6
   '@radix-ui/react-slot': 1.2.4
   '@sentry/nextjs': 10.40.0
-  '@tailwindcss/postcss': 4.3.0
+  '@tailwindcss/postcss': 4.3.1
   '@types/node': 25.3.1
   '@types/pg': 8.15.6
   '@types/react': 19.2.14
