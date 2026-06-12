@@ -61,7 +61,7 @@
     "react-dom": "catalog:",
     "semantic-lady": "catalog:",
     "server-only": "catalog:",
-    "sonner": "^2.0.7",
+    "sonner": "catalog:",
     "tailwind-merge": "catalog:",
     "zod": "catalog:"
   },

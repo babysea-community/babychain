@@ -48,9 +48,13 @@ Canvas studio and durable chain API for image and video model workflows with one
 
 [![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fbabysea-community%2Fbabychain&project-name=babychain&repository-name=babychain&env=NEXT_PUBLIC_SITE_URL,OWNER_EMAIL,OWNER_PASSWORD,OWNER_SESSION_SECRET,DATABASE_URL,BABYCHAIN_API_KEY,BABYCHAIN_CRON_SECRET,BABYCHAIN_CALLBACK_SECRET,UPSTASH_REDIS_REST_URL,UPSTASH_REDIS_REST_TOKEN,BABYCHAIN_PROVIDER_MODE,DASHSCOPE_API_KEY,BFL_API_KEY,BFL_REGION,BFL_API_BASE_URL,ARK_API_KEY,GEMINI_API_KEY,OPENAI_API_KEY,RUNWAYML_API_SECRET)
 
-<br/>
+<br />
 
-<img src="public/hero.png" alt="BabyChain hero" />
+<img src="public/card.png" alt="BabyChain card" />
+
+<br />
+
+<img src="public/dashboard.png" alt="BabyChain dashboard" />
 
 </div>
 
@@ -209,15 +213,16 @@ BabyChain stores all durable runtime state — API keys, chain runs, ordered ste
 DATABASE_URL=postgresql://USER:PASSWORD@CLUSTER.cluster-xxxx.REGION.rds.amazonaws.com:5432/postgres?sslmode=require
 ```
 
-Aurora presents an Amazon RDS CA that is not in the Node.js trust store. BabyChain's pool strips `sslmode`/`ssl` query params and connects with TLS using `rejectUnauthorized: false`, so `?sslmode=require` in the URL is honored without a manual CA bundle. To connect to a local PostgreSQL instead, point `DATABASE_URL` at `localhost` (TLS is auto-disabled for `localhost`/`127.0.0.1`).
+Aurora presents an Amazon RDS CA that is not in the Node.js trust store. For Aurora/RDS endpoints, include `?sslmode=require` in `DATABASE_URL` so the connection clearly requests TLS. BabyChain's pool strips `sslmode`/`ssl` query params and connects with TLS using `rejectUnauthorized: false`, so no manual CA bundle is required. To connect to a local PostgreSQL instead, point `DATABASE_URL` at `localhost` (TLS is auto-disabled for `localhost`/`127.0.0.1`).
 
 ### Quick start: create the cluster in the AWS Console
 
-The fastest path is **RDS → Create database** in the AWS Console. These are the selections that produce a cluster BabyChain can reach (the [CLI walkthrough](#provision-aurora-postgresql-with-vpc-networking) below covers the same setup for automation and production hardening):
+The fastest path is **RDS → Create database** in the AWS Console. These are the selections used by the BabyChain demo deployment. They create an Aurora PostgreSQL Serverless v2 cluster that works with the checked-in `pg` connection code after you allow network access to port `5432` and run `pnpm run aurora:migrate`.
 
 | Setting                       | Selection                                           |
 | :---------------------------- | :-------------------------------------------------- |
 | Engine type                   | Aurora (PostgreSQL Compatible)                      |
+| Database creation method      | Full configuration                                  |
 | Engine version                | Aurora PostgreSQL (Compatible with PostgreSQL 17.7) |
 | Templates                     | Production                                          |
 | Cluster scalability type      | Serverless v2                                       |
@@ -229,23 +234,31 @@ The fastest path is **RDS → Create database** in the AWS Console. These are th
 | Configuration options         | Aurora Standard                                     |
 | Multi-AZ deployment           | Don't create an Aurora Replica                      |
 | Compute resource              | Don't connect to an EC2 compute resource            |
-| Network type                  | IPv4                                                |
-| Virtual private cloud (VPC)   | Default VPC                                         |
-| DB subnet group               | default                                             |
+| Network type                  | Dual-stack mode                                     |
+| Virtual private cloud (VPC)   | Create new VPC                                      |
+| DB subnet group               | Create new DB Subnet Group                          |
 | Public access                 | Yes                                                 |
-| VPC security group (firewall) | Choose existing → `default`                         |
+| VPC security group (firewall) | Create new                                          |
+| New VPC security group name   | `vpcsecurity-babychain` (or your own name)          |
 | Availability Zone             | No preference                                       |
+| RDS Proxy                     | Create an RDS Proxy                                 |
+| Certificate authority         | `rds-ca-rsa2048-g1` (default)                       |
 | RDS Data API                  | Enable the RDS Data API                             |
+| Database port                 | `5432`                                              |
+| Monitoring                    | Database Insights - Standard                        |
+| Performance Insights          | Disabled                                            |
 | Enhanced Monitoring           | Disabled                                            |
 | Log exports                   | iam-db-auth-error log, PostgreSQL log               |
 
 Notes:
 
-- **Capacity minimum `0` ACUs** lets Serverless v2 pause when idle; the first request after a pause takes ~10–30s to wake the cluster (BabyChain's 30s connection timeout absorbs this cold start).
-- **Public access: Yes** with the `default` security group is fine for a quick demo, but you must add an inbound rule for **TCP 5432** from your IP. For production, keep the cluster private and front it with RDS Proxy / PrivateLink (see below). Never leave 5432 open to `0.0.0.0/0`.
-- BabyChain connects over the standard PostgreSQL endpoint (port 5432) using `DATABASE_URL`; the RDS Data API is optional and not used by the app.
+- **Capacity minimum `1` ACU** keeps the demo database warm. If you choose a lower minimum that can pause, the first request after idle may take 10-30s to wake the cluster; BabyChain's 30s connection timeout is designed to absorb that cold start.
+- **Public access: Yes** only makes the cluster addressable from outside the VPC. You must still add a security-group inbound rule for **TCP 5432** from the runtime that needs access. For local setup, use your current IP as `/32`. For a short demo on Vercel without static egress, you may temporarily allow a broader source, but do not leave `5432` open to `0.0.0.0/0` for production.
+- **RDS Proxy** is useful for runtimes inside the same VPC, such as Lambda, ECS, EC2, or a Vercel private-networking setup. A normal public Vercel function cannot reach a private RDS Proxy endpoint by itself. If you deploy BabyChain on standard Vercel networking, use the Aurora writer endpoint in `DATABASE_URL` unless you have Vercel private networking configured.
+- **RDS Data API** can be enabled for admin tooling, but BabyChain does not use it. The app uses the standard PostgreSQL wire protocol through `pg` and `DATABASE_URL`.
+- The **DB cluster identifier** is not automatically the PostgreSQL database name. If you did not explicitly create a database named `babychain`, use `/postgres` in `DATABASE_URL`, for example `postgresql://USER:PASSWORD@WRITER-ENDPOINT:5432/postgres?sslmode=require`.
 
-Once the cluster is **Available**, copy the **writer endpoint** from the Connectivity & security tab, build `DATABASE_URL` as shown above, then run `pnpm run aurora:migrate`.
+Once the cluster is **Available**, copy the **writer endpoint** from the Connectivity & security tab, build `DATABASE_URL` as shown above, add the required inbound security-group rule for port `5432`, then run `pnpm run aurora:migrate`.
 
 ### Provision Aurora PostgreSQL with VPC networking
 
@@ -335,11 +348,43 @@ pnpm run aurora:migrate
 
 **Troubleshooting connectivity**
 
-| Symptom                            | Fix                                                                                                                  |
-| :--------------------------------- | :------------------------------------------------------------------------------------------------------------------- |
-| Connection times out               | Security group missing your IP on 5432, or instance not `publicly-accessible` while connecting from outside the VPC. |
-| `no pg_hba.conf entry` / TLS error | Keep `?sslmode=require` in `DATABASE_URL`; BabyChain handles the RDS CA automatically.                               |
-| Reachable via `psql` but app hangs | Confirm the app's egress IP (it rotates on Codespaces/Vercel) is in the security group, or use RDS Proxy.            |
+| Symptom                                                | Fix                                                                                                                                                                                                                                |
+| :----------------------------------------------------- | :--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `database "babychain" does not exist`                  | The cluster name is not always the PostgreSQL database name. If you used the AWS default database, connect to `/postgres`, not `/babychain`: `postgresql://USER:PASSWORD@WRITER-ENDPOINT:5432/postgres?sslmode=require`.           |
+| `pnpm run aurora:migrate` times out or prints no error | The database is not reachable from your current runtime. Check public reachability and security-group inbound rules for TCP `5432`. From a local machine or Codespace, add your current public IP as `x.x.x.x/32`.                 |
+| Vercel can’t load Library / Canvas after migration     | Standard Vercel egress IPs are dynamic. Without Vercel static egress/private networking, the quick demo option is a temporary inbound PostgreSQL rule from `0.0.0.0/0`. Do not use `All TCP`; expose only PostgreSQL port `5432`.  |
+| You selected RDS Proxy but Vercel still cannot connect | RDS Proxy endpoints are normally private inside your VPC. They work for Lambda/ECS/EC2 or Vercel private networking, not for ordinary public Vercel functions. Use the Aurora writer endpoint unless private networking is set up. |
+| `no pg_hba.conf entry` / TLS error                     | Keep `?sslmode=require` in `DATABASE_URL`; BabyChain handles the RDS CA automatically.                                                                                                                                             |
+| Reachable via `psql` but app hangs                     | Confirm the app's actual egress IP is allowed on the database security group.                                                                                                                                                      |
+
+To confirm the schema after migration, run this in the `postgres` database:
+
+```sql
+select table_name
+from information_schema.tables
+where table_schema = 'babychain_private'
+order by table_name;
+```
+
+Expected tables:
+
+```text
+api_key
+audit_event
+babysea_webhook_delivery
+callback_delivery
+canvas
+chain_run
+chain_step
+```
+
+For a temporary public demo, the least-broad inbound rule is:
+
+| Type       | Protocol | Port | Source      |
+| :--------- | :------- | :--- | :---------- |
+| PostgreSQL | TCP      | 5432 | `0.0.0.0/0` |
+
+Remove that broad rule after the demo/judging window and replace it with static egress IPs, private networking, or an AWS runtime inside the VPC.
 
 ## Models and modes
 
