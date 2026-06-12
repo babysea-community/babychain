@@ -10,8 +10,8 @@ catalogs:
       specifier: 10.0.1
       version: 10.0.1
     '@next/eslint-plugin-next':
-      specifier: 16.2.6
-      version: 16.2.6
+      specifier: 16.2.9
+      version: 16.2.9
     '@radix-ui/react-slot':
       specifier: 1.2.4
       version: 1.2.4
@@ -182,7 +182,7 @@ importers:
         version: 10.0.1(eslint@10.0.1(jiti@2.7.0))
       '@next/eslint-plugin-next':
         specifier: 'catalog:'
-        version: 16.2.6
+        version: 16.2.9
       '@tailwindcss/postcss':
         specifier: 'catalog:'
         version: 4.3.0
@@ -705,6 +705,9 @@ packages:
 
   '@next/eslint-plugin-next@16.2.6':
     resolution: {integrity: sha512-Z8l6o4JWKUl755x4R+wogD86KPeU+Ckw4K+SYG4kHeOJtRenDeK+OSbGcqZpDtbwn9DsJVdir2UxmwXuinUbUw==}
+
+  '@next/eslint-plugin-next@16.2.9':
+    resolution: {integrity: sha512-UZi8+YT/MLgTC9nrrn2Xd4lBYv1B7lVmtWHfPcthAI5Tt/C1LuDe6DfmtCtJ+WQod3ksY4VrKSvk3oMVAnL7qw==}
 
   '@next/swc-darwin-arm64@16.2.6':
     resolution: {integrity: sha512-ZJGkkcNfYgrrMkqOdZ7zoLa1TOy0qpcMfk/z4Mh/FKUz40gVO+HNQWqmLxf67Z5WB64DRp0dhEbyHfel+6sJUg==}
@@ -3906,6 +3909,10 @@ snapshots:
   '@next/env@16.2.6': {}
 
   '@next/eslint-plugin-next@16.2.6':
+    dependencies:
+      fast-glob: 3.3.1
+
+  '@next/eslint-plugin-next@16.2.9':
     dependencies:
       fast-glob: 3.3.1
 
