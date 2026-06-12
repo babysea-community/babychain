@@ -1,0 +1,93 @@
+{
+  "name": "babychain",
+  "version": "0.1.0",
+  "description": "Canvas studio and durable chain API for image and video model workflows with one final callback.",
+  "private": true,
+  "license": "Apache-2.0",
+  "homepage": "https://babychain.babysea.live",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/babysea-community/babychain.git"
+  },
+  "keywords": [
+    "babysea",
+    "open-source",
+    "ai-infrastructure",
+    "control-plane",
+    "execution-layer",
+    "inference-providers",
+    "developer-tools",
+    "creative-tools",
+    "generative-ai",
+    "generative-media",
+    "upstash",
+    "sentry"
+  ],
+  "engines": {
+    "node": "24.x"
+  },
+  "scripts": {
+    "build": "next build",
+    "clean": "git clean -xdf .next .turbo node_modules",
+    "dev": "next dev --port=3011",
+    "doctor": "node scripts/doctor.mjs",
+    "aurora:migrate": "node scripts/aurora-migrate.mjs",
+    "aurora:seed-demo": "node --env-file=.env.local scripts/seed-demo-canvases.mjs",
+    "sentry:check": "node scripts/sentry-project-check.mjs",
+    "format": "prettier --check \"**/*.{ts,tsx,css,md,json,jsonc,mjs}\"",
+    "format:fix": "prettier --write \"**/*.{ts,tsx,css,md,json,jsonc,mjs}\"",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "start": "next start",
+    "test": "vitest",
+    "test:run": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@radix-ui/react-slot": "catalog:",
+    "@sentry/nextjs": "catalog:",
+    "@upstash/ratelimit": "catalog:",
+    "@upstash/redis": "catalog:",
+    "@xyflow/react": "catalog:",
+    "babysea": "catalog:",
+    "class-variance-authority": "catalog:",
+    "clsx": "catalog:",
+    "jose": "catalog:",
+    "lucide-react": "catalog:",
+    "next": "catalog:",
+    "pg": "catalog:",
+    "react": "catalog:",
+    "react-dom": "catalog:",
+    "semantic-lady": "catalog:",
+    "server-only": "catalog:",
+    "sonner": "^2.0.7",
+    "tailwind-merge": "catalog:",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@eslint/js": "catalog:",
+    "@next/eslint-plugin-next": "catalog:",
+    "@tailwindcss/postcss": "catalog:",
+    "@types/node": "catalog:",
+    "@types/pg": "catalog:",
+    "@types/react": "catalog:",
+    "@types/react-dom": "catalog:",
+    "@vitest/coverage-v8": "catalog:",
+    "babel-plugin-react-compiler": "catalog:",
+    "eslint": "catalog:",
+    "eslint-config-next": "catalog:",
+    "globals": "catalog:",
+    "prettier": "catalog:",
+    "tailwindcss": "catalog:",
+    "typescript": "catalog:",
+    "typescript-eslint": "catalog:",
+    "vitest": "catalog:"
+  },
+  "pnpm": {
+    "overrides": {
+      "postcss": "8.5.10"
+    }
+  },
+  "packageManager": "pnpm@10.19.0"
+}

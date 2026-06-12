@@ -1,0 +1,47 @@
+packages:
+  - .
+
+catalog:
+  '@eslint/js': 10.0.1
+  '@next/eslint-plugin-next': 16.2.6
+  '@radix-ui/react-slot': 1.2.4
+  '@sentry/nextjs': 10.40.0
+  '@tailwindcss/postcss': 4.3.0
+  '@types/node': 25.3.1
+  '@types/pg': 8.15.6
+  '@types/react': 19.2.14
+  '@types/react-dom': 19.2.3
+  '@upstash/ratelimit': 2.0.8
+  '@upstash/redis': 1.38.0
+  '@vitest/coverage-v8': 4.0.7
+  '@xyflow/react': 12.11.0
+  babysea: 2.0.0
+  babel-plugin-react-compiler: 1.0.0
+  class-variance-authority: 0.7.1
+  clsx: 2.1.1
+  eslint: 10.0.1
+  eslint-config-next: 16.2.6
+  globals: 16.4.0
+  jose: 5.10.0
+  lucide-react: 0.575.0
+  next: 16.2.6
+  pg: 8.21.0
+  prettier: 3.8.3
+  react: 19.2.4
+  react-dom: 19.2.4
+  semantic-lady: 0.2.0
+  server-only: 0.0.1
+  tailwind-merge: 3.6.0
+  tailwindcss: 4.3.0
+  typescript: 6.0.3
+  typescript-eslint: 8.60.0
+  vitest: 4.0.7
+  zod: 3.25.76
+
+onlyBuiltDependencies:
+  - '@sentry/cli'
+  - '@tailwindcss/oxide'
+  - esbuild
+  - sharp
+  - unrs-resolver
+  - workerd

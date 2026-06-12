@@ -1,0 +1,343 @@
+import {
+  Activity,
+  Cloud,
+  LayersPlus,
+  Command,
+  DatabaseZap,
+  GitFork,
+  FingerprintPattern,
+  ShieldCheck,
+  KeySquare,
+  KeyRound,
+} from 'lucide-react';
+
+import { InlineGitHub } from '@/components/icons/inline-git';
+import type { ModelChainCatalogEntry } from '@/lib/chains/catalog';
+import type { ModelCatalogEntry } from '@/lib/models/model-catalog';
+
+export const siteNavigation = {
+  brand: 'BabyChain',
+  homeHref: '/',
+  actions: [
+    {
+      href: 'https://github.com/babysea-community/babychain',
+      icon: InlineGitHub,
+      label: 'GitHub',
+      variant: 'outline' as const,
+    },
+    {
+      className:
+        'border-[#48d1cc] bg-[#48d1cc]/10 text-[#168f8b] hover:border-[#48d1cc] hover:bg-[#48d1cc]/20 hover:text-[#168f8b]',
+      href: 'https://babychain.babysea.live/login',
+      icon: Cloud,
+      label: 'Launch on Cloud',
+      variant: 'outline' as const,
+    },
+  ],
+};
+
+export const homepageHero = {
+  eyebrow: 'Canvas studio + chain API',
+  title: 'Every output becomes the next input.',
+  description:
+    'Compose image and video model chains on a visual canvas, then run the same flows through a durable self-hosted API with one final callback.',
+  actions: [
+    {
+      href: '/templates',
+      icon: LayersPlus,
+      label: 'Chain templates',
+      variant: 'outline' as const,
+    },
+  ],
+  preview: {
+    command: 'POST /api/v1/chains/runs',
+    route: '/api/v1/chains/runs',
+    status: 'ready',
+  },
+  pipeline: {
+    label: 'BabyChain run path',
+    nodes: [
+      'request',
+      'image output',
+      'handoff URL',
+      'video output',
+      'callback',
+    ],
+  },
+  console: {
+    title: 'BabyChain workflow',
+    deployTitle: 'BabyChain deployment',
+    lines: [
+      'load the requested chain template',
+      'authenticate scoped request credentials',
+      'resolve BYOK inference credentials',
+      'expand input.chain_models overrides',
+      'dedupe retries with idempotency keys',
+      'persist runs and ordered steps',
+      'run steps, hand off outputs, send signed callback',
+    ],
+    deployLinks: [
+      {
+        href: 'https://deploy.workers.cloudflare.com/?url=https://github.com/babysea-community/babychain',
+        label: 'Deploy on Cloudflare',
+        status: 'under-development' as const,
+      },
+      {
+        href: 'https://github.com/babysea-community/babychain/blob/main/docs/deployment/cloudformation.md',
+        label: 'Deploy with CloudFormation',
+        status: 'under-development' as const,
+      },
+      {
+        href: 'https://github.com/babysea-community/babychain/blob/main/docs/deployment/cloud-run.md',
+        label: 'Deploy on Cloud Run',
+        status: 'under-development' as const,
+      },
+      {
+        href: 'https://github.com/babysea-community/babychain/blob/main/docs/deployment/coolify.md',
+        label: 'Deploy with Coolify',
+        status: 'under-development' as const,
+      },
+      {
+        href: 'https://cloud.digitalocean.com/apps/new?repo=https://github.com/babysea-community/babychain/tree/main',
+        label: 'Deploy on DigitalOcean',
+        status: 'under-development' as const,
+      },
+      {
+        href: 'https://github.com/babysea-community/babychain/blob/main/docs/deployment/docker.md',
+        label: 'Deploy with Docker',
+        status: 'under-development' as const,
+      },
+      {
+        href: 'https://github.com/babysea-community/babychain/blob/main/docs/deployment/ec2.md',
+        label: 'Run on EC2',
+        status: 'under-development' as const,
+      },
+      {
+        href: 'https://github.com/babysea-community/babychain/blob/main/docs/deployment/flyio.md',
+        label: 'Deploy on Fly.io',
+        status: 'under-development' as const,
+      },
+      {
+        href: 'https://app.netlify.com/start/deploy?repository=https://github.com/babysea-community/babychain',
+        label: 'Deploy on Netlify',
+        status: 'under-development' as const,
+      },
+      {
+        href: 'https://railway.com/deploy/babychain?referralCode=_FJpRb',
+        label: 'Deploy on Railway',
+        status: 'under-development' as const,
+      },
+      {
+        href: 'https://render.com/deploy?repo=https://github.com/babysea-community/babychain',
+        label: 'Deploy on Render',
+        status: 'under-development' as const,
+      },
+      {
+        href: 'https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fbabysea-community%2Fbabychain&project-name=babychain&repository-name=babychain&env=NEXT_PUBLIC_SITE_URL,OWNER_EMAIL,OWNER_PASSWORD,OWNER_SESSION_SECRET,DATABASE_URL,BABYCHAIN_API_KEY,BABYCHAIN_CRON_SECRET,BABYCHAIN_CALLBACK_SECRET,UPSTASH_REDIS_REST_URL,UPSTASH_REDIS_REST_TOKEN,BABYCHAIN_PROVIDER_MODE,BFL_API_KEY,BFL_REGION,BFL_API_BASE_URL,ARK_API_KEY,DASHSCOPE_API_KEY,GEMINI_API_KEY,OPENAI_API_KEY,RUNWAYML_API_SECRET',
+        label: 'Deploy on Vercel',
+      },
+    ],
+  },
+};
+
+export const catalogIntro = {
+  eyebrow: 'Chain templates',
+  title: 'Orchestrate model-to-model workflows.',
+  description:
+    'BabyChain runs chained image and video steps where each output can be transformed, restyled, or extended before one final callback.',
+  apiHostLabel: 'Host and run BabyChain',
+  modelCatalogLabel: 'Inference providers',
+};
+
+export const providerModes = {
+  eyebrow: 'Provider modes',
+  title: 'Self-hosted with your own keys and environment.',
+  description:
+    'Run BabyChain in either mode: BYOK connects to your providers directly; BabySea mode uses your BabySea API key behind the same API contract.',
+  footnote:
+    'Caller apps keep using BabyChain API keys either way; provider credentials stay inside your backend.',
+  modes: [
+    {
+      env: 'BABYCHAIN_PROVIDER_MODE=byok',
+      icon: KeySquare,
+      label: 'Direct inference access',
+      text: 'Connect your inference provider credentials. Your BabyChain deployment owns model access, provider settings, and orchestration.',
+      title: 'BYOK mode',
+    },
+    {
+      env: 'BABYCHAIN_PROVIDER_MODE=babysea',
+      icon: KeyRound,
+      label: 'Managed execution path',
+      text: 'Use one BabySea API key for supported chain execution while keeping BabyChain routes, callbacks, and template contracts unchanged.',
+      title: 'BabySea mode',
+    },
+  ],
+};
+
+export const workflowNotes = [
+  {
+    icon: GitFork,
+    title: 'Chain templates',
+    text: 'Each route defines step order, default models, dependencies, and the public run contract in the template layer.',
+  },
+  {
+    icon: FingerprintPattern,
+    title: 'Request contracts',
+    text: 'Create-run requests are validated before execution so inputs, callbacks, and model overrides stay predictable.',
+  },
+  {
+    icon: Activity,
+    title: 'Persistent runs',
+    text: 'Runs, ordered steps, outputs, provider metadata, callbacks, and replay checks stay in server-side storage.',
+  },
+  {
+    icon: ShieldCheck,
+    title: 'Credential isolation',
+    text: 'Caller apps authenticate at your API boundary while provider BYOK credentials remain inside your backend.',
+  },
+  {
+    icon: DatabaseZap,
+    title: 'Output handoff',
+    text: 'A successful generation output becomes the next model input without extra orchestration from the caller.',
+  },
+  {
+    icon: Command,
+    title: 'API control plane',
+    text: 'Your deployment owns the orchestration API, queues, callbacks, and route contracts for products and tools.',
+  },
+];
+
+export const homepageCta = {
+  eyebrow: 'Launch your media workflow stack',
+  title: 'Design on the canvas. Ship the API.',
+  description:
+    'Fork the starter, connect your provider keys, compose flows in the canvas studio, and expose stable image and video workflow routes to products, automations, and internal tools.',
+  actions: [
+    {
+      href: 'https://github.com/babysea-community/babychain',
+      icon: InlineGitHub,
+      label: 'Fork starter',
+      variant: 'outline' as const,
+    },
+  ],
+};
+
+export const siteFooter = {
+  brand: 'BabyChain',
+  description:
+    'Canvas studio and durable chain API for image and video model workflows with one final callback.',
+  githubPipeline: {
+    eyebrow: 'Repository CI/CD',
+    href: 'https://github.com/babysea-community/babychain/actions',
+    label: 'GitHub CI',
+    text: 'Build, test, and deploy checks for the public repository.',
+  },
+  pipeline: {
+    eyebrow: 'CI/CD pipeline',
+    href: 'https://gitlab.com/babysea/babychain/-/commits/main',
+    label: 'GitLab CI mirror',
+    text: 'Security, quality, and release checks for public review.',
+  },
+  linkGroups: [
+    {
+      title: 'Project',
+      links: [
+        {
+          href: 'https://github.com/babysea-community/babychain',
+          label: 'GitHub repository',
+        },
+        {
+          href: 'https://github.com/babysea-community/babychain/blob/main/README.md',
+          label: 'README',
+        },
+        {
+          href: 'https://github.com/babysea-community/babychain/blob/main/CHANGELOG.md',
+          label: 'Changelog',
+        },
+        {
+          href: 'https://github.com/babysea-community/babychain/blob/main/SUPPORTED_MODELS.md',
+          label: 'Supported models',
+        },
+      ],
+    },
+    {
+      title: 'Community',
+      links: [
+        {
+          href: 'https://github.com/babysea-community/babychain/blob/main/CONTRIBUTING.md',
+          label: 'Contributing',
+        },
+        {
+          href: 'https://github.com/babysea-community/babychain/blob/main/CODE_OF_CONDUCT.md',
+          label: 'Code of conduct',
+        },
+        {
+          href: 'https://github.com/babysea-community/babychain/issues',
+          label: 'Issues',
+        },
+        {
+          href: 'https://github.com/babysea-community/babychain/pulls',
+          label: 'Pull requests',
+        },
+      ],
+    },
+    {
+      title: 'Trust',
+      links: [
+        {
+          href: 'https://github.com/babysea-community/babychain/blob/main/SECURITY.md',
+          label: 'Security policy',
+        },
+        {
+          href: 'https://github.com/babysea-community/babychain/blob/main/LICENSE',
+          label: 'Apache-2.0 license',
+        },
+        {
+          href: 'https://github.com/babysea-community/babychain/blob/main/LICENSES.md',
+          label: 'License inventory',
+        },
+      ],
+    },
+  ],
+};
+
+export const chainDetailContent = {
+  backLabel: 'Chain index',
+  schemaTableTitle: 'input schema',
+  schemaColumns: {
+    field: 'Field',
+    type: 'Type',
+  },
+  stepsEyebrow: 'execution flow',
+  stepsTitle: 'The same route starts every ordered model step.',
+  stepLabels: {
+    dependencyPrefix: 'Depends on',
+    indexPrefix: 'Step',
+    rootDependency: 'run input',
+  },
+};
+
+export function createHomepageMetrics({
+  catalog,
+  models,
+}: {
+  catalog: ModelChainCatalogEntry[];
+  models: ModelCatalogEntry[];
+}) {
+  return [
+    {
+      label: 'available models',
+      value: countUnique(models.map((model) => model.modelIdentifier)),
+    },
+    {
+      label: 'chain templates',
+      value: catalog
+        .filter((entry) => entry.slug !== entry.templateSlug)
+        .length.toLocaleString('en-US'),
+    },
+  ];
+}
+
+function countUnique(values: string[]) {
+  return new Set(values).size.toLocaleString('en-US');
+}

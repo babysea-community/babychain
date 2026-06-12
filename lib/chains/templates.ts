@@ -1,0 +1,1341 @@
+import type { GenerationParams } from 'babysea';
+import { z } from 'zod';
+
+import { BabyChainError } from '@/lib/utils/errors';
+import { MODEL_CATALOG } from '@/lib/models/model-catalog';
+import {
+  assertByokGenerationFields,
+  isImageChainModel,
+  isImageInputCapableModel,
+  isImageToVideoChainModel,
+  isTextToImageCapableModel,
+  isVideoToVideoChainModel,
+} from '@/lib/models/semantic-schema';
+import {
+  isBlockedNetworkHostname,
+  lookupAllowedNetworkAddress,
+} from '@/lib/security/network-safety';
+
+import type {
+  ChainInput,
+  ChainStepTemplate,
+  ChainStepOutput,
+  ChainTemplate,
+  ChainTemplateSummary,
+} from './types';
+import { deriveChainInputFields } from './schema-fields';
+
+const StepModelInputSchema = z
+  .record(z.unknown())
+  .superRefine((modelInput, context) => {
+    const credentialPath = findCredentialLikeParamPath(modelInput);
+    const providerControlledPath = findProviderControlledParamPath(modelInput);
+
+    if (credentialPath) {
+      context.addIssue({
+        code: 'custom',
+        message:
+          'Credential-like keys are not allowed in model input objects. Configure provider keys on the BabyChain server env.',
+        path: credentialPath,
+      });
+    }
+
+    if (providerControlledPath) {
+      context.addIssue({
+        code: 'custom',
+        message:
+          'Provider-controlled keys are not allowed in model input objects. Select models and callbacks through BabyChain fields.',
+        path: providerControlledPath,
+      });
+    }
+
+    const inputFile = modelInput.generation_input_file;
+
+    if (
+      inputFile !== undefined &&
+      (!Array.isArray(inputFile) || !inputFile.every(isSafeHttpsUrlValue))
+    ) {
+      context.addIssue({
+        code: 'custom',
+        message: 'generation_input_file must be an array of HTTPS public URLs.',
+        path: ['generation_input_file'],
+      });
+    }
+
+    const lastContent = modelInput.generation_input_file_last_content;
+
+    if (lastContent !== undefined && !isSafeHttpsUrlValue(lastContent)) {
+      context.addIssue({
+        code: 'custom',
+        message:
+          'generation_input_file_last_content must be an HTTPS public URL.',
+        path: ['generation_input_file_last_content'],
+      });
+    }
+  })
+  .default({});
+
+const CREDENTIAL_LIKE_KEYS = new Set([
+  'apikey',
+  'authorization',
+  'authtoken',
+  'accesstoken',
+  'bearertoken',
+  'dashscopeapikey',
+  'secret',
+  'secretkey',
+  'accesskeyid',
+  'accesskeysecret',
+  'token',
+  'xapikey',
+  'xkey',
+]);
+
+const PROVIDER_CONTROLLED_STEP_PARAM_KEYS = new Set([
+  'callbackurl',
+  'generationcallbackurl',
+  'generationmodel',
+  'model',
+]);
+
+function expandChainModelsInput(value: unknown) {
+  if (!isPlainRecord(value) || !isPlainRecord(value.chain_models)) {
+    return value;
+  }
+
+  const { chain_models: chainModels, ...rest } = value;
+
+  return {
+    ...rest,
+    ...Object.fromEntries(
+      Object.entries(chainModels).filter(([key]) => key.endsWith('_model')),
+    ),
+  };
+}
+
+function isPlainRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+}
+
+const ChainInputSchema = z.preprocess(
+  normalizeChainInput,
+  z
+    .object({
+      image_model: z.string().trim().min(1),
+      refine_model: z.string().trim().min(1).optional(),
+      video_model: z.string().trim().min(1),
+      modify_model: z.string().trim().min(1).optional(),
+      image_model_input: StepModelInputSchema,
+      refine_model_input: StepModelInputSchema.optional(),
+      video_model_input: StepModelInputSchema,
+      modify_model_input: StepModelInputSchema.optional(),
+    })
+    .passthrough()
+    .superRefine((input, context) => {
+      rejectRootPrompt(input, context);
+      rejectRootGenerationFields(input, context);
+      rejectUnsupportedRootFields(input, context);
+      requireRefineModelForRefineInput(input, context);
+      requireModifyModelForModifyInput(input, context);
+    }),
+);
+
+function normalizeChainInput(value: unknown) {
+  const expanded = expandChainModelsInput(value);
+
+  if (!isPlainRecord(expanded)) {
+    return expanded;
+  }
+
+  const { chain_models: _chainModels, ...rest } = expanded;
+
+  return rest;
+}
+
+const chainTemplate = defineChainTemplate({
+  slug: 'chain',
+  version: '2026-06-01',
+  title:
+    'image model → optional image model → image-to-video → optional video-to-video',
+  description:
+    'Run one image model, optionally pass the output through a second image model, hand the final image URL to one image-to-video model, then optionally modify the video output.',
+  inputSchema: ChainInputSchema,
+  inputFields: [
+    {
+      name: 'image_model',
+      type: 'string',
+      required: true,
+      description: 'Image model used for the first step.',
+    },
+    {
+      name: 'refine_model',
+      type: 'string',
+      required: false,
+      description:
+        'Optional second image model. When provided, BabyChain passes the first image output into this model before the final image-to-video step.',
+    },
+    {
+      name: 'video_model',
+      type: 'string',
+      required: true,
+      description: 'image-to-video model used for the video step.',
+    },
+    {
+      name: 'modify_model',
+      type: 'string',
+      required: false,
+      description:
+        'Optional video-to-video model. When provided, BabyChain passes the video output into this model after the image-to-video step.',
+    },
+    {
+      name: 'image_model_input',
+      type: 'object',
+      required: false,
+      description:
+        'First image model input. BabySea mode uses generation_* fields; BYOK mode forwards raw provider fields.',
+    },
+    {
+      name: 'refine_model_input',
+      type: 'object',
+      required: false,
+      description:
+        'Optional second image model input. BabyChain supplies generation_input_file from the first image output.',
+    },
+    {
+      name: 'video_model_input',
+      type: 'object',
+      required: false,
+      description:
+        'Video model input. BabySea mode uses generation_* fields; BYOK mode forwards raw provider fields.',
+    },
+    {
+      name: 'modify_model_input',
+      type: 'object',
+      required: false,
+      description:
+        'Optional video-to-video model input. BYOK mode forwards raw provider fields while BabyChain supplies the previous video output.',
+    },
+  ],
+  steps: [
+    {
+      key: 'image',
+      title: 'Run image model',
+      kind: 'image',
+      model: '${image_model}',
+      dependsOn: [],
+      estimate: () => ({ count: 1 }),
+      buildParams: ({ input }) =>
+        imageParams({
+          input,
+          paramsKey: 'image_model_input',
+        }),
+    },
+    {
+      key: 'refine',
+      title: 'Run image model (2nd)',
+      kind: 'image',
+      model: '${refine_model}',
+      dependsOn: ['image'],
+      estimate: () => ({ count: 1 }),
+      buildParams: ({ input, steps }) =>
+        imageParams({
+          input,
+          inputFileUrl: firstStepOutput(steps.image),
+          paramsKey: 'refine_model_input',
+        }),
+    },
+    {
+      key: 'video',
+      title: 'Run video model',
+      kind: 'video',
+      model: '${video_model}',
+      dependsOn: ['refine'],
+      estimate: (input) => videoEstimate(input, 'video_model_input'),
+      buildParams: ({ input, steps }) =>
+        videoParams({
+          input,
+          inputFile: firstStepOutput(steps.refine ?? steps.image),
+          paramsKey: 'video_model_input',
+        }),
+    },
+    {
+      key: 'modify',
+      title: 'Run video model (2nd)',
+      kind: 'video',
+      model: '${modify_model}',
+      dependsOn: ['video'],
+      estimate: (input) => videoEstimate(input, 'modify_model_input'),
+      buildParams: ({ input, steps }) =>
+        videoParams({
+          input,
+          inputFile: firstStepOutput(steps.video),
+          paramsKey: 'modify_model_input',
+        }),
+    },
+  ],
+});
+
+const CHAIN_TEMPLATES = [chainTemplate];
+
+export function listChainTemplates() {
+  return CHAIN_TEMPLATES;
+}
+
+export function getChainTemplate(slug: string) {
+  return CHAIN_TEMPLATES.find((template) => template.slug === slug) ?? null;
+}
+
+export function getChainTemplateSummaries(): ChainTemplateSummary[] {
+  return CHAIN_TEMPLATES.map(toTemplateSummary);
+}
+
+export function parseTemplateInput(
+  template: ChainTemplate,
+  input: unknown,
+  options: { byokMode?: boolean } = {},
+) {
+  const parsed = template.inputSchema.parse(input);
+  assertChainInputRequirements(template, parsed, options);
+  return parsed;
+}
+
+export function assertChainInputRequirements(
+  template: ChainTemplate,
+  input: ChainInput,
+  options: { byokMode?: boolean } = {},
+) {
+  const byokMode = options.byokMode ?? false;
+
+  if (!byokMode) {
+    requireVideoDuration(input);
+  }
+
+  // Role gates run first so a wrong-role model produces a role error rather
+  // than a field-level schema error.
+  requireImageGenerationModel(input);
+
+  if (hasSelectedRefineModel(input)) {
+    requireRefineImageInputCapableModel(input);
+  }
+
+  requireImageToVideoModel(input);
+  requireModifyVideoToVideoModel(input);
+
+  if (byokMode) {
+    assertByokGenerationFieldsForSteps(input);
+  }
+
+  if (hasInitialImageInput(input, { byokMode })) {
+    requireImageInputCapableModel(input);
+  } else {
+    // No starting image: the first image step runs purely from the prompt, so
+    // edit-only models (image-to-image without text-to-image) would fail at
+    // the provider. Reject them up front, before any credit is spent.
+    requireTextToImageModel(input);
+  }
+
+  rejectChainWiredImageInputs(input);
+}
+
+const STEP_MODEL_INPUT_PAIRS = [
+  ['image_model', 'image_model_input'],
+  ['refine_model', 'refine_model_input'],
+  ['video_model', 'video_model_input'],
+  ['modify_model', 'modify_model_input'],
+] as const;
+
+/**
+ * BYOK mode treats Semantic Lady as the `generation_*` schema core: every
+ * unified field present in a step model input must exist in the model's
+ * Semantic Lady schema and satisfy its value constraints. Raw provider
+ * fields are forwarded unvalidated as before.
+ */
+function assertByokGenerationFieldsForSteps(input: ChainInput) {
+  for (const [modelKey, paramsKey] of STEP_MODEL_INPUT_PAIRS) {
+    const modelIdentifier = optionalString(input[modelKey]);
+    const params = input[paramsKey];
+
+    if (!modelIdentifier || params === undefined) {
+      continue;
+    }
+
+    assertByokGenerationFields(modelIdentifier, params, paramsKey);
+  }
+}
+
+function requireImageGenerationModel(input: ChainInput) {
+  const modelIdentifier = optionalString(input.image_model);
+
+  if (modelIdentifier && isImageChainModel(modelIdentifier)) {
+    return;
+  }
+
+  throw new BabyChainError(
+    'invalid_chain_input',
+    'The selected image_model is not an image generation model. Choose an image model for the image step.',
+    400,
+    { path: ['image_model'] },
+  );
+}
+
+function requireImageToVideoModel(input: ChainInput) {
+  const modelIdentifier = optionalString(input.video_model);
+
+  if (modelIdentifier && isImageToVideoChainModel(modelIdentifier)) {
+    return;
+  }
+
+  throw new BabyChainError(
+    'invalid_chain_input',
+    'The selected video_model does not support the image-to-video workflow required by the chain video step. Choose a prompt-driven image-to-video model.',
+    400,
+    { path: ['video_model'] },
+  );
+}
+
+function requireModifyVideoToVideoModel(input: ChainInput) {
+  const modelIdentifier = optionalString(input.modify_model);
+
+  if (!modelIdentifier || isVideoToVideoChainModel(modelIdentifier)) {
+    requireModifyHandoffCompatibility(input);
+    return;
+  }
+
+  throw new BabyChainError(
+    'invalid_chain_input',
+    'The selected modify_model does not support the video-to-video workflow required by the chain modify step. Choose a prompt-driven video-to-video model.',
+    400,
+    { path: ['modify_model'] },
+  );
+}
+
+/**
+ * Providers whose video-to-video inputs require a publicly reachable URL.
+ * Google video models return data-video URIs, which these providers reject.
+ */
+const URL_ONLY_VIDEO_INPUT_PROVIDERS = new Set(['alibaba-cloud', 'byteplus']);
+
+function requireModifyHandoffCompatibility(input: ChainInput) {
+  const videoModelIdentifier = optionalString(input.video_model);
+  const modifyModelIdentifier = optionalString(input.modify_model);
+
+  if (!videoModelIdentifier || !modifyModelIdentifier) {
+    return;
+  }
+
+  const videoModel = MODEL_CATALOG.find(
+    (entry) => entry.modelIdentifier === videoModelIdentifier,
+  );
+  const modifyModel = MODEL_CATALOG.find(
+    (entry) => entry.modelIdentifier === modifyModelIdentifier,
+  );
+
+  if (!videoModel || !modifyModel) {
+    return;
+  }
+
+  if (
+    videoModel.provider === 'google' &&
+    URL_ONLY_VIDEO_INPUT_PROVIDERS.has(modifyModel.provider)
+  ) {
+    throw new BabyChainError(
+      'invalid_chain_input',
+      'The selected modify_model cannot accept the selected video_model output. Choose a video-to-video model that accepts data-video handoffs or choose a video_model that returns a public video URL.',
+      400,
+      { path: ['modify_model'] },
+    );
+  }
+}
+
+function requireImageInputCapableModel(input: ChainInput) {
+  const modelIdentifier = optionalString(input.image_model);
+
+  if (modelIdentifier && isImageInputCapableModel(modelIdentifier)) {
+    return;
+  }
+
+  throw new BabyChainError(
+    'invalid_chain_input',
+    'The selected image_model does not accept image input. Choose an image-input-capable image model or remove image_model_input.generation_input_file.',
+    400,
+    { path: ['image_model'] },
+  );
+}
+
+function requireTextToImageModel(input: ChainInput) {
+  const modelIdentifier = optionalString(input.image_model);
+
+  if (modelIdentifier && isTextToImageCapableModel(modelIdentifier)) {
+    return;
+  }
+
+  throw new BabyChainError(
+    'invalid_chain_input',
+    'The selected image_model only supports the image-to-image workflow. Provide a starting image in image_model_input.generation_input_file or choose a text-to-image model.',
+    400,
+    { path: ['image_model'] },
+  );
+}
+
+function requireRefineImageInputCapableModel(input: ChainInput) {
+  const modelIdentifier = optionalString(input.refine_model);
+
+  if (modelIdentifier && isImageInputCapableModel(modelIdentifier)) {
+    return;
+  }
+
+  throw new BabyChainError(
+    'invalid_chain_input',
+    'The selected refine_model does not accept image input. Choose an image-input-capable image model or remove refine_model.',
+    400,
+    { path: ['refine_model'] },
+  );
+}
+
+function hasInitialImageInput(
+  input: ChainInput,
+  options: { byokMode?: boolean } = {},
+) {
+  const params = input.image_model_input;
+  const paramsRecord =
+    params && typeof params === 'object' && !Array.isArray(params)
+      ? (params as Record<string, unknown>)
+      : null;
+
+  if (!paramsRecord) {
+    return false;
+  }
+
+  const inputFile = paramsRecord.generation_input_file;
+
+  if (Array.isArray(inputFile) && inputFile.length > 0) {
+    return true;
+  }
+
+  return Boolean(options.byokMode && hasRawProviderImageInput(paramsRecord));
+}
+
+export function selectChainTemplateSteps(
+  template: ChainTemplate,
+  input: ChainInput,
+): ChainStepTemplate[] {
+  if (template.slug !== 'chain') {
+    return template.steps;
+  }
+
+  const hasRefineStep = hasSelectedRefineModel(input);
+  const hasModifyStep = hasSelectedModifyModel(input);
+
+  return template.steps
+    .filter((step) => hasRefineStep || step.key !== 'refine')
+    .filter((step) => hasModifyStep || step.key !== 'modify')
+    .map((step) => {
+      if (step.key !== 'video') {
+        return step;
+      }
+
+      return {
+        ...step,
+        dependsOn: [hasRefineStep ? 'refine' : 'image'],
+      };
+    });
+}
+
+function hasSelectedRefineModel(input: ChainInput) {
+  return optionalString(input.refine_model) !== undefined;
+}
+
+function hasSelectedModifyModel(input: ChainInput) {
+  return optionalString(input.modify_model) !== undefined;
+}
+
+export function resolveStepModel(templateStepModel: string, input: ChainInput) {
+  const match = /^\$\{([A-Za-z0-9_]+)\}$/.exec(templateStepModel);
+
+  if (!match) {
+    return templateStepModel;
+  }
+
+  const key = match[1];
+
+  if (!key) {
+    throw new Error('Invalid step model token.');
+  }
+
+  return stringValue(input[key]);
+}
+
+export async function assertSafeChainInputTargets(input: ChainInput) {
+  await assertSafeUrlTargets(collectChainInputUrls(input));
+}
+
+export async function assertSafeGenerationParamsTargets(params: unknown) {
+  await assertSafeUrlTargets(collectGenerationParamUrls(params));
+}
+
+function defineChainTemplate(template: ChainTemplate) {
+  assertChainTemplateInvariants(template);
+  return template;
+}
+
+export function assertChainTemplateInvariants(template: ChainTemplate) {
+  if (template.steps.length === 0) {
+    throw new Error(`Chain template "${template.slug}" must define steps.`);
+  }
+
+  assertUniqueStepKeys(template);
+  assertStepDependencies(template);
+  assertStepModelTokens(template);
+}
+
+function assertStepDependencies(template: ChainTemplate) {
+  const earlierStepKeys = new Set<string>();
+
+  for (const step of template.steps) {
+    for (const dependency of step.dependsOn) {
+      if (!earlierStepKeys.has(dependency)) {
+        throw new Error(
+          `Step "${step.key}" in chain template "${template.slug}" depends on unknown or later step "${dependency}".`,
+        );
+      }
+    }
+
+    earlierStepKeys.add(step.key);
+  }
+}
+
+function assertStepModelTokens(template: ChainTemplate) {
+  const inputFieldNames = new Set(
+    deriveChainInputFields(template.inputSchema, template.inputFields).map(
+      (field) => field.name,
+    ),
+  );
+
+  for (const step of template.steps) {
+    const match = /^\$\{([A-Za-z0-9_]+)\}$/.exec(step.model);
+
+    if (!match) {
+      continue;
+    }
+
+    const token = match[1];
+
+    if (token && !inputFieldNames.has(token)) {
+      throw new Error(
+        `Step "${step.key}" in chain template "${template.slug}" references unknown model input "${token}".`,
+      );
+    }
+  }
+}
+
+function rejectRootPrompt(
+  input: Record<string, unknown>,
+  context: z.RefinementCtx,
+) {
+  for (const key of ['prompt', 'generation_prompt']) {
+    if (!Object.prototype.hasOwnProperty.call(input, key)) {
+      continue;
+    }
+
+    context.addIssue({
+      code: 'custom',
+      message:
+        'Use generation_prompt inside each model input object instead of a top-level prompt.',
+      path: [key],
+    });
+  }
+}
+
+const ROOT_GENERATION_FIELDS = [
+  'image_prompt',
+  'refine_prompt',
+  'video_prompt',
+  'modify_prompt',
+  'image_ratio',
+  'video_ratio',
+  'image_output_format',
+  'image_size',
+  'video_duration',
+  'video_resolution',
+  'video_generate_audio',
+  'provider_order',
+] as const;
+
+const SUPPORTED_ROOT_FIELDS = new Set([
+  'image_model',
+  'refine_model',
+  'video_model',
+  'modify_model',
+  'image_model_input',
+  'refine_model_input',
+  'video_model_input',
+  'modify_model_input',
+]);
+
+const ROOT_PROMPT_FIELDS = new Set(['prompt', 'generation_prompt']);
+const ROOT_GENERATION_FIELD_SET = new Set<string>(ROOT_GENERATION_FIELDS);
+
+function rejectRootGenerationFields(
+  input: Record<string, unknown>,
+  context: z.RefinementCtx,
+) {
+  for (const key of ROOT_GENERATION_FIELDS) {
+    if (!Object.prototype.hasOwnProperty.call(input, key)) {
+      continue;
+    }
+
+    context.addIssue({
+      code: 'custom',
+      message: `Use model input objects for generation fields instead of top-level ${key}.`,
+      path: [key],
+    });
+  }
+}
+
+function rejectUnsupportedRootFields(
+  input: Record<string, unknown>,
+  context: z.RefinementCtx,
+) {
+  for (const key of Object.keys(input)) {
+    if (
+      SUPPORTED_ROOT_FIELDS.has(key) ||
+      ROOT_PROMPT_FIELDS.has(key) ||
+      ROOT_GENERATION_FIELD_SET.has(key)
+    ) {
+      continue;
+    }
+
+    context.addIssue({
+      code: 'custom',
+      message: `Unsupported top-level input field ${key}. Put model-specific content inside image_model_input, refine_model_input, video_model_input, or modify_model_input.`,
+      path: [key],
+    });
+  }
+}
+
+function requireRefineModelForRefineInput(
+  input: Record<string, unknown>,
+  context: z.RefinementCtx,
+) {
+  const hasRefineParams = input.refine_model_input !== undefined;
+
+  if (!hasRefineParams) {
+    return;
+  }
+
+  if (optionalString(input.refine_model)) {
+    return;
+  }
+
+  context.addIssue({
+    code: 'custom',
+    message: 'Provide refine_model when using refine_model_input.',
+    path: ['refine_model'],
+  });
+}
+
+function requireModifyModelForModifyInput(
+  input: Record<string, unknown>,
+  context: z.RefinementCtx,
+) {
+  const hasModifyParams = input.modify_model_input !== undefined;
+
+  if (!hasModifyParams) {
+    return;
+  }
+
+  if (optionalString(input.modify_model)) {
+    return;
+  }
+
+  context.addIssue({
+    code: 'custom',
+    message: 'Provide modify_model when using modify_model_input.',
+    path: ['modify_model'],
+  });
+}
+
+function requireVideoDuration(input: Record<string, unknown>) {
+  const params = input.video_model_input;
+  const paramsRecord =
+    params && typeof params === 'object' && !Array.isArray(params)
+      ? (params as Record<string, unknown>)
+      : null;
+  const paramDurationValue = paramsRecord?.generation_duration;
+  const hasParamDuration = paramDurationValue !== undefined;
+  const paramDuration = optionalPositiveNumber(paramDurationValue);
+  if (hasParamDuration && paramDuration === undefined) {
+    throw new BabyChainError(
+      'invalid_chain_input',
+      'video_model_input.generation_duration must be a positive number.',
+      400,
+      { path: ['video_model_input', 'generation_duration'] },
+    );
+  }
+
+  if (paramDuration !== undefined) {
+    return;
+  }
+
+  throw new BabyChainError(
+    'invalid_chain_input',
+    'Provide video_model_input.generation_duration so BabyChain can route the image-to-video step through BabySea video generation.',
+    400,
+    { path: ['video_model_input', 'generation_duration'] },
+  );
+}
+
+function hasRawProviderImageInput(params: Record<string, unknown>) {
+  return findProviderImageInputParamPath(params) !== null;
+}
+
+function rejectChainWiredImageInputs(input: ChainInput) {
+  for (const paramsKey of [
+    'refine_model_input',
+    'video_model_input',
+    'modify_model_input',
+  ] as const) {
+    const params = input[paramsKey];
+    const path =
+      findProviderChainWiredOverrideParamPath(params) ??
+      findProviderImageInputParamPath(params);
+
+    if (!path) {
+      continue;
+    }
+
+    const fullPath = [paramsKey, ...path];
+
+    throw new BabyChainError(
+      'invalid_chain_input',
+      `BabyChain supplies ${paramsKey} input from the previous step. Remove ${fullPath.join('.')}.`,
+      400,
+      { path: fullPath },
+    );
+  }
+}
+
+function findProviderChainWiredOverrideParamPath(
+  value: unknown,
+  path: string[] = [],
+): string[] | null {
+  if (!value || typeof value !== 'object') {
+    return null;
+  }
+
+  if (Array.isArray(value)) {
+    for (const [index, item] of value.entries()) {
+      const nestedPath = findProviderChainWiredOverrideParamPath(item, [
+        ...path,
+        String(index),
+      ]);
+
+      if (nestedPath) {
+        return nestedPath;
+      }
+    }
+
+    return null;
+  }
+
+  for (const [key, entryValue] of Object.entries(value)) {
+    if (
+      PROVIDER_CHAIN_WIRED_OVERRIDE_KEYS.has(key) &&
+      hasProvidedInputValue(entryValue)
+    ) {
+      return [...path, key];
+    }
+
+    const nestedPath = findProviderChainWiredOverrideParamPath(entryValue, [
+      ...path,
+      key,
+    ]);
+
+    if (nestedPath) {
+      return nestedPath;
+    }
+  }
+
+  return null;
+}
+
+function findProviderImageInputParamPath(
+  value: unknown,
+  path: string[] = [],
+): string[] | null {
+  if (!value || typeof value !== 'object') {
+    return null;
+  }
+
+  if (Array.isArray(value)) {
+    for (const [index, item] of value.entries()) {
+      const nestedPath = findProviderImageInputParamPath(item, [
+        ...path,
+        String(index),
+      ]);
+
+      if (nestedPath) {
+        return nestedPath;
+      }
+    }
+
+    return null;
+  }
+
+  for (const [key, entryValue] of Object.entries(value)) {
+    if (
+      isProviderImageInputParamKey(key) &&
+      hasProvidedInputValue(entryValue)
+    ) {
+      return [...path, key];
+    }
+
+    const nestedPath = findProviderImageInputParamPath(entryValue, [
+      ...path,
+      key,
+    ]);
+
+    if (nestedPath) {
+      return nestedPath;
+    }
+  }
+
+  return null;
+}
+
+function isProviderImageInputParamKey(key: string) {
+  return (
+    PROVIDER_IMAGE_INPUT_PARAM_KEYS.has(key) ||
+    /^input_image(?:_\d+)?$/.test(key)
+  );
+}
+
+function hasProvidedInputValue(value: unknown) {
+  if (value === undefined || value === null) {
+    return false;
+  }
+
+  if (typeof value === 'string') {
+    return value.trim().length > 0;
+  }
+
+  if (Array.isArray(value)) {
+    return value.length > 0;
+  }
+
+  if (typeof value === 'object') {
+    return Object.keys(value).length > 0;
+  }
+
+  return true;
+}
+
+const PROVIDER_IMAGE_INPUT_PARAM_KEYS = new Set([
+  'generation_input_file',
+  'generation_input_file_last_content',
+  'character',
+  'fileData',
+  'image',
+  'image_prompt',
+  'image_url',
+  'images',
+  'inlineData',
+  'input_images',
+  'media',
+  'promptImage',
+  'referenceImages',
+  'videoUri',
+  'video_url',
+  'input_image_blob_path',
+]);
+
+const PROVIDER_CHAIN_WIRED_OVERRIDE_KEYS = new Set(['contents', 'instances']);
+
+function toTemplateSummary(template: ChainTemplate): ChainTemplateSummary {
+  return {
+    object: 'chain_template',
+    slug: template.slug,
+    version: template.version,
+    title: template.title,
+    description: template.description,
+    input_fields: deriveChainInputFields(
+      template.inputSchema,
+      template.inputFields,
+    ),
+    steps: template.steps.map((step) => ({
+      key: step.key,
+      title: step.title,
+      kind: step.kind,
+      model: step.model,
+      depends_on: step.dependsOn,
+    })),
+  };
+}
+
+function assertUniqueStepKeys(template: ChainTemplate) {
+  const keys = new Set<string>();
+
+  for (const step of template.steps) {
+    if (keys.has(step.key)) {
+      throw new Error(`Duplicate step key in ${template.slug}: ${step.key}`);
+    }
+
+    keys.add(step.key);
+  }
+}
+
+function imageParams({
+  input,
+  inputFileUrl,
+  paramsKey,
+}: {
+  input: ChainInput;
+  inputFileUrl?: string;
+  paramsKey: string;
+}): GenerationParams {
+  const modelParams = imageModelParams(input, paramsKey);
+  const params: Record<string, unknown> = {
+    ...modelParams,
+    generation_output_number:
+      optionalNumber(modelParams.generation_output_number) ?? 1,
+  };
+
+  if (inputFileUrl) {
+    params.generation_input_file = [inputFileUrl];
+  }
+
+  return compactParams(params);
+}
+
+function videoParams({
+  input,
+  inputFile,
+  paramsKey,
+}: {
+  input: ChainInput;
+  inputFile: string;
+  paramsKey: string;
+}): GenerationParams {
+  const modelParams = videoModelParams(input, paramsKey);
+
+  return compactParams({
+    ...modelParams,
+    generation_output_format:
+      optionalString(modelParams.generation_output_format) ?? 'mp4',
+    generation_output_number:
+      optionalNumber(modelParams.generation_output_number) ?? 1,
+    generation_input_file: [inputFile],
+  });
+}
+
+function videoEstimate(input: ChainInput, paramsKey: string) {
+  const params = videoModelParams(input, paramsKey);
+
+  return compactRecord({
+    duration: optionalNumber(params.generation_duration),
+    resolution: optionalString(params.generation_resolution),
+    audio: optionalBoolean(params.generation_generate_audio),
+  });
+}
+
+function imageModelParams(input: ChainInput, paramsKey: string) {
+  return {
+    ...generationParamOverrides(input[paramsKey]),
+  };
+}
+
+function videoModelParams(input: ChainInput, paramsKey: string) {
+  return {
+    ...generationParamOverrides(input[paramsKey]),
+  };
+}
+
+function firstStepOutput(step: ChainStepOutput | undefined) {
+  const output = step?.outputFiles.find(isSafeHandoffValue);
+
+  if (!output) {
+    throw new Error('Required previous step output is missing.');
+  }
+
+  return output;
+}
+
+function collectChainInputUrls(input: ChainInput) {
+  const urls: string[] = [];
+
+  if (typeof input.source_image_url === 'string') {
+    urls.push(input.source_image_url);
+  }
+
+  for (const value of Object.values(input)) {
+    urls.push(...collectGenerationParamUrls(value));
+  }
+
+  return urls;
+}
+
+function collectGenerationParamUrls(value: unknown) {
+  const urls: string[] = [];
+  const seen = new Set<object>();
+  const stack: unknown[] = [value];
+
+  while (stack.length > 0) {
+    const current = stack.pop();
+
+    if (typeof current === 'string') {
+      if (isHttpUrlString(current)) {
+        urls.push(current);
+      }
+      continue;
+    }
+
+    if (!current || typeof current !== 'object') {
+      continue;
+    }
+
+    if (seen.has(current)) {
+      continue;
+    }
+
+    seen.add(current);
+
+    if (Array.isArray(current)) {
+      stack.push(...current);
+      continue;
+    }
+
+    stack.push(...Object.values(current as Record<string, unknown>));
+  }
+
+  return urls;
+}
+
+async function assertSafeUrlTargets(urls: string[]) {
+  for (const url of urls) {
+    await assertSafeUrlTarget(url);
+  }
+}
+
+async function assertSafeUrlTarget(url: string) {
+  let parsed: URL;
+
+  try {
+    parsed = new URL(url);
+  } catch {
+    throw invalidUrlTarget();
+  }
+
+  if (!isSafeHttpsUrl(url)) {
+    throw invalidUrlTarget();
+  }
+
+  const address = await lookupAllowedNetworkAddress(parsed.hostname);
+
+  if (!address) {
+    throw invalidUrlTarget('URL host must resolve to a public address.');
+  }
+}
+
+function compactParams(params: Record<string, unknown>): GenerationParams {
+  return compactRecord(params) as GenerationParams;
+}
+
+function compactRecord(params: Record<string, unknown>) {
+  return Object.fromEntries(
+    Object.entries(params).filter((entry) => entry[1] !== undefined),
+  );
+}
+
+function generationParamOverrides(value: unknown) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return {};
+  }
+
+  return Object.fromEntries(
+    Object.entries(value as Record<string, unknown>)
+      .filter(
+        ([key, entryValue]) =>
+          key.startsWith('generation_') && entryValue !== undefined,
+      )
+      .map(([key, entryValue]) => [
+        key,
+        key === 'generation_output_format'
+          ? normalizeBabySeaOutputFormat(entryValue)
+          : entryValue,
+      ]),
+  );
+}
+
+function normalizeBabySeaOutputFormat(value: unknown) {
+  if (typeof value !== 'string') {
+    return value;
+  }
+
+  const normalized = value.trim().toLowerCase();
+  return normalized === 'jpeg' ? 'jpg' : normalized;
+}
+
+function optionalString(value: unknown) {
+  if (typeof value !== 'string') {
+    return undefined;
+  }
+
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : undefined;
+}
+
+function stringValue(value: unknown) {
+  const text = optionalString(value);
+
+  if (!text) {
+    throw new Error('Expected a non-empty string value.');
+  }
+
+  return text;
+}
+
+function optionalNumber(value: unknown) {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return value;
+  }
+
+  return undefined;
+}
+
+function optionalPositiveNumber(value: unknown) {
+  const numberValue = optionalNumber(value);
+
+  return numberValue !== undefined && numberValue > 0 ? numberValue : undefined;
+}
+
+function optionalBoolean(value: unknown) {
+  return typeof value === 'boolean' ? value : undefined;
+}
+
+function findCredentialLikeParamPath(
+  value: unknown,
+  currentPath: (string | number)[] = [],
+): (string | number)[] | null {
+  if (!value || typeof value !== 'object') {
+    return null;
+  }
+
+  if (Array.isArray(value)) {
+    for (let index = 0; index < value.length; index += 1) {
+      const nested = findCredentialLikeParamPath(value[index], [
+        ...currentPath,
+        index,
+      ]);
+
+      if (nested) {
+        return nested;
+      }
+    }
+
+    return null;
+  }
+
+  for (const [key, nestedValue] of Object.entries(
+    value as Record<string, unknown>,
+  )) {
+    if (isCredentialLikeKey(key)) {
+      return [...currentPath, key];
+    }
+
+    const nested = findCredentialLikeParamPath(nestedValue, [
+      ...currentPath,
+      key,
+    ]);
+
+    if (nested) {
+      return nested;
+    }
+  }
+
+  return null;
+}
+
+function isCredentialLikeKey(key: string) {
+  const normalized = key.toLowerCase().replace(/[^a-z0-9]/g, '');
+
+  if (normalized.startsWith('xbabychainprovider')) {
+    return true;
+  }
+
+  return (
+    CREDENTIAL_LIKE_KEYS.has(normalized) ||
+    normalized.endsWith('apikey') ||
+    normalized.endsWith('secretkey') ||
+    normalized.endsWith('accesskeysecret')
+  );
+}
+
+function findProviderControlledParamPath(value: Record<string, unknown>) {
+  for (const key of Object.keys(value)) {
+    if (isProviderControlledStepParamKey(key)) {
+      return [key];
+    }
+  }
+
+  return null;
+}
+
+function isProviderControlledStepParamKey(key: string) {
+  const normalized = key.toLowerCase().replace(/[^a-z0-9]/g, '');
+
+  return PROVIDER_CONTROLLED_STEP_PARAM_KEYS.has(normalized);
+}
+
+function isSafeHttpsUrl(value: string) {
+  const parsed = new URL(value);
+
+  return (
+    parsed.protocol === 'https:' &&
+    !parsed.username &&
+    !parsed.password &&
+    !isBlockedNetworkHostname(parsed.hostname)
+  );
+}
+
+function isHttpUrlString(value: string) {
+  let parsed: URL;
+
+  try {
+    parsed = new URL(value);
+  } catch {
+    return false;
+  }
+
+  return parsed.protocol === 'http:' || parsed.protocol === 'https:';
+}
+
+function isSafeHttpsUrlValue(value: unknown) {
+  if (typeof value !== 'string') {
+    return false;
+  }
+
+  try {
+    return isSafeHttpsUrl(value);
+  } catch {
+    return false;
+  }
+}
+
+function isSafeHandoffValue(value: unknown) {
+  return isSafeHttpsUrlValue(value) || isDataMediaUrlValue(value);
+}
+
+function isDataMediaUrlValue(value: unknown) {
+  return (
+    typeof value === 'string' &&
+    /^data:(?:image|video)\/[A-Za-z0-9.+-]+;base64,[A-Za-z0-9+/=\s]+$/i.test(
+      value.trim(),
+    )
+  );
+}
+
+function invalidUrlTarget(
+  message = 'URL must be HTTPS and publicly reachable.',
+) {
+  return new BabyChainError('invalid_chain_input', message, 400);
+}

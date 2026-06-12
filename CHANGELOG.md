@@ -1,0 +1,53 @@
+# Changelog
+
+All notable changes will be documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## Unreleased
+
+### Added
+
+- Every flow starts with a `canvas_flow` info card carrying an editable canvas name (pencil to rename, 50-character limit); the name becomes the Library title on publish, and renaming on a saved canvas page updates the Library immediately. "Run and save" on the workspace mints a new canvas id per publish, so one lab flow can be published many times as separate Library canvases; on a saved canvas page it republishes the same canvas in place. The runner card explains both behaviors before the buttons.
+- `image_model` cards now accept a starting image (`generation_input_file`, HTTPS URL) for image-to-image-capable models, matching the run API contract; the field carries across model switches and is stripped from chain-wired steps.
+- Stop now cancels the run server-side (`POST /api/v1/chains/cancel/:runId`), so stopped chains no longer keep processing or spending provider credits; canceled step statuses paint onto the cards.
+- Dashboard-wide loading state and a recoverable error boundary (transient Aurora/network failures show a retry screen instead of the framework error page).
+- The canvas is now a permanent multi-flow workspace: "Add canvas flow" drops a fresh image → video chain onto the canvas, and every flow ends in a dedicated runner card wired after its last model card ("Run only" runs in place; "Run and save" also snapshots that flow into the Library and attaches the run to it). Hovering a card's connection edge reveals "+ refine_model" / "+ modify_model" to extend that flow, and the runner card follows automatically. The workspace persists in Aurora per owner — it survives reloads, navigation, logout/login, and device switches — and only the explicit "Reset canvas" action clears it. In-progress runs resume per flow after a reload.
+- Canvases are now persisted in AWS Aurora (PostgreSQL) scoped to the dashboard owner, so saved canvases survive logout, browser resets, and device switches. Saved canvases autosave (debounced) while editing; unsaved drafts keep a localStorage crash buffer until the first save.
+- Running a chain now saves the canvas automatically and links the run to the canvas; opening the canvas from the Library resumes live run tracking and restores finished outputs. When clicked, the Run button triggers an automatic save and displays a toast notification to confirm the canvas was persisted; the manual Save button was removed. The browser URL never changes — the run keeps streaming into the page you are on.
+- Library cards now show every succeeded step output of the latest run (up to 4, in chain order) in a fixed two-row results grid, with a truncated 50-character title, a single Canvas ID / Nodes / Updated meta block, and fixed-height horizontal provider/model badge rows so all cards align.
+- The Library now lists canvases from Aurora and supports deleting a canvas (with confirmation).
+- New `babychain_private.canvas` table (owner-scoped, jsonb node graph, touch trigger, recency index) with per-owner limits: 200 canvases, 24 nodes, and 64 KB of node JSON per canvas.
+- Adopted the `semantic-lady` SDK as the `generation_*` schema core for BYOK mode across all 57 supported models.
+- BYOK run creation now validates `generation_*` fields in step model inputs against the Semantic Lady model schema (unknown fields, enum values, numeric ranges, and types fail fast with a `400` and a field path).
+- `GET /api/v1/models/{model}` now returns a `byok_schema` block (source, workflows, and unified `generation_*` fields) alongside the raw provider schema, and model summaries advertise `has_byok_schema`.
+- Chain step roles (`image_model`, `refine_model`, `video_model`, `modify_model`) are now gated by Semantic Lady model kinds and workflows: image steps require image models, refine steps require `image-to-image` models, video steps require prompt-driven `image-to-video` models, and modify steps require prompt-driven `video-to-video` models. Wrong-role selections fail fast with a `400` and the offending field path.
+- The first image step now also requires a `text-to-image` capable model when no starting image is provided; edit-only models (for example `runway/gen-4-image-turbo`) are rejected up front instead of failing at the provider after credits are spent.
+- `pnpm aurora:seed-demo` seeds three demo canvases (owner-scoped) for product demos and judging.
+
+### Changed
+
+- Saved canvases are structure-locked: refine/modify cards cannot be removed and steps cannot be added on a canvas page — values stay editable and re-runnable; structure changes happen in the workspace lab. Removing flows in the lab never touches published canvases (snapshot semantics).
+- All page errors now surface as toasts (sonner) instead of inline header text; the Toaster is mounted once for the whole dashboard.
+- The templates page no longer ships the precomputed combination matrix (≈79k entries, ≈98 MB of props) — the selected combination is synthesized client-side, fixing missing curl/schema rendering for refine/modify selections and making the page load instantly. The modify dropdown is filtered per selected video model.
+- The Library is ordered by creation time (stable — renames and autosaves never reorder cards), shows a Created date, and canvas cards can be renamed inline (pencil, 50-character limit).
+- Node-card accent colors use a pastel palette (`#67e8f9` image, `#f9a8d4` refine, `#fdba74` video, `#c4b5fd` modify); destructive actions (Reset canvas, Remove this flow) use a proper destructive button variant.
+- Canvas persistence moved from localStorage to Aurora; the canvas page loads saved canvases on the server and unknown canvas ids redirect back to a fresh canvas. Canvases saved before this change are not migrated.
+- Removed the unused `app/dashboard/studio` canvas duplicate.
+- BYOK mode no longer forwards arbitrary `generation_<name>` keys to providers as `<name>`. Prefixed keys must exist in the model's Semantic Lady schema; provider-specific parameters keep working when passed with their raw provider field names (for example `safety_tolerance` instead of `generation_safety_tolerance`). `generation_provider_order` and the Google `generation_config` raw-config escape remain accepted.
+- Removed the hand-maintained `chainRole` catalog field and the raw-schema image-input walker; step-role and image-input capability now derive from the Semantic Lady catalog so the model catalog cannot contradict the published schema.
+- `bytedance/seedance-2.0` and `bytedance/seedance-2.0-fast` are now selectable as `modify_model` (Seedance 2.0 accepts reference video input); video URL handoffs map to BytePlus `video_url` reference content items.
+- The Google data-video handoff guard now also covers BytePlus modify models (public video URLs required).
+
+### Fixed
+
+- Workspace autosave is now loss-proof: edits mark the canvas dirty and a steady 1.5-second flush persists them to Aurora, with a `sendBeacon` final flush on tab close, reload, navigation, and tab-hide (new owner-authenticated `POST /api/workspace` route). The previous debounce-based autosave silently dropped the last burst of edits — added flows and prompts typed just before a refresh were lost. Hydration also now runs exactly once per mount so router refreshes can never reset live canvas state.
+- Removed placeholder sample prompts from new canvas flows and template run examples; prompts start empty.
+- Canvas node cards are now generated from each model's Semantic Lady schema (exact fields, enum options, numeric ranges, and defaults) instead of a shared generic field list, so the UI can no longer offer fields a model does not support (for example `generation_resolution` on `runway/gen-4-turbo`) or out-of-range values (for example 1s durations). Stale values from previously saved canvases are pruned against the active model's schema on load.
+- Runway requests now translate Semantic Lady aspect ratios (for example `16:9`) to the documented Runway pixel ratios (for example `1280:720`) per endpoint family for every catalog ratio value; provider-native pixel ratios still pass through verbatim.
+- Permanent OpenAI quota errors (`Limit 0` / `insufficient_quota` / billing 429s) now fail the step immediately as `provider_quota_exceeded` instead of being retried forever as transient rate limits, which previously left runs stuck in `queued`.
+- Alibaba Cloud image sizes are now computed per model from `generation_ratio` instead of one shared table. `qwen-image` / `qwen-image-plus` snap to the only sizes DashScope accepts (for example `16:9` → `1664*928`), `qwen-image-max` / `z-image-turbo` cap dimensions at 2048, and the `wan2.6` / `wan2.7` image families fit their pixel budgets. Previously every model received wan-sized values such as `2560*1440`, so `qwen/image` failed with "The size does not match the allowed size" whenever a ratio was set — which it always was from the canvas.
+- When a chain step fails, downstream queued steps are now marked `skipped` immediately (their input can never arrive) instead of being left `queued` forever, and the canvas shows a toast with the provider's error message when a run fails.
+- Canvas and Library media previews no longer crop portrait outputs (`object-contain` instead of `object-cover`) and show a spinner with "Loading…" until the image or video has actually loaded, instead of flashing raw alt text when a provider URL is slow or expired.
+
+## [0.1.0] - 2026-06-09
+
+- Initial released.
