@@ -56,6 +56,10 @@ Canvas studio and durable chain API for image and video model workflows with one
 
 <img src="public/dashboard.png" alt="BabyChain dashboard" />
 
+<br />
+
+<img src="public/hero.png" alt="BabyChain hero" />
+
 </div>
 
 <br />
@@ -94,20 +98,20 @@ See [`CHANGELOG.md`](CHANGELOG.md) to track releases and public contract changes
 
 ## Overview
 
-BabyChain is a visual studio for chaining generative media models, backed by a durable HTTP API. Owners compose multi-flow image → video chains on a canvas — every edit persists automatically to Aurora — and the exact same chain contract is callable from product code through authenticated API routes. There is no local model/GPU runtime requirement and no caller-side provider keys: deploy BabyChain, configure server-side credentials, design flows on the canvas, run them in place, and let products call the same durable API.
+BabyChain is a visual studio for chaining generative media models, backed by a durable HTTP API. Owners compose multi-flow image → video chains on a canvas, every edit persists automatically to Aurora, and the exact same chain contract is callable from product code through authenticated API routes. There is no local model/GPU runtime requirement and no caller-side provider keys: deploy BabyChain, configure server-side credentials, design flows on the canvas, run them in place, and let products call the same durable API.
 
 ## Why BabyChain
 
-BabyChain turns model-to-model media workflows into durable backend runs. Compose flows on the canvas or send one API request — either way BabyChain starts the chain, persists every step, hands generated media from one model to the next, and sends one signed callback when the final result is ready.
+BabyChain turns model-to-model media workflows into durable backend runs. Compose flows on the canvas or send one API request. Either way, BabyChain starts the chain, persists every step, hands generated media from one model to the next, and sends one signed callback when the final result is ready.
 
 - **Multi-flow canvas studio**: run many independent image → video flows side by side on one permanent workspace. Every edit autosaves to Aurora and survives reloads, logout, and device switches; only an explicit reset clears it.
-- **Run in place, save what matters**: each flow ends in a runner card — "Run only" streams step outputs onto the canvas; "Run and save" also snapshots the flow into the Library with its results.
-- **Same contract for products**: the canvas drives `POST /api/v1/chains/runs` — the exact API your product code calls. Nothing is studio-only magic.
+- **Run in place, save what matters**: each flow ends in a runner card. "Run only" streams step outputs onto the canvas; "Run and save" also snapshots the flow into the Library with its results.
+- **Same contract for products**: the canvas drives `POST /api/v1/chains/runs`, the exact API your product code calls. Nothing is studio-only magic.
 - **Self-hosted control plane**: deploy on Vercel with your own environment and secrets.
 - **Server-side credentials**: keep inference provider keys or BabySea keys inside your backend. Caller apps only use BabyChain API keys.
 - **Durable execution**: store run state, ordered steps, provider request ids, generation ids, outputs, callbacks, and failure details in Aurora.
 - **Product-ready callbacks**: return a public run resource from create/get routes and send the same resource through one final signed webhook.
-- **Schema-true node cards**: canvas fields are generated from each model's Semantic Lady schema — exact fields, enum options, ranges, and defaults — so the UI can never offer a parameter the run API would reject.
+- **Schema-true node cards**: canvas fields are generated from each model's Semantic Lady schema, including exact fields, enum options, ranges, and defaults, so the UI can never offer a parameter the run API would reject.
 
 ## BabyChain and canvas workflow tools
 
@@ -153,7 +157,7 @@ flowchart LR
         CRON["/api/cron/process-runs"]
     end
 
-    subgraph AWS["AWS Aurora PostgreSQL — babychain_private"]
+    subgraph AWS["AWS Aurora PostgreSQL: babychain_private"]
         RUNS[("chain_run / chain_step<br/>(durable run state)")]
         CANVAS[("canvas<br/>(saved node graphs)")]
         KEYS[("api_key / audit_event<br/>callback_delivery / babysea_webhook_delivery")]
@@ -180,7 +184,7 @@ flowchart LR
     RUNNER -->|one signed callback| APP
 ```
 
-Aurora is the system of record: every run, step, output URL, API key hash, audit event, callback delivery, inbound BabySea webhook delivery, and saved canvas lives in the `babychain_private` schema. Vercel hosts the stateless control plane — any function instance can pick up a run mid-chain because all state round-trips through Aurora. Polling `GET /api/v1/chains/get/{runId}` (or the cron route) advances in-flight runs, so long chains survive serverless function time limits.
+Aurora is the system of record: every run, step, output URL, API key hash, audit event, callback delivery, inbound BabySea webhook delivery, and saved canvas lives in the `babychain_private` schema. Vercel hosts the stateless control plane; any function instance can pick up a run mid-chain because all state round-trips through Aurora. Polling `GET /api/v1/chains/get/{runId}` (or the cron route) advances in-flight runs, so long chains survive serverless function time limits.
 
 ## Quickstart
 
@@ -206,11 +210,11 @@ Open <http://localhost:3011>. The owner dashboard lives at `/dashboard/canvas`; 
 
 ## Database (AWS Aurora / PostgreSQL)
 
-BabyChain stores all durable runtime state — API keys, chain runs, ordered steps, saved canvases, webhook deliveries, callbacks, and audit events — in a private `babychain_private` schema on **AWS Aurora PostgreSQL**. `DATABASE_URL` is the only required database value.
+BabyChain stores all durable runtime state in a private `babychain_private` schema on **AWS Aurora PostgreSQL**: API keys, chain runs, ordered steps, saved canvases, webhook deliveries, callbacks, and audit events. `DATABASE_URL` is the only required database value.
 
 ```bash
 # Aurora cluster writer endpoint (sslmode=require enables TLS)
-DATABASE_URL=postgresql://USER:PASSWORD@CLUSTER.cluster-xxxx.REGION.rds.amazonaws.com:5432/postgres?sslmode=require
+DATABASE_URL=postgresql://USER:PASSWORD@CLUSTER.cluster-xxxxxxxxxxxx.REGION.rds.amazonaws.com:5432/postgres?sslmode=require
 ```
 
 Aurora presents an Amazon RDS CA that is not in the Node.js trust store. For Aurora/RDS endpoints, include `?sslmode=require` in `DATABASE_URL` so the connection clearly requests TLS. BabyChain's pool strips `sslmode`/`ssl` query params and connects with TLS using `rejectUnauthorized: false`, so no manual CA bundle is required. To connect to a local PostgreSQL instead, point `DATABASE_URL` at `localhost` (TLS is auto-disabled for `localhost`/`127.0.0.1`).
@@ -274,7 +278,7 @@ aws ec2 describe-subnets --filters Name=vpc-id,Values=<VPC_ID> \
   --query 'Subnets[].SubnetId' --output text
 ```
 
-**2. DB subnet group** (tells Aurora which subnets to span — needs ≥2 AZs):
+**2. DB subnet group** (tells Aurora which subnets to span; needs ≥2 AZs):
 
 ```bash
 aws rds create-db-subnet-group \
@@ -440,7 +444,7 @@ Set every value from [`.env.example`](.env.example) in the Vercel project (notab
 
 **Reaching Aurora from Vercel.** Vercel functions have dynamic egress IPs, so allowing a single IP in the Aurora security group is not reliable. Use one of:
 
-- **RDS Proxy** in front of Aurora with a publicly resolvable endpoint, scoped by security group — recommended; it also pools connections for serverless functions.
+- **RDS Proxy** in front of Aurora with a publicly resolvable endpoint, scoped by security group. Recommended; it also pools connections for serverless functions.
 - **AWS PrivateLink / VPC peering** to keep Aurora private and connect over private networking.
 - A short-lived demo only: a publicly accessible cluster with the security group scoped to the VPC CIDR.
 
