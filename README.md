@@ -26,7 +26,7 @@ Canvas studio and durable chain API for image and video model workflows with one
 
 [![GitLabCI](https://img.shields.io/gitlab/pipeline-status/babysea/babychain?branch=main&style=for-the-badge&label=gitlabci&logo=gitlab&logoColor=white&color=FC6D26)](https://gitlab.com/babysea/babychain/-/commits/main)
 [![CircleCI](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fcircleci.com%2Fapi%2Fv1.1%2Fproject%2Fcircleci%2F2uTLcwc4naeNuKDP41es88%2FLkDoyyGhqLz6j1Wi6mUHWd%2Ftree%2Fmain%3Flimit%3D1&query=%24%5B0%5D.status&style=for-the-badge&logo=circleci&logoColor=white&label=circleci&color=003740)](https://dl.circleci.com/status-badge/redirect/circleci/2uTLcwc4naeNuKDP41es88/LkDoyyGhqLz6j1Wi6mUHWd/tree/main)
-[![Codecov](https://img.shields.io/codecov/c/github/babysea-community/babychain?style=for-the-badge&label=codecov&logo=codecov&logoColor=white&color=FF0077&token=MTbBUiu9cN)](https://codecov.io/github/babysea-community/babychain)
+[![Codecov](https://img.shields.io/codecov/c/github/babysea-community/babychain?style=for-the-badge&label=codecov&logo=codecov&logoColor=white&color=FF0077&token=tBym3Zfrhk)](https://codecov.io/github/babysea-community/babychain)
 [![Sentry](https://img.shields.io/github/actions/workflow/status/babysea-community/babychain/sentry-check.yml?style=for-the-badge&label=sentry&logo=sentry&logoColor=white&color=181225)](https://github.com/babysea-community/babychain/actions/workflows/sentry-check.yml)
 [![CodeQL](https://img.shields.io/github/actions/workflow/status/babysea-community/babychain/codeql.yml?style=for-the-badge&label=codeql&logo=github&logoColor=white)](https://github.com/babysea-community/babychain/actions/workflows/codeql.yml)
 [![Package](https://img.shields.io/github/actions/workflow/status/babysea-community/babychain/package-check.yml?style=for-the-badge&label=package&logo=npm&logoColor=white)](https://github.com/babysea-community/babychain/actions/workflows/package-check.yml)
@@ -38,7 +38,9 @@ Canvas studio and durable chain API for image and video model workflows with one
 [![Next.js](https://img.shields.io/badge/next_js-000000?style=for-the-badge&logo=nextdotjs&logoColor=white)](https://nextjs.org)
 [![React](https://img.shields.io/badge/react-53C1DE?style=for-the-badge&logo=react&logoColor=white)](https://react.dev)
 [![BabySea](https://custom-icon-badges.demolab.com/badge/babysea-48D1CC?style=for-the-badge&logo=babysea&logoColor=white)](https://babysea.ai)
+[![Semantic Lady](https://custom-icon-badges.demolab.com/badge/sdk-semantic_lady-FDA4Af?style=for-the-badge&logo=semantic-lady)](https://github.com/babysea-community/semantic-lady)
 [![AWS Aurora](https://custom-icon-badges.demolab.com/badge/aws_aurora-3B46CA?style=for-the-badge&logo=aws-aurora)](https://aws.amazon.com/rds/aurora)
+[![Vercel](https://custom-icon-badges.demolab.com/badge/vercel-000000?style=for-the-badge&logo=vercel)](https://vercel.com)
 [![Upstash](https://img.shields.io/badge/upstash-00E9A3?style=for-the-badge&logo=upstash&logoColor=white)](https://upstash.com)
 [![Sentry](https://img.shields.io/badge/sentry-181225?style=for-the-badge&logo=sentry&logoColor=white)](https://sentry.io)
 
@@ -113,6 +115,8 @@ BabyChain turns model-to-model media workflows into durable backend runs. Compos
 - **Product-ready callbacks**: return a public run resource from create/get routes and send the same resource through one final signed webhook.
 - **Schema-true node cards**: canvas fields are generated from each model's Semantic Lady schema, including exact fields, enum options, ranges, and defaults, so the UI can never offer a parameter the run API would reject.
 
+Semantic Lady is a core part of that last point. BabySea mode already has a normalized `generation_*` contract through the BabySea SDK, but BYOK mode has to deal with every provider's own schema vocabulary: different field names, enum values, ratios, defaults, and media-input rules. BabyChain uses Semantic Lady as a local schema SDK so direct BYOK execution still gets a single source of truth for model cards, validation, defaults, and chain compatibility before any provider request is sent.
+
 ## BabyChain and canvas workflow tools
 
 BabyChain has a canvas of its own, so the difference is not "canvas versus no canvas." The difference is where the workflow becomes production infrastructure. Local graph tools are strong creative workbenches. BabyChain is a deployable control plane: the canvas is a persistent, multi-flow studio on top of the same authenticated API, durable Aurora state, provider credentials, callbacks, and run timeline that product code uses.
@@ -133,6 +137,8 @@ Use BabyChain when a visual generative workflow is ready to become infrastructur
 BabyChain runs workflow-driven chains for product backends that need generated media without embedding provider logic into every application. Common patterns include prompt-to-video features, image-to-video campaigns, avatar or product motion pipelines, internal media automation, and API products that need one stable callback after several provider calls.
 
 The built-in `chain` template starts with an image model, runs an image-to-video model, and can optionally modify the video with a compatible video-to-video model. Select models under `input.chain_models`, then put each model request body inside `image_model_input`, `refine_model_input`, `video_model_input`, or `modify_model_input`. BabyChain does not flatten provider schema fields at the top level. In BabySea mode, those model input objects use BabySea-normalized `generation_*` fields. In BYOK mode, those model input objects use the selected provider model's raw schema fields from `GET /api/v1/models` or `GET /api/v1/models/{modelId}`. Add `refine_model` and `refine_model_input` when one image model should feed a second image model before video. Add `modify_model` and `modify_model_input` when the video result should feed a compatible video-to-video model. See [`SUPPORTED_MODELS.md`](SUPPORTED_MODELS.md) for the supported model names and mode availability.
+
+Those model schema routes are powered by Semantic Lady. The SDK was extracted because BabyChain needed BabySea-like schema discipline even when it was not calling BabySea: BYOK callers and canvas users still need accurate fields, exact enums, valid defaults, and provider-specific constraints, while the server keeps the actual provider credentials and execution adapters behind BabyChain.
 
 | Chain   | Model input objects                                                                  | Model flow                                                      |
 | :------ | :----------------------------------------------------------------------------------- | :-------------------------------------------------------------- |
@@ -402,6 +408,8 @@ BabyChain supports two self-hosted provider modes:
 | :-------- | :---------------------------------------------------------------------------------------------------------------------- |
 | `byok`    | BabyChain calls supported inference providers directly with provider credentials from your server environment.          |
 | `babysea` | BabyChain calls BabySea with your BabySea API key while keeping the same BabyChain routes, callbacks, and run contract. |
+
+BabySea mode relies on the BabySea SDK's normalized `generation_*` contract. Semantic Lady is BabyChain's local schema SDK for BYOK mode: it provides provider-aware model metadata, field definitions, enum options, defaults, constraints, and validation/UI alignment for direct adapters without storing credentials or executing provider calls.
 
 All modes keep caller applications on BabyChain API keys. Provider credentials never belong in frontend code or caller requests.
 
