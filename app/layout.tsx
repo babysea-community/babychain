@@ -84,8 +84,9 @@ export default function RootLayout({
       <body className={`${fontSans.variable} ${fontMono.variable} antialiased`}>
         <Script
           crossOrigin="anonymous"
+          data-auto-replace-svg="nest"
           src="https://kit.fontawesome.com/1b8aa472ce.js"
-          strategy="beforeInteractive"
+          strategy="lazyOnload"
         />
         {children}
       </body>

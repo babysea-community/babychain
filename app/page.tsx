@@ -26,7 +26,10 @@ import {
   InlineRunwayLight as InlineInferenceRunwayLight,
   InlineTencentCloud as InlineInferenceTencentCloud,
 } from '@/components/icons/inline-inference';
-import { listModelChainCatalog } from '@/lib/chains/catalog';
+import {
+  listModelChainCatalog,
+  listModelChainCatalogPage,
+} from '@/lib/chains/catalog';
 import { listModelCatalog } from '@/lib/models/model-library';
 
 import { CtaPanel } from './_components/cta-panel';
@@ -90,7 +93,9 @@ const INFERENCE_ICONS = [
 export default function HomePage() {
   const catalog = listModelChainCatalog();
   const models = listModelCatalog();
-  const featuredCatalog = catalog;
+  const featuredCatalog = listModelChainCatalogPage({
+    pageSize: MODEL_CHAIN_PAGE_SIZE,
+  });
   const metrics = createHomepageMetrics({
     catalog,
     models,
@@ -214,7 +219,8 @@ export default function HomePage() {
             </div>
 
             <ModelChainGrid
-              entries={featuredCatalog}
+              initialEntries={featuredCatalog.entries}
+              initialTotal={featuredCatalog.total}
               pageSize={MODEL_CHAIN_PAGE_SIZE}
             />
           </div>

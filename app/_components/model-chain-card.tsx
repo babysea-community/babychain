@@ -7,7 +7,7 @@ import type { ComponentType, CSSProperties, SVGProps } from 'react';
 import { FontAwesomeIcon } from '@/components/icons/font-awesome-icon';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
-import type { ModelChainCatalogEntry } from '@/lib/chains/catalog';
+import type { ModelChainCatalogGridEntry } from '@/lib/chains/catalog';
 import { formatPublicModelName } from '@/lib/models/display';
 import {
   InlineBlackForestLabsLight,
@@ -21,7 +21,11 @@ import {
   InlineZImage,
 } from '@/components/icons/inline-model';
 
-export function ModelChainCard({ entry }: { entry: ModelChainCatalogEntry }) {
+export function ModelChainCard({
+  entry,
+}: {
+  entry: ModelChainCatalogGridEntry;
+}) {
   const modelIcons = getUniqueModelIcons(entry.modelIdentifiers);
 
   return (

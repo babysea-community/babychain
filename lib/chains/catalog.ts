@@ -27,6 +27,27 @@ export type ModelChainCatalogEntry = {
   title: string;
 };
 
+export type ModelChainCatalogGridEntry = Pick<
+  ModelChainCatalogEntry,
+  | 'accent'
+  | 'actionLabel'
+  | 'badge'
+  | 'href'
+  | 'imageSrc'
+  | 'modelIdentifiers'
+  | 'routeLabel'
+  | 'slug'
+  | 'title'
+>;
+
+export type ModelChainCatalogPage = {
+  entries: ModelChainCatalogGridEntry[];
+  page: number;
+  pageSize: number;
+  query: string;
+  total: number;
+};
+
 const CARD_IMAGE_SRC =
   'https://imagedelivery.net/ub24fjUytZQ3JbssUo49_w/97d9a23a-2a4e-4543-4b3b-199516ad6c00/1280x720';
 const DEFAULT_CARD_ACCENT = '#1773cf';
@@ -41,6 +62,7 @@ const CARD_ACCENTS = [
 const CARD_ACTION_LABEL = 'Use this template';
 
 let modelChainCatalogCache: ModelChainCatalogEntry[] | null = null;
+let modelChainCatalogSearchCache: Map<string, string> | null = null;
 let modelChainCatalogEntryBySlugCache: Map<
   string,
   ModelChainCatalogEntry
@@ -54,10 +76,100 @@ export function listModelChainCatalog(options: { limit?: number } = {}) {
     : [...entries];
 }
 
+export function listModelChainCatalogPage({
+  page = 1,
+  pageSize = 25,
+  query = '',
+}: {
+  page?: number;
+  pageSize?: number;
+  query?: string;
+}): ModelChainCatalogPage {
+  const normalizedQuery = query.trim().slice(0, 120).toLowerCase();
+  const safePageSize = clampInteger(pageSize, 1, 100, 25);
+  const entries = getModelChainCatalogEntries();
+  const searchTextBySlug = getModelChainCatalogSearchTextBySlug();
+  const filteredEntries = normalizedQuery
+    ? entries.filter((entry) =>
+        searchTextBySlug.get(entry.slug)?.includes(normalizedQuery),
+      )
+    : entries;
+  const pageCount = Math.max(
+    1,
+    Math.ceil(filteredEntries.length / safePageSize),
+  );
+  const safePage = clampInteger(page, 1, pageCount, 1);
+  const start = (safePage - 1) * safePageSize;
+
+  return {
+    entries: filteredEntries
+      .slice(start, start + safePageSize)
+      .map(toGridEntry),
+    page: safePage,
+    pageSize: safePageSize,
+    query: normalizedQuery,
+    total: filteredEntries.length,
+  };
+}
+
 export function getModelChainCatalogEntry(slug: string) {
   getModelChainCatalogEntries();
 
   return modelChainCatalogEntryBySlugCache?.get(slug) ?? null;
+}
+
+function toGridEntry(
+  entry: ModelChainCatalogEntry,
+): ModelChainCatalogGridEntry {
+  return {
+    accent: entry.accent,
+    actionLabel: entry.actionLabel,
+    badge: entry.badge,
+    href: entry.href,
+    imageSrc: entry.imageSrc,
+    modelIdentifiers: entry.modelIdentifiers,
+    routeLabel: entry.routeLabel,
+    slug: entry.slug,
+    title: entry.title,
+  };
+}
+
+function createModelChainSearchText(entry: ModelChainCatalogEntry) {
+  return [
+    entry.badge,
+    entry.routeLabel,
+    entry.title,
+    ...entry.modelIdentifiers,
+    ...entry.modelIdentifiers.map(formatPublicModelName),
+  ]
+    .join(' ')
+    .toLowerCase();
+}
+
+function getModelChainCatalogSearchTextBySlug() {
+  if (modelChainCatalogSearchCache) {
+    return modelChainCatalogSearchCache;
+  }
+
+  modelChainCatalogSearchCache = new Map(
+    getModelChainCatalogEntries().map((entry) => [
+      entry.slug,
+      createModelChainSearchText(entry),
+    ]),
+  );
+
+  return modelChainCatalogSearchCache;
+}
+
+function clampInteger(
+  value: number,
+  minimum: number,
+  maximum: number,
+  fallback: number,
+) {
+  return Number.isInteger(value)
+    ? Math.min(Math.max(value, minimum), maximum)
+    : fallback;
 }
 
 function getModelChainCatalogEntries() {

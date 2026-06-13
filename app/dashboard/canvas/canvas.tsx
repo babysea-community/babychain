@@ -452,6 +452,42 @@ function defaultValue(field: FieldSpec): FieldValue {
   return '';
 }
 
+function nodeNeedsSchemaNormalization(
+  node: FlowNode,
+  group: FieldGroup | undefined,
+) {
+  if (!group) return false;
+
+  const fields = [...group.core, ...group.advanced];
+  const known = new Set(fields.map((field) => field.name));
+
+  for (const key of Object.keys(node.data.values)) {
+    if (!known.has(key)) return true;
+  }
+
+  return fields.some((field) => node.data.values[field.name] === undefined);
+}
+
+function normalizeNodeValues(node: FlowNode, group: FieldGroup) {
+  const fields = [...group.core, ...group.advanced];
+  const known = new Set(fields.map((field) => field.name));
+  const values: Record<string, FieldValue> = {};
+
+  for (const [key, value] of Object.entries(node.data.values)) {
+    if (known.has(key)) {
+      values[key] = value;
+    }
+  }
+
+  for (const field of fields) {
+    if (values[field.name] === undefined) {
+      values[field.name] = defaultValue(field);
+    }
+  }
+
+  return { ...node, data: { ...node.data, values } };
+}
+
 function genId(role: string): string {
   const rand =
     typeof crypto !== 'undefined' && crypto.randomUUID
@@ -547,6 +583,33 @@ function flowsFrom(nodes: FlowNode[]): Map<string, FlowNode[]> {
     list.sort((a, b) => ROLE_RANK[a.data.role] - ROLE_RANK[b.data.role]);
   }
   return flows;
+}
+
+function needsFlowAuxReconcile(nodes: FlowNode[]) {
+  const modelNodes = nodes.filter((node) => node.type === 'model');
+  const auxById = new Map(
+    nodes
+      .filter((node) => node.type !== 'model')
+      .map((node) => [node.id, node]),
+  );
+  const expectedAux = new Map<string, 'info' | 'runner'>();
+
+  for (const [flowId, flowNodes] of flowsFrom(modelNodes)) {
+    const first = flowNodes[0];
+    const last = flowNodes[flowNodes.length - 1];
+    if (!first || !last) continue;
+
+    expectedAux.set(`info_${flowId}`, 'info');
+    expectedAux.set(`runner_${flowId}`, 'runner');
+  }
+
+  if (auxById.size !== expectedAux.size) return true;
+
+  for (const [id, type] of expectedAux) {
+    if (auxById.get(id)?.type !== type) return true;
+  }
+
+  return false;
 }
 
 /** Re-place one flow's cards in rank order along its own row. */
@@ -1622,31 +1685,27 @@ function CanvasInner(props: CanvasProps) {
   // defaults, which produced empty fields (and broken payloads) for fields
   // whose schema default is required behavior.
   useEffect(() => {
+    if (
+      !nodes.some((node) =>
+        nodeNeedsSchemaNormalization(
+          node,
+          fieldsRef.current[node.data.modelId],
+        ),
+      )
+    ) {
+      return;
+    }
+
     setNodes((current) => {
       let changed = false;
       const next = current.map((node) => {
         const group = fieldsRef.current[node.data.modelId];
         if (!group) return node;
-        const fields = [...group.core, ...group.advanced];
-        const known = new Set(fields.map((field) => field.name));
-        let nodeChanged = false;
-        const values: Record<string, FieldValue> = {};
-        for (const [key, value] of Object.entries(node.data.values)) {
-          if (known.has(key)) {
-            values[key] = value;
-          } else {
-            nodeChanged = true;
-          }
-        }
-        for (const field of fields) {
-          if (values[field.name] === undefined) {
-            values[field.name] = defaultValue(field);
-            nodeChanged = true;
-          }
-        }
-        if (!nodeChanged) return node;
+
+        if (!nodeNeedsSchemaNormalization(node, group)) return node;
+
         changed = true;
-        return { ...node, data: { ...node.data, values } };
+        return normalizeNodeValues(node, group);
       });
       return changed ? next : current;
     });
@@ -1730,6 +1789,8 @@ function CanvasInner(props: CanvasProps) {
   // runners spawn after the flow's last model card; existing ones keep
   // whatever position the user dragged them to.
   useEffect(() => {
+    if (!needsFlowAuxReconcile(nodes)) return;
+
     setNodes((current) => {
       const modelNodes = current.filter((node) => node.type === 'model');
       const auxById = new Map(

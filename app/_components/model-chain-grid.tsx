@@ -1,43 +1,114 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useDeferredValue, useEffect, useRef, useState } from 'react';
 
 import { FontAwesomeIcon } from '@/components/icons/font-awesome-icon';
 import { Button } from '@/components/ui/button';
-import type { ModelChainCatalogEntry } from '@/lib/chains/catalog';
-import { formatPublicModelName } from '@/lib/models/display';
+import type {
+  ModelChainCatalogGridEntry,
+  ModelChainCatalogPage,
+} from '@/lib/chains/catalog';
 
 import { ModelChainCard } from './model-chain-card';
 
 export function ModelChainGrid({
-  entries,
+  initialEntries,
+  initialTotal,
   pageSize = 25,
 }: {
-  entries: ModelChainCatalogEntry[];
+  initialEntries: ModelChainCatalogGridEntry[];
+  initialTotal: number;
   pageSize?: number;
 }) {
   const [page, setPage] = useState(1);
   const [query, setQuery] = useState('');
-  const normalizedQuery = query.trim().toLowerCase();
-  const filteredEntries = useMemo(
-    () =>
-      normalizedQuery
-        ? entries.filter((entry) =>
-            createSearchText(entry).includes(normalizedQuery),
-          )
-        : entries,
-    [entries, normalizedQuery],
-  );
-  const pageCount = Math.max(1, Math.ceil(filteredEntries.length / pageSize));
-  const currentPage = Math.min(page, pageCount);
+  const deferredQuery = useDeferredValue(query.trim());
+  const [catalogPage, setCatalogPage] = useState({
+    entries: initialEntries,
+    page: 1,
+    query: '',
+    total: initialTotal,
+  });
+  const [loading, setLoading] = useState(false);
+  const [loadError, setLoadError] = useState(false);
+  const lastLoadedRef = useRef({ page: 1, query: '' });
+  const pageCount = Math.max(1, Math.ceil(catalogPage.total / pageSize));
+  const currentPage = Math.min(catalogPage.page, pageCount);
   const startIndex = (currentPage - 1) * pageSize;
-  const visibleEntries = filteredEntries.slice(
-    startIndex,
-    startIndex + pageSize,
+  const visibleStart = catalogPage.total === 0 ? 0 : startIndex + 1;
+  const visibleEnd = Math.min(
+    startIndex + catalogPage.entries.length,
+    catalogPage.total,
   );
-  const visibleStart = filteredEntries.length === 0 ? 0 : startIndex + 1;
-  const visibleEnd = Math.min(startIndex + pageSize, filteredEntries.length);
   const visiblePageNumbers = getVisiblePageNumbers(currentPage, pageCount, 15);
+
+  useEffect(() => {
+    const normalizedQuery = deferredQuery.trim().toLowerCase();
+
+    if (page === 1 && normalizedQuery === '') {
+      lastLoadedRef.current = { page: 1, query: '' };
+      setCatalogPage({
+        entries: initialEntries,
+        page: 1,
+        query: '',
+        total: initialTotal,
+      });
+      setLoadError(false);
+      setLoading(false);
+      return;
+    }
+
+    const controller = new AbortController();
+    const searchParams = new URLSearchParams({
+      page: String(page),
+      pageSize: String(pageSize),
+    });
+
+    if (normalizedQuery) {
+      searchParams.set('q', normalizedQuery);
+    }
+
+    setLoading(true);
+
+    fetch(`/api/model-chain-catalog?${searchParams.toString()}`, {
+      signal: controller.signal,
+    })
+      .then((response) => {
+        if (!response.ok) {
+          throw new Error('Catalog request failed.');
+        }
+
+        return response.json() as Promise<ModelChainCatalogPage>;
+      })
+      .then((data) => {
+        lastLoadedRef.current = { page: data.page, query: data.query };
+        setCatalogPage({
+          entries: data.entries,
+          page: data.page,
+          query: data.query,
+          total: data.total,
+        });
+        setLoadError(false);
+        if (data.page !== page) {
+          setPage(data.page);
+        }
+      })
+      .catch((error: unknown) => {
+        if (!(error instanceof DOMException && error.name === 'AbortError')) {
+          setLoadError(true);
+          if (lastLoadedRef.current.query === normalizedQuery) {
+            setPage(lastLoadedRef.current.page);
+          }
+        }
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) {
+          setLoading(false);
+        }
+      });
+
+    return () => controller.abort();
+  }, [deferredQuery, initialEntries, initialTotal, page, pageSize]);
 
   function goToPage(nextPage: number) {
     setPage(Math.min(Math.max(nextPage, 1), pageCount));
@@ -79,13 +150,15 @@ export function ModelChainGrid({
         </div>
         <div className="font-mono text-xs uppercase tracking-[0.14em] text-muted-foreground xl:justify-self-end">
           {visibleStart}-{visibleEnd} of{' '}
-          {filteredEntries.length.toLocaleString('en-US')}
+          {catalogPage.total.toLocaleString('en-US')}
+          {loading ? ' · loading' : ''}
+          {loadError ? ' · retry later' : ''}
         </div>
       </div>
 
-      {visibleEntries.length > 0 ? (
+      {catalogPage.entries.length > 0 ? (
         <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
-          {visibleEntries.map((entry) => (
+          {catalogPage.entries.map((entry) => (
             <ModelChainCard entry={entry} key={entry.slug} />
           ))}
         </div>
@@ -99,7 +172,9 @@ export function ModelChainGrid({
         <div className="mt-5 flex flex-col gap-3 border-t border-border pt-5 sm:flex-row sm:items-center sm:justify-between">
           <div className="font-mono text-xs uppercase tracking-[0.14em] text-muted-foreground">
             {visibleStart}-{visibleEnd} of{' '}
-            {filteredEntries.length.toLocaleString('en-US')}
+            {catalogPage.total.toLocaleString('en-US')}
+            {loading ? ' · loading' : ''}
+            {loadError ? ' · retry later' : ''}
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <Button
@@ -167,16 +242,4 @@ function getVisiblePageNumbers(
     { length: endPage - startPage + 1 },
     (_, index) => startPage + index,
   );
-}
-
-function createSearchText(entry: ModelChainCatalogEntry) {
-  return [
-    entry.badge,
-    entry.routeLabel,
-    entry.title,
-    ...entry.modelIdentifiers,
-    ...entry.modelIdentifiers.map(formatPublicModelName),
-  ]
-    .join(' ')
-    .toLowerCase();
 }
