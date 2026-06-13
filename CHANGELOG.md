@@ -18,6 +18,8 @@ All notable changes will be documented here. The format follows [Keep a Changelo
 - Removed the obsolete private `babychain_private.api_key.rate_limit_per_minute` column from the configured database and from the fresh schema.
 - Removed the `lucide-react` dependency after replacing its remaining usages.
 
+## [0.1.0] - 2026-06-09 - INITIAL RELEASED
+
 ### Added
 
 - Every flow starts with a `canvas_flow` info card carrying an editable canvas name (pencil to rename, 50-character limit); the name becomes the Library title on publish, and renaming on a saved canvas page updates the Library immediately. "Run and save" on the workspace mints a new canvas id per publish, so one lab flow can be published many times as separate Library canvases; on a saved canvas page it republishes the same canvas in place. The runner card explains both behaviors before the buttons.
@@ -61,7 +63,3 @@ All notable changes will be documented here. The format follows [Keep a Changelo
 - Alibaba Cloud image sizes are now computed per model from `generation_ratio` instead of one shared table. `qwen-image` / `qwen-image-plus` snap to the only sizes DashScope accepts (for example `16:9` → `1664*928`), `qwen-image-max` / `z-image-turbo` cap dimensions at 2048, and the `wan2.6` / `wan2.7` image families fit their pixel budgets. Previously every model received wan-sized values such as `2560*1440`, so `qwen/image` failed with "The size does not match the allowed size" whenever a ratio was set — which it always was from the canvas.
 - When a chain step fails, downstream queued steps are now marked `skipped` immediately (their input can never arrive) instead of being left `queued` forever, and the canvas shows a toast with the provider's error message when a run fails.
 - Canvas and Library media previews no longer crop portrait outputs (`object-contain` instead of `object-cover`) and show a spinner with "Loading…" until the image or video has actually loaded, instead of flashing raw alt text when a provider URL is slow or expired.
-
-## [0.1.0] - 2026-06-09
-
-- Initial released.

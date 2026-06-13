@@ -24,6 +24,7 @@ Canvas studio and durable chain API for image and video model workflows with one
 
 <strong>Checks</strong>
 
+[![Vercel Status](https://img.shields.io/github/deployments/babysea-community/babychain/production?style=for-the-badge&label=vercel&logo=vercel&logoColor=white&color=000000)](https://babychain.vercel.app)
 [![GitLabCI](https://img.shields.io/gitlab/pipeline-status/babysea/babychain?branch=main&style=for-the-badge&label=gitlabci&logo=gitlab&logoColor=white&color=FC6D26)](https://gitlab.com/babysea/babychain/-/commits/main)
 [![CircleCI](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fcircleci.com%2Fapi%2Fv1.1%2Fproject%2Fcircleci%2F2uTLcwc4naeNuKDP41es88%2FLkDoyyGhqLz6j1Wi6mUHWd%2Ftree%2Fmain%3Flimit%3D1&query=%24%5B0%5D.status&style=for-the-badge&logo=circleci&logoColor=white&label=circleci&color=003740)](https://dl.circleci.com/status-badge/redirect/circleci/2uTLcwc4naeNuKDP41es88/LkDoyyGhqLz6j1Wi6mUHWd/tree/main)
 [![Codecov](https://img.shields.io/codecov/c/github/babysea-community/babychain?style=for-the-badge&label=codecov&logo=codecov&logoColor=white&color=FF0077&token=tBym3Zfrhk)](https://codecov.io/github/babysea-community/babychain)
