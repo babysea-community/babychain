@@ -73,7 +73,7 @@ export function SiteHeaderDeployMenu({ links }: { links: DeployLink[] }) {
         type="button"
         variant="default"
       >
-        <FontAwesomeIcon icon="box" />
+        <FontAwesomeIcon icon="server" />
         <span className="hidden sm:inline">Deploy options</span>
       </Button>
 

@@ -2357,7 +2357,7 @@ function CanvasInner(props: CanvasProps) {
       <div className="flex h-16 shrink-0 items-center gap-3 border-b border-border bg-sidebar px-4">
         <div className="flex items-center gap-1.5">
           <Button size="sm" disabled={!hydrated} onClick={addFlow}>
-            <FontAwesomeIcon icon="layer-group" />
+            <FontAwesomeIcon icon="diagram-project" />
             Add canvas flow
           </Button>
         </div>

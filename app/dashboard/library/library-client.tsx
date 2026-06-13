@@ -148,7 +148,7 @@ export function LibraryClient({
       <div className="flex h-16 shrink-0 items-center justify-between gap-3 border-b border-border bg-sidebar px-4">
         <Button asChild size="sm">
           <Link href="/dashboard/canvas">
-            <FontAwesomeIcon icon="layer-group" />
+            <FontAwesomeIcon icon="diagram-project" />
             New canvas
           </Link>
         </Button>
