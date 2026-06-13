@@ -23,6 +23,7 @@ import { MAX_CANVAS_TITLE_LENGTH } from '@/lib/canvas/names';
 
 const OWNER = 'owner@example.com';
 const CANVAS_ID = '7b9d3f60-1f7c-4a64-9a52-0d6f6a3a2b11';
+const SAVE_VERSION = 1000;
 
 function node(overrides: Partial<StoredCanvasNode> = {}): StoredCanvasNode {
   return {
@@ -40,6 +41,7 @@ function row(overrides: Record<string, unknown> = {}) {
     id: CANVAS_ID,
     title: 'Canvas',
     nodes: [node()],
+    save_version: SAVE_VERSION,
     created_at: new Date('2026-06-01T00:00:00Z'),
     updated_at: new Date('2026-06-02T00:00:00Z'),
     ...overrides,
@@ -60,6 +62,7 @@ describe('saveCanvas', () => {
       id: CANVAS_ID,
       title: 'Canvas',
       nodes: [node()],
+      saveVersion: SAVE_VERSION,
     });
 
     expect(saved.id).toBe(CANVAS_ID);
@@ -74,7 +77,12 @@ describe('saveCanvas', () => {
 
   it('rejects non-UUID canvas ids before touching the database', async () => {
     await expect(
-      saveCanvas(OWNER, { id: 'canvas_legacy_1', title: 'x', nodes: [node()] }),
+      saveCanvas(OWNER, {
+        id: 'canvas_legacy_1',
+        title: 'x',
+        nodes: [node()],
+        saveVersion: SAVE_VERSION,
+      }),
     ).rejects.toMatchObject({ code: 'invalid_canvas', status: 400 });
 
     expect(queryMock).not.toHaveBeenCalled();
@@ -82,14 +90,24 @@ describe('saveCanvas', () => {
 
   it('rejects empty and oversized node lists', async () => {
     await expect(
-      saveCanvas(OWNER, { id: CANVAS_ID, title: 'x', nodes: [] }),
+      saveCanvas(OWNER, {
+        id: CANVAS_ID,
+        title: 'x',
+        nodes: [],
+        saveVersion: SAVE_VERSION,
+      }),
     ).rejects.toMatchObject({ code: 'invalid_canvas' });
 
     const tooMany = Array.from({ length: 25 }, (_, index) =>
       node({ id: `n-${index}` }),
     );
     await expect(
-      saveCanvas(OWNER, { id: CANVAS_ID, title: 'x', nodes: tooMany }),
+      saveCanvas(OWNER, {
+        id: CANVAS_ID,
+        title: 'x',
+        nodes: tooMany,
+        saveVersion: SAVE_VERSION,
+      }),
     ).rejects.toMatchObject({ code: 'invalid_canvas' });
 
     expect(queryMock).not.toHaveBeenCalled();
@@ -101,7 +119,12 @@ describe('saveCanvas', () => {
     });
 
     await expect(
-      saveCanvas(OWNER, { id: CANVAS_ID, title: 'x', nodes: [huge] }),
+      saveCanvas(OWNER, {
+        id: CANVAS_ID,
+        title: 'x',
+        nodes: [huge],
+        saveVersion: SAVE_VERSION,
+      }),
     ).rejects.toMatchObject({ code: 'invalid_canvas' });
   });
 
@@ -123,6 +146,7 @@ describe('saveCanvas', () => {
           position: { x: Number.NaN, y: 5 },
         }),
       ],
+      saveVersion: SAVE_VERSION,
     });
 
     const storedNodes = JSON.parse(
@@ -141,6 +165,7 @@ describe('saveCanvas', () => {
       id: CANVAS_ID,
       title: 'a'.repeat(MAX_CANVAS_TITLE_LENGTH + 1),
       nodes: [node()],
+      saveVersion: SAVE_VERSION,
     });
 
     expect(queryMock.mock.calls[1]?.[1]?.[2]).toBe(
@@ -152,7 +177,12 @@ describe('saveCanvas', () => {
     queryMock.mockResolvedValueOnce({ rows: [{ total: '200' }] });
 
     await expect(
-      saveCanvas(OWNER, { id: CANVAS_ID, title: 'x', nodes: [node()] }),
+      saveCanvas(OWNER, {
+        id: CANVAS_ID,
+        title: 'x',
+        nodes: [node()],
+        saveVersion: SAVE_VERSION,
+      }),
     ).rejects.toMatchObject({ code: 'canvas_limit_reached', status: 400 });
 
     expect(queryMock).toHaveBeenCalledTimes(1);
@@ -161,11 +191,38 @@ describe('saveCanvas', () => {
   it('reports not-found when the id belongs to another owner', async () => {
     queryMock
       .mockResolvedValueOnce({ rows: [{ total: '0' }] })
+      .mockResolvedValueOnce({ rows: [] })
       .mockResolvedValueOnce({ rows: [] });
 
     await expect(
-      saveCanvas(OWNER, { id: CANVAS_ID, title: 'x', nodes: [node()] }),
+      saveCanvas(OWNER, {
+        id: CANVAS_ID,
+        title: 'x',
+        nodes: [node()],
+        saveVersion: SAVE_VERSION,
+      }),
     ).rejects.toMatchObject({ code: 'canvas_not_found', status: 404 });
+  });
+
+  it('treats stale saved-canvas writes as already superseded', async () => {
+    queryMock
+      .mockResolvedValueOnce({ rows: [{ total: '0' }] })
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({
+        rows: [row({ save_version: SAVE_VERSION + 1 })],
+      });
+
+    const saved = await saveCanvas(OWNER, {
+      id: CANVAS_ID,
+      title: 'old title',
+      nodes: [node()],
+      saveVersion: SAVE_VERSION,
+    });
+
+    expect(saved.id).toBe(CANVAS_ID);
+    expect(queryMock.mock.calls[1]?.[0]).toContain(
+      'save_version < excluded.save_version',
+    );
   });
 
   it('rejects malformed nodes', async () => {
@@ -174,6 +231,7 @@ describe('saveCanvas', () => {
         id: CANVAS_ID,
         title: 'x',
         nodes: [{ bogus: true } as unknown as StoredCanvasNode],
+        saveVersion: SAVE_VERSION,
       }),
     ).rejects.toBeInstanceOf(BabyChainError);
   });
@@ -240,12 +298,17 @@ describe('workspace canvas', () => {
   it('upserts the owner-scoped workspace row and prunes stale flow runs', async () => {
     queryMock.mockResolvedValueOnce({ rows: [] });
 
-    await saveWorkspaceCanvas(OWNER, [node({ flowId: 'flow_a' })]);
+    await saveWorkspaceCanvas(
+      OWNER,
+      [node({ flowId: 'flow_a' })],
+      SAVE_VERSION,
+    );
 
     const call = queryMock.mock.calls[0];
     expect(call?.[0]).toContain('on conflict (owner_email) where workspace');
     expect(call?.[1]?.[0]).toBe(OWNER);
     expect(call?.[1]?.[2]).toEqual(['flow_a']);
+    expect(call?.[1]?.[3]).toBe(SAVE_VERSION);
     const storedNodes = JSON.parse(call?.[1]?.[1] as string) as Array<{
       flowId?: string;
     }>;
@@ -257,7 +320,9 @@ describe('workspace canvas', () => {
       node({ id: `n-${index}` }),
     );
 
-    await expect(saveWorkspaceCanvas(OWNER, tooMany)).rejects.toMatchObject({
+    await expect(
+      saveWorkspaceCanvas(OWNER, tooMany, SAVE_VERSION),
+    ).rejects.toMatchObject({
       code: 'invalid_canvas',
     });
     expect(queryMock).not.toHaveBeenCalled();

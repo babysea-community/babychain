@@ -78,11 +78,20 @@ export function HomepageDeployMenu({
         type="button"
       >
         Deploy options
-        {isOpen ? (
-          <FontAwesomeIcon icon="chevron-down" />
-        ) : (
-          <FontAwesomeIcon icon="arrow-right" />
-        )}
+        <span className="relative inline-grid size-4 shrink-0 place-items-center">
+          <FontAwesomeIcon
+            className={`col-start-1 row-start-1 transition-opacity ${
+              isOpen ? 'opacity-0' : 'opacity-100'
+            }`}
+            icon="arrow-right"
+          />
+          <FontAwesomeIcon
+            className={`col-start-1 row-start-1 transition-opacity ${
+              isOpen ? 'opacity-100' : 'opacity-0'
+            }`}
+            icon="chevron-down"
+          />
+        </span>
       </Button>
 
       {isOpen ? (

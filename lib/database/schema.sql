@@ -117,15 +117,10 @@ create table if not exists babychain_private.canvas (
   last_run_id uuid,
   workspace boolean not null default false,
   flow_runs jsonb not null default '{}'::jsonb,
+  save_version bigint not null default 0,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
-
--- Canvases created before run tracking / workspace shipped need the columns
--- added in place.
-alter table babychain_private.canvas add column if not exists last_run_id uuid;
-alter table babychain_private.canvas add column if not exists workspace boolean not null default false;
-alter table babychain_private.canvas add column if not exists flow_runs jsonb not null default '{}'::jsonb;
 
 -- One permanent workspace canvas per owner (the /dashboard/canvas scratchpad).
 create unique index if not exists idx_bc_canvas_workspace_owner

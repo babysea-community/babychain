@@ -32,7 +32,7 @@ export function FontAwesomeIcon({
       aria-hidden="true"
       {...props}
       className={cn(
-        'inline-block size-4 shrink-0 leading-none',
+        'inline-flex size-4 shrink-0 items-center justify-center leading-none',
         FAMILY_CLASSES[family],
         `fa-${icon}`,
         fixedWidth ? 'fa-fw' : null,

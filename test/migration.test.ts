@@ -45,8 +45,12 @@ describe('Aurora migration', () => {
     expect(migration).toContain('idx_bc_canvas_owner_updated');
     expect(migration).toContain('idx_bc_canvas_owner_created');
     expect(migration).toContain('trg_bc_canvas_touch');
-    expect(migration).toContain(
-      'alter table babychain_private.canvas add column if not exists last_run_id uuid',
+    expect(migration).toContain('last_run_id uuid');
+    expect(migration).toContain('workspace boolean not null default false');
+    expect(migration).toContain("flow_runs jsonb not null default '{}'");
+    expect(migration).toContain('save_version bigint not null default 0');
+    expect(migration).not.toMatch(
+      /alter\s+table\s+babychain_private\.canvas[\s\S]*?add\s+column/i,
     );
   });
 

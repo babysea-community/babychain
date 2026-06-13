@@ -694,7 +694,7 @@ function ModelSelect({
           ))}
         </select>
         <FontAwesomeIcon
-          className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
+          className="pointer-events-none absolute right-3 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground"
           icon="chevron-down"
         />
       </span>

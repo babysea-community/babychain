@@ -349,11 +349,12 @@ async function saveCanvasAction(
 
 async function saveWorkspaceAction(
   nodes: StoredCanvasNode[],
+  saveVersion: number,
 ): Promise<{ ok: true } | { ok: false; error: string }> {
   'use server';
   const session = await requireOwnerSession();
   try {
-    await saveWorkspaceCanvas(session.email, nodes);
+    await saveWorkspaceCanvas(session.email, nodes, saveVersion);
     return { ok: true };
   } catch (error) {
     return {
@@ -369,11 +370,11 @@ async function saveWorkspaceAction(
 async function recordFlowRunAction(
   flowId: string,
   runId: string,
-): Promise<void> {
+): Promise<boolean> {
   'use server';
   const session = await requireOwnerSession();
-  await recordWorkspaceFlowRun(session.email, flowId, runId).catch(
-    () => undefined,
+  return await recordWorkspaceFlowRun(session.email, flowId, runId).catch(
+    () => false,
   );
 }
 

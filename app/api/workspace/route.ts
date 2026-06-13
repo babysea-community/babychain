@@ -28,6 +28,7 @@ export async function POST(request: NextRequest) {
 
     const body = (await request.json().catch(() => null)) as {
       nodes?: StoredCanvasNode[];
+      saveVersion?: number;
       canvas?: { id?: string; title?: string };
     } | null;
 
@@ -47,9 +48,14 @@ export async function POST(request: NextRequest) {
             ? body.canvas.title
             : 'Canvas',
         nodes: body.nodes,
+        saveVersion: body.saveVersion ?? 0,
       });
     } else {
-      await saveWorkspaceCanvas(session.email, body.nodes);
+      await saveWorkspaceCanvas(
+        session.email,
+        body.nodes,
+        body.saveVersion ?? 0,
+      );
     }
 
     return jsonOk({ ok: true });

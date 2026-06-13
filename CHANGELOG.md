@@ -13,6 +13,10 @@ All notable changes will be documented here. The format follows [Keep a Changelo
 - The homepage chain-template grid now keeps the same search and pagination UI while loading cacheable catalog pages from a small server route, so the marketing page no longer serializes all 78k+ template entries into the initial client payload.
 - The Font Awesome SVG+JS kit now loads after page load and nests generated SVGs to avoid pre-hydration DOM mutation on dashboard pages.
 - The canvas now guards schema-normalization and info/runner reconciliation updates so React Flow measurement changes do not trigger no-op `setNodes` repair cycles.
+- Canvas autosave now uses a monotonic save version stored in Aurora, so older in-flight autosaves cannot overwrite newer pagehide, reset, or saved-canvas snapshots.
+- Starting a run from the workspace now persists the workspace row before creating the run, so run tracking can be recorded and resumed after reload, logout/login, or a fast navigation even if the autosave interval has not fired yet.
+- Workspace "Run and save" now reuses each flow's Library canvas id after the first publish, so later publishes update the same Library card instead of creating duplicates.
+- Compact canvas action icons now center inside their square hover targets after the Font Awesome conversion.
 - The fresh Aurora schema no longer includes API-key rate-limit metadata because request limiting is handled by BabySea mode through the BabySea SDK and by provider inference limits in BYOK mode.
 
 ### Removed

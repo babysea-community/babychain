@@ -414,11 +414,13 @@ type CanvasProps = {
     id: string;
     title: string;
     nodes: StoredCanvasNode[];
+    saveVersion: number;
   }) => Promise<{ ok: true; id: string } | { ok: false; error: string }>;
   saveWorkspaceAction: (
     nodes: StoredCanvasNode[],
+    saveVersion: number,
   ) => Promise<{ ok: true } | { ok: false; error: string }>;
-  recordFlowRunAction: (flowId: string, runId: string) => Promise<void>;
+  recordFlowRunAction: (flowId: string, runId: string) => Promise<boolean>;
   renameCanvasAction: (canvasId: string, title: string) => Promise<void>;
 };
 
@@ -433,12 +435,13 @@ const ROLE_RANK: Record<StepRole, number> = {
   modify: 3,
 };
 const ROLE_COLOR: Record<StepRole, string> = {
-  image: '#67e8f9',
-  refine: '#f9a8d4',
-  video: '#fdba74',
-  modify: '#c4b5fd',
+  image: '#f9a8d4',
+  refine: '#67e8f9',
+  video: '#c4b5fd',
+  modify: '#fdba74',
 };
 const TERMINAL = new Set(['succeeded', 'failed', 'canceled']);
+const LIBRARY_CANVAS_ID_VALUE = 'library_canvas_id';
 
 function kindForRole(role: StepRole): 'image' | 'video' {
   return role === 'image' || role === 'refine' ? 'image' : 'video';
@@ -651,6 +654,36 @@ function flowName(nodes: FlowNode[], flowId?: string): string {
   return typeof name === 'string' && name.trim()
     ? normalizeCanvasTitle(name)
     : createDefaultCanvasName();
+}
+
+function flowLibraryCanvasId(nodes: FlowNode[], flowId: string) {
+  const infoNode = nodes.find(
+    (node) => node.type === 'info' && node.data.flowId === flowId,
+  );
+  const value = infoNode?.data.values[LIBRARY_CANVAS_ID_VALUE];
+
+  return typeof value === 'string' && value ? value : null;
+}
+
+function withFlowLibraryCanvasId(
+  nodes: FlowNode[],
+  flowId: string,
+  libraryCanvasId: string,
+) {
+  return nodes.map((node) =>
+    node.type === 'info' && node.data.flowId === flowId
+      ? {
+          ...node,
+          data: {
+            ...node.data,
+            values: {
+              ...node.data.values,
+              [LIBRARY_CANVAS_ID_VALUE]: libraryCanvasId,
+            },
+          },
+        }
+      : node,
+  );
 }
 
 // ----------------------------------------------------------------------------
@@ -1020,7 +1053,7 @@ function ModelNodeComponent({ id, data }: NodeProps) {
                 onClick={() => removeNode(id)}
                 className="nodrag flex size-6 items-center justify-center border border-transparent text-muted-foreground transition hover:border-border hover:text-destructive disabled:opacity-40"
               >
-                <FontAwesomeIcon className="size-3.5" icon="trash" />
+                <FontAwesomeIcon className="size-3" icon="trash" />
               </button>
               {isSavedCanvas ? (
                 <span className="pointer-events-none absolute right-0 top-full z-20 mt-1.5 hidden w-56 border border-border bg-card px-2.5 py-1.5 text-center text-[0.65rem] leading-4 text-foreground shadow-xl group-hover/remove:block">
@@ -1185,7 +1218,7 @@ function RunnerNodeComponent({ data }: NodeProps) {
         <p className="text-[0.65rem] leading-4 text-muted-foreground">
           {isSavedCanvas
             ? 'Run only tests this flow without changing what is saved. Run and save overwrites this canvas with the new results.'
-            : 'Run only keeps results here. Run and save publishes this flow as a new canvas in your Library.'}
+            : 'Run only keeps results here. Run and save publishes this flow to the Library, then updates the same card on later runs.'}
         </p>
         <Button
           className="nodrag w-full"
@@ -1239,9 +1272,9 @@ function RunnerNodeComponent({ data }: NodeProps) {
   );
 }
 
-// Flow info card: the first card of every flow. It pins the flow's Library
-// identity — the canvas id is assigned when the flow is created and the name
-// (pencil to edit) becomes the Library title on "Run and save".
+// Flow info card: the first card of every flow. It carries the flow's Library
+// identity after publish, and the name (pencil to edit) becomes the Library
+// title on "Run and save".
 function InfoNodeComponent({ id, data }: NodeProps) {
   const node = data as NodeData;
   const { flowId, values } = node;
@@ -1325,7 +1358,7 @@ function InfoNodeComponent({ id, data }: NodeProps) {
                 }}
                 className="nodrag flex size-6 shrink-0 cursor-pointer items-center justify-center border border-transparent text-muted-foreground transition hover:border-border hover:text-foreground disabled:opacity-40"
               >
-                <FontAwesomeIcon className="size-3.5" icon="pen-to-square" />
+                <FontAwesomeIcon className="size-3" icon="pen-to-square" />
               </button>
             </div>
           )}
@@ -1395,9 +1428,8 @@ function CanvasInner(props: CanvasProps) {
   const buildDefaultFlow = useCallback(
     (y: number): FlowNode[] => {
       const flowId = genFlowId();
-      // The flow's Library identity is fixed the moment it is created:
-      // "Run and save" reuses this id, so re-saving updates one canvas
-      // instead of spawning duplicates.
+      // The flow's Library identity is stored here after the first
+      // "Run and save" so later publishes update the same Library card.
       const infoNode: FlowNode = {
         id: `info_${flowId}`,
         type: 'info',
@@ -1488,7 +1520,13 @@ function CanvasInner(props: CanvasProps) {
   //     tab mid-edit still persists the final state.
   const dirtyRef = useRef(false);
   const savingRef = useRef(false);
+  const saveVersionRef = useRef(Date.now());
   const skipNextAutosaveRef = useRef(true);
+
+  const nextSaveVersion = useCallback(() => {
+    saveVersionRef.current += 1;
+    return saveVersionRef.current;
+  }, []);
 
   useEffect(() => {
     if (!hydrated) return;
@@ -1521,8 +1559,9 @@ function CanvasInner(props: CanvasProps) {
             id: canvasId,
             title,
             nodes: snapshot,
+            saveVersion: nextSaveVersion(),
           })
-        : await saveWorkspaceAction(snapshot);
+        : await saveWorkspaceAction(snapshot, nextSaveVersion());
       if (
         result &&
         'ok' in result &&
@@ -1539,7 +1578,7 @@ function CanvasInner(props: CanvasProps) {
     } finally {
       savingRef.current = false;
     }
-  }, [canvasId, saveCanvasAction, saveWorkspaceAction]);
+  }, [canvasId, saveCanvasAction, saveWorkspaceAction, nextSaveVersion]);
 
   useEffect(() => {
     if (!hydrated) return;
@@ -1561,6 +1600,7 @@ function CanvasInner(props: CanvasProps) {
         const title = flowName(nodesRef.current);
         const payload = JSON.stringify({
           nodes: snapshotNodes(nodesRef.current),
+          saveVersion: nextSaveVersion(),
           ...(canvasId
             ? {
                 canvas: {
@@ -1594,7 +1634,7 @@ function CanvasInner(props: CanvasProps) {
       // the final state is not lost with the unmounted tree.
       flushOnExit();
     };
-  }, [hydrated, canvasId, flushWorkspace]);
+  }, [hydrated, canvasId, flushWorkspace, nextSaveVersion]);
 
   const [fieldsByModel, setFieldsByModel] = useState<
     Record<string, FieldGroup | undefined>
@@ -2007,15 +2047,20 @@ function CanvasInner(props: CanvasProps) {
     // never land after this save and resurrect the old flows.
     saveGenerationRef.current += 1;
     dirtyRef.current = false;
+    const resetSaveVersion = nextSaveVersion();
     const persistReset = async (attempt = 0): Promise<void> => {
       // Let any in-flight autosave land first: the reset save must be the
       // LAST write, otherwise a slow pre-reset request can overwrite it.
       for (let waited = 0; savingRef.current && waited < 50; waited += 1) {
         await new Promise((resolve) => setTimeout(resolve, 100));
       }
-      const result = await saveWorkspaceAction(snapshotNodes(fresh)).catch(
-        () => ({ ok: false as const, error: 'Resetting the canvas failed.' }),
-      );
+      const result = await saveWorkspaceAction(
+        snapshotNodes(fresh),
+        resetSaveVersion,
+      ).catch(() => ({
+        ok: false as const,
+        error: 'Resetting the canvas failed.',
+      }));
       if (!result.ok) {
         if (attempt < 3) {
           window.setTimeout(() => void persistReset(attempt + 1), 1200);
@@ -2027,7 +2072,7 @@ function CanvasInner(props: CanvasProps) {
       }
     };
     void persistReset();
-  }, [buildDefaultFlow, setNodes, saveWorkspaceAction]);
+  }, [buildDefaultFlow, setNodes, saveWorkspaceAction, nextSaveVersion]);
 
   const applyRunToFlow = useCallback((flowId: string, run: RunJson) => {
     // Map run steps (keyed by role) onto this flow's MODEL nodes. Info and
@@ -2210,22 +2255,71 @@ function CanvasInner(props: CanvasProps) {
         return next;
       });
 
+      let savedCanvasId: string | undefined;
+      let workingNodes = nodesRef.current;
+
+      if (save) {
+        savedCanvasId =
+          canvasId ??
+          flowLibraryCanvasId(workingNodes, flowId) ??
+          createCanvasId();
+
+        if (!canvasId && !flowLibraryCanvasId(workingNodes, flowId)) {
+          workingNodes = withFlowLibraryCanvasId(
+            workingNodes,
+            flowId,
+            savedCanvasId,
+          );
+          nodesRef.current = workingNodes;
+          setNodes(workingNodes);
+        }
+      }
+
+      // A run should never depend on the autosave interval having fired.
+      // Persist the workspace row first so `recordWorkspaceFlowRun()` can
+      // attach the run and reload/logout can resume it reliably.
+      if (!canvasId) {
+        for (let waited = 0; savingRef.current && waited < 50; waited += 1) {
+          await new Promise((resolve) => setTimeout(resolve, 100));
+        }
+
+        const workspaceSave = await saveWorkspaceAction(
+          snapshotNodes(workingNodes),
+          nextSaveVersion(),
+        ).catch(() => ({
+          ok: false as const,
+          error: 'Saving the workspace failed.',
+        }));
+
+        if (!workspaceSave.ok) {
+          finishFlow(flowId);
+          dirtyRef.current = true;
+          toast.error(workspaceSave.error);
+          return;
+        }
+      }
+
       // "Run and save": snapshot THIS flow into the Library first, so the
       // saved canvas exists (and is linked to the run) before anything runs.
-      // On the workspace every publish mints a NEW canvas id — one lab flow
-      // can be published many times as separate Library canvases. On a saved
-      // canvas page the page id is reused, so re-running updates in place.
-      let savedCanvasId: string | undefined;
+      // On the workspace each flow gets one Library canvas id, persisted on
+      // the info card; later publishes update that same Library card. On a
+      // saved canvas page the page id is reused, so re-running updates in place.
       if (save) {
-        savedCanvasId = canvasId ?? createCanvasId();
+        if (!savedCanvasId) {
+          finishFlow(flowId);
+          toast.error('Saving the canvas failed.');
+          return;
+        }
+
         const title = flowName(nodesRef.current, flowId);
         const result = await saveCanvasAction({
           id: savedCanvasId,
           title,
           nodes: snapshotNodes([
-            ...nodesRef.current.filter((node) => node.id === `info_${flowId}`),
+            ...workingNodes.filter((node) => node.id === `info_${flowId}`),
             ...flowNodes,
           ]),
+          saveVersion: nextSaveVersion(),
         }).catch(() => ({
           ok: false as const,
           error: 'Saving the canvas failed.',
@@ -2257,7 +2351,15 @@ function CanvasInner(props: CanvasProps) {
       flowRunIdRef.current.set(flowId, run.id);
       // Record the run on the workspace so a reload resumes tracking it.
       if (!canvasId) {
-        void recordFlowRunAction(flowId, run.id).catch(() => undefined);
+        const recorded = await recordFlowRunAction(flowId, run.id).catch(
+          () => false,
+        );
+
+        if (!recorded) {
+          toast.error(
+            'Run started, but saving its resume pointer failed. Keep this tab open until it finishes.',
+          );
+        }
       }
       applyRunToFlow(flowId, run);
       if (TERMINAL.has(run.status)) {

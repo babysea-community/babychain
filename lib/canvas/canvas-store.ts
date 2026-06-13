@@ -30,6 +30,7 @@ type CanvasRow = {
   title: string;
   nodes: unknown;
   last_run_id: string | null;
+  save_version: number | string;
   created_at: Date;
   updated_at: Date;
 };
@@ -38,6 +39,7 @@ export type SaveCanvasInput = {
   id: string;
   title: string;
   nodes: StoredCanvasNode[];
+  saveVersion: number;
 };
 
 export type CanvasResultPreview = {
@@ -62,7 +64,7 @@ export async function listCanvases(
   // step order, capped at 4) so the Library can show all chain results —
   // image → refine → video → modify, not just the final pair.
   const result = await auroraQuery<CanvasListRow>(
-    `select c.id, c.title, c.nodes, c.last_run_id, c.created_at, c.updated_at,
+    `select c.id, c.title, c.nodes, c.last_run_id, c.save_version, c.created_at, c.updated_at,
             previews.items as result_previews
        from babychain_private.canvas c
        left join lateral (
@@ -122,7 +124,7 @@ export async function getCanvas(
   }
 
   const result = await auroraQuery<CanvasRow>(
-    `select id, title, nodes, last_run_id, created_at, updated_at
+    `select id, title, nodes, last_run_id, save_version, created_at, updated_at
        from babychain_private.canvas
       where owner_email = $1 and id = $2 and not workspace`,
     [normalizeOwnerEmail(ownerEmail), canvasId],
@@ -184,11 +186,21 @@ export async function getWorkspaceCreatedAt(
 export async function saveWorkspaceCanvas(
   ownerEmail: string,
   nodes: StoredCanvasNode[],
+  saveVersion: number,
 ): Promise<void> {
   const owner = normalizeOwnerEmail(ownerEmail);
+  const version = normalizeSaveVersion(saveVersion);
 
   if (!Array.isArray(nodes)) {
     throw new BabyChainError('invalid_canvas', 'Nodes must be an array.', 400);
+  }
+
+  if (nodes.length === 0) {
+    throw new BabyChainError(
+      'invalid_canvas',
+      'Workspace must contain at least one node.',
+      400,
+    );
   }
 
   if (nodes.length > MAX_WORKSPACE_NODES) {
@@ -216,10 +228,11 @@ export async function saveWorkspaceCanvas(
     .filter((flowId): flowId is string => typeof flowId === 'string');
 
   await auroraQuery(
-    `insert into babychain_private.canvas (id, owner_email, title, nodes, workspace)
-     values (gen_random_uuid(), $1, 'Workspace', $2::jsonb, true)
+    `insert into babychain_private.canvas (id, owner_email, title, nodes, workspace, save_version)
+     values (gen_random_uuid(), $1, 'Workspace', $2::jsonb, true, $4)
      on conflict (owner_email) where workspace do update
         set nodes = excluded.nodes,
+            save_version = excluded.save_version,
             flow_runs = (
               select coalesce(
                 jsonb_object_agg(entry.key, entry.value) filter (
@@ -228,8 +241,9 @@ export async function saveWorkspaceCanvas(
                 '{}'::jsonb
               )
               from jsonb_each(babychain_private.canvas.flow_runs) as entry
-            )`,
-    [owner, serialized, flowIds],
+            )
+      where babychain_private.canvas.save_version < excluded.save_version`,
+    [owner, serialized, flowIds, version],
   );
 }
 
@@ -258,6 +272,7 @@ export async function saveCanvas(
 ): Promise<StoredCanvas> {
   const owner = normalizeOwnerEmail(ownerEmail);
   const canvas = validateSaveInput(input);
+  const saveVersion = normalizeSaveVersion(input.saveVersion);
 
   const countResult = await auroraQuery<{ total: string }>(
     `select count(*)::text as total
@@ -275,18 +290,34 @@ export async function saveCanvas(
   }
 
   const result = await auroraQuery<CanvasRow>(
-    `insert into babychain_private.canvas (id, owner_email, title, nodes)
-     values ($1, $2, $3, $4::jsonb)
+    `insert into babychain_private.canvas (id, owner_email, title, nodes, save_version)
+     values ($1, $2, $3, $4::jsonb, $5)
      on conflict (id) do update
         set title = excluded.title,
-            nodes = excluded.nodes
+            nodes = excluded.nodes,
+            save_version = excluded.save_version
       where babychain_private.canvas.owner_email = excluded.owner_email
         and not babychain_private.canvas.workspace
-  returning id, title, nodes, last_run_id, created_at, updated_at`,
-    [canvas.id, owner, canvas.title, JSON.stringify(canvas.nodes)],
+        and babychain_private.canvas.save_version < excluded.save_version
+  returning id, title, nodes, last_run_id, save_version, created_at, updated_at`,
+    [canvas.id, owner, canvas.title, JSON.stringify(canvas.nodes), saveVersion],
   );
 
   const row = result.rows[0];
+
+  if (!row) {
+    const existing = await auroraQuery<CanvasRow>(
+      `select id, title, nodes, last_run_id, save_version, created_at, updated_at
+         from babychain_private.canvas
+        where owner_email = $1 and id = $2 and not workspace`,
+      [owner, canvas.id],
+    );
+
+    const existingRow = existing.rows[0];
+    if (existingRow && Number(existingRow.save_version) >= saveVersion) {
+      return toStoredCanvas(existingRow);
+    }
+  }
 
   // A conflicting id owned by someone else updates zero rows.
   if (!row) {
@@ -306,7 +337,7 @@ export async function deleteCanvas(
 
   const result = await auroraQuery(
     `delete from babychain_private.canvas
-      where owner_email = $1 and id = $2`,
+      where owner_email = $1 and id = $2 and not workspace`,
     [normalizeOwnerEmail(ownerEmail), canvasId],
   );
 
@@ -380,7 +411,7 @@ export async function setCanvasLastRun(
   const result = await auroraQuery(
     `update babychain_private.canvas
         set last_run_id = $3
-      where owner_email = $1 and id = $2`,
+      where owner_email = $1 and id = $2 and not workspace`,
     [normalizeOwnerEmail(ownerEmail), canvasId, runId],
   );
 
@@ -425,7 +456,19 @@ function validateSaveInput(input: SaveCanvasInput): SaveCanvasInput {
     );
   }
 
-  return { id: input.id, nodes, title };
+  return { id: input.id, nodes, saveVersion: input.saveVersion, title };
+}
+
+function normalizeSaveVersion(value: number) {
+  if (!Number.isSafeInteger(value) || value <= 0) {
+    throw new BabyChainError(
+      'invalid_canvas',
+      'Canvas save version must be a positive safe integer.',
+      400,
+    );
+  }
+
+  return value;
 }
 
 function sanitizeNode(node: StoredCanvasNode): StoredCanvasNode {
