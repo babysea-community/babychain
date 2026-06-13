@@ -409,6 +409,7 @@ export async function CanvasPageView({ canvasId }: { canvasId?: string } = {}) {
     <>
       <Canvas
         canvasId={storedCanvas?.id}
+        initialTitle={storedCanvas?.title ?? null}
         initialNodes={storedCanvas?.nodes ?? workspace?.nodes ?? null}
         initialRunId={storedCanvas?.lastRunId ?? null}
         initialFlowRuns={workspace?.flowRuns ?? null}

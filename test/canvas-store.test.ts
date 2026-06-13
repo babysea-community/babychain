@@ -15,9 +15,11 @@ import {
   getWorkspaceCanvas,
   listCanvases,
   recordWorkspaceFlowRun,
+  renameCanvas,
   saveCanvas,
   saveWorkspaceCanvas,
 } from '@/lib/canvas/canvas-store';
+import { MAX_CANVAS_TITLE_LENGTH } from '@/lib/canvas/names';
 
 const OWNER = 'owner@example.com';
 const CANVAS_ID = '7b9d3f60-1f7c-4a64-9a52-0d6f6a3a2b11';
@@ -130,6 +132,22 @@ describe('saveCanvas', () => {
     expect(storedNodes[0]?.position).toEqual({ x: 0, y: 5 });
   });
 
+  it('truncates saved canvas titles to 40 characters', async () => {
+    queryMock
+      .mockResolvedValueOnce({ rows: [{ total: '0' }] })
+      .mockResolvedValueOnce({ rows: [row()] });
+
+    await saveCanvas(OWNER, {
+      id: CANVAS_ID,
+      title: 'a'.repeat(MAX_CANVAS_TITLE_LENGTH + 1),
+      nodes: [node()],
+    });
+
+    expect(queryMock.mock.calls[1]?.[1]?.[2]).toBe(
+      'a'.repeat(MAX_CANVAS_TITLE_LENGTH),
+    );
+  });
+
   it('enforces the per-owner canvas limit', async () => {
     queryMock.mockResolvedValueOnce({ rows: [{ total: '200' }] });
 
@@ -197,6 +215,24 @@ describe('getCanvas / listCanvases / deleteCanvas', () => {
 
     queryMock.mockResolvedValueOnce({ rowCount: 0 });
     expect(await deleteCanvas(OWNER, CANVAS_ID)).toBe(false);
+  });
+
+  it('renames the row and embedded info card with a 40-character title', async () => {
+    queryMock.mockResolvedValueOnce({ rowCount: 1 });
+
+    const renamed = await renameCanvas(
+      OWNER,
+      CANVAS_ID,
+      'b'.repeat(MAX_CANVAS_TITLE_LENGTH + 1),
+    );
+
+    expect(renamed).toBe(true);
+    expect(queryMock.mock.calls[0]?.[1]?.[2]).toBe(
+      'b'.repeat(MAX_CANVAS_TITLE_LENGTH),
+    );
+    expect(queryMock.mock.calls[0]?.[0]).toContain(
+      "jsonb_set(entry, '{values,name}', to_jsonb($3::text))",
+    );
   });
 });
 

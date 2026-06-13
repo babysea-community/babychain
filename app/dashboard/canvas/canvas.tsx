@@ -72,6 +72,11 @@ import {
   createCanvasId,
   type StoredCanvasNode,
 } from '@/lib/canvas/canvas-library';
+import {
+  createDefaultCanvasName,
+  MAX_CANVAS_TITLE_LENGTH,
+  normalizeCanvasTitle,
+} from '@/lib/canvas/names';
 import { cn } from '@/lib/utils';
 
 type ModelIconKey =
@@ -397,6 +402,7 @@ type RunJson = {
 
 type CanvasProps = {
   canvasId?: string;
+  initialTitle?: string | null;
   initialNodes?: StoredCanvasNode[] | null;
   initialRunId?: string | null;
   initialFlowRuns?: Record<string, string> | null;
@@ -484,27 +490,52 @@ function snapshotNodes(nodes: FlowNode[]): StoredCanvasNode[] {
     }));
 }
 
-function restoreNodes(entries: StoredCanvasNode[]): FlowNode[] {
+function restoreNodes(
+  entries: StoredCanvasNode[],
+  initialTitle?: string | null,
+): FlowNode[] {
   // Canvases saved before multi-flow shipped have no flowId: treat them as
   // one flow.
   const legacyFlowId = genFlowId();
 
   return entries
     .filter((entry) => entry && entry.id && entry.role)
-    .map((entry) => ({
-      id: entry.id,
-      type: entry.id.startsWith('info_') ? 'info' : 'model',
-      position: entry.position ?? { x: FLOW_X, y: 120 },
-      data: {
-        role: entry.role as StepRole,
-        modelId: entry.modelId ?? '',
-        flowId:
-          typeof entry.flowId === 'string' && entry.flowId
-            ? entry.flowId
-            : legacyFlowId,
-        values: entry.values ?? {},
-      },
-    }));
+    .map((entry) => {
+      const type = entry.id.startsWith('info_') ? 'info' : 'model';
+      const values = entry.values ?? {};
+
+      return {
+        id: entry.id,
+        type,
+        position: entry.position ?? { x: FLOW_X, y: 120 },
+        data: {
+          role: entry.role as StepRole,
+          modelId: entry.modelId ?? '',
+          flowId:
+            typeof entry.flowId === 'string' && entry.flowId
+              ? entry.flowId
+              : legacyFlowId,
+          values:
+            type === 'info' ? ensureInfoName(values, initialTitle) : values,
+        },
+      };
+    });
+}
+
+function ensureInfoName(
+  values: Record<string, FieldValue>,
+  initialTitle?: string | null,
+): Record<string, FieldValue> {
+  const name = typeof values.name === 'string' ? values.name.trim() : '';
+  if (name) return { ...values, name: normalizeCanvasTitle(name) };
+
+  const savedTitle =
+    typeof initialTitle === 'string' ? normalizeCanvasTitle(initialTitle) : '';
+
+  return {
+    ...values,
+    name: savedTitle || createDefaultCanvasName(),
+  };
 }
 
 /** Group model nodes by flow, each flow's nodes sorted by step rank. */
@@ -556,18 +587,14 @@ function nextFlowY(nodes: FlowNode[]): number {
   return Math.max(...nodes.map((node) => node.position.y)) + FLOW_ROW_H;
 }
 
-function canvasTitle(nodes: FlowNode[], models: CanvasModel[]) {
-  const modelNames = nodes
-    .filter((node) => node.type === 'model')
-    .sort((a, b) => ROLE_RANK[a.data.role] - ROLE_RANK[b.data.role])
-    .map(
-      (node) =>
-        models.find((model) => model.id === node.data.modelId)?.label ??
-        node.data.modelId,
-    )
-    .filter(Boolean);
-
-  return modelNames.length > 0 ? modelNames.join(' -> ') : 'Untitled canvas';
+function flowName(nodes: FlowNode[], flowId?: string): string {
+  const infoNode = nodes.find(
+    (node) => node.type === 'info' && (!flowId || node.data.flowId === flowId),
+  );
+  const name = infoNode?.data.values.name;
+  return typeof name === 'string' && name.trim()
+    ? normalizeCanvasTitle(name)
+    : createDefaultCanvasName();
 }
 
 // ----------------------------------------------------------------------------
@@ -584,7 +611,6 @@ type NodeData = {
 
 const RUNNER_COLOR = '#8b95a8';
 const INFO_COLOR = RUNNER_COLOR;
-const MAX_CANVAS_NAME_LENGTH = 50;
 // Width reserved for the flow info card column: 280px card + the same 120px
 // gap that separates model cards (FLOW_COL_W 520 − card 400) and the runner.
 const INFO_COL_W = 400;
@@ -1173,12 +1199,14 @@ function InfoNodeComponent({ id, data }: NodeProps) {
 
   const commit = () => {
     setEditing(false);
-    const trimmed = draft.trim().slice(0, MAX_CANVAS_NAME_LENGTH);
-    updateValue(id, 'name', trimmed);
+    const trimmed = normalizeCanvasTitle(draft);
+    const title = trimmed || autoName;
+    setDraft(title);
+    updateValue(id, 'name', title);
     // On a saved canvas page the name IS the Library title — rename it
     // immediately. On the workspace the name only seeds the next publish.
     if (isSavedCanvas) {
-      renameCanvas(trimmed || autoName);
+      renameCanvas(title);
     }
   };
 
@@ -1209,12 +1237,12 @@ function InfoNodeComponent({ id, data }: NodeProps) {
           {editing ? (
             <input
               autoFocus
-              maxLength={MAX_CANVAS_NAME_LENGTH}
+              maxLength={MAX_CANVAS_TITLE_LENGTH}
               className="nodrag h-8 w-full border border-border bg-input px-2.5 text-xs text-foreground outline-none focus-visible:border-ring"
               value={draft}
               placeholder={autoName}
               onChange={(event) =>
-                setDraft(event.target.value.slice(0, MAX_CANVAS_NAME_LENGTH))
+                setDraft(event.target.value.slice(0, MAX_CANVAS_TITLE_LENGTH))
               }
               onBlur={commit}
               onKeyDown={(event) => {
@@ -1288,6 +1316,7 @@ function promptValue(values: Record<string, FieldValue>) {
 function CanvasInner(props: CanvasProps) {
   const {
     canvasId,
+    initialTitle,
     initialNodes,
     initialRunId,
     initialFlowRuns,
@@ -1320,7 +1349,7 @@ function CanvasInner(props: CanvasProps) {
           role: 'image' as StepRole,
           modelId: '',
           flowId,
-          values: { name: '' },
+          values: { name: createDefaultCanvasName() },
         },
       };
       return [
@@ -1384,14 +1413,14 @@ function CanvasInner(props: CanvasProps) {
 
     const restored =
       initialNodes && initialNodes.length > 0
-        ? restoreNodes(initialNodes)
+        ? restoreNodes(initialNodes, initialTitle)
         : null;
 
     setNodes(
       restored && restored.length > 0 ? restored : buildDefaultFlow(120),
     );
     setHydrated(true);
-  }, [initialNodes, buildDefaultFlow, setNodes]);
+  }, [initialNodes, initialTitle, buildDefaultFlow, setNodes]);
 
   // Durable autosave. A debounce alone loses work: the timer resets on every
   // keystroke/drag and unmount cancels the pending callback, so the last
@@ -1425,14 +1454,7 @@ function CanvasInner(props: CanvasProps) {
     const generation = saveGenerationRef.current;
     try {
       const snapshot = snapshotNodes(nodesRef.current);
-      // A custom name on the flow's info card wins over the generated
-      // model-chain title, so autosave never overwrites a user's rename.
-      const infoName = nodesRef.current.find(
-        (node) =>
-          node.type === 'info' &&
-          typeof node.data.values.name === 'string' &&
-          node.data.values.name.trim(),
-      )?.data.values.name as string | undefined;
+      const title = flowName(nodesRef.current);
       if (generation !== saveGenerationRef.current) {
         // Reset happened while preparing; drop this stale snapshot.
         return;
@@ -1440,7 +1462,7 @@ function CanvasInner(props: CanvasProps) {
       const result = canvasId
         ? await saveCanvasAction({
             id: canvasId,
-            title: infoName?.trim() || canvasTitle(nodesRef.current, models),
+            title,
             nodes: snapshot,
           })
         : await saveWorkspaceAction(snapshot);
@@ -1460,7 +1482,7 @@ function CanvasInner(props: CanvasProps) {
     } finally {
       savingRef.current = false;
     }
-  }, [canvasId, models, saveCanvasAction, saveWorkspaceAction]);
+  }, [canvasId, saveCanvasAction, saveWorkspaceAction]);
 
   useEffect(() => {
     if (!hydrated) return;
@@ -1479,20 +1501,14 @@ function CanvasInner(props: CanvasProps) {
       // Server actions cannot run during page teardown; sendBeacon survives
       // it. The route saves either the workspace row or the saved canvas.
       try {
-        const infoName = nodesRef.current.find(
-          (node) =>
-            node.type === 'info' &&
-            typeof node.data.values.name === 'string' &&
-            node.data.values.name.trim(),
-        )?.data.values.name as string | undefined;
+        const title = flowName(nodesRef.current);
         const payload = JSON.stringify({
           nodes: snapshotNodes(nodesRef.current),
           ...(canvasId
             ? {
                 canvas: {
                   id: canvasId,
-                  title:
-                    infoName?.trim() || canvasTitle(nodesRef.current, models),
+                  title,
                 },
               }
             : {}),
@@ -1659,11 +1675,11 @@ function CanvasInner(props: CanvasProps) {
     for (const [flowId, flowNodes] of flows) {
       meta[flowId] = {
         roles: new Set(flowNodes.map((node) => node.data.role)),
-        autoName: canvasTitle(flowNodes, models),
+        autoName: flowName(nodes, flowId),
       };
     }
     return meta;
-  }, [flows, models]);
+  }, [flows, nodes]);
 
   const edges = useMemo(() => {
     // Edges referencing nodes that are not (yet) in the state are dropped by
@@ -1758,7 +1774,12 @@ function CanvasInner(props: CanvasProps) {
               role: 'image',
               modelId: '',
               flowId,
-              values: { name: '' },
+              values: {
+                name:
+                  (typeof initialTitle === 'string' &&
+                    normalizeCanvasTitle(initialTitle)) ||
+                  createDefaultCanvasName(),
+              },
             },
           });
         }
@@ -1787,7 +1808,7 @@ function CanvasInner(props: CanvasProps) {
 
       return changed ? next : current;
     });
-  }, [nodes, setNodes]);
+  }, [nodes, initialTitle, setNodes]);
 
   const updateModel = useCallback(
     (id: string, modelId: string) => {
@@ -2141,19 +2162,15 @@ function CanvasInner(props: CanvasProps) {
       // canvas page the page id is reused, so re-running updates in place.
       let savedCanvasId: string | undefined;
       if (save) {
-        const infoNode = nodesRef.current.find(
-          (node) => node.id === `info_${flowId}`,
-        );
-        const infoName = infoNode?.data.values.name;
         savedCanvasId = canvasId ?? createCanvasId();
-        const title =
-          typeof infoName === 'string' && infoName.trim()
-            ? infoName.trim()
-            : canvasTitle(flowNodes, models);
+        const title = flowName(nodesRef.current, flowId);
         const result = await saveCanvasAction({
           id: savedCanvasId,
           title,
-          nodes: snapshotNodes(infoNode ? [infoNode, ...flowNodes] : flowNodes),
+          nodes: snapshotNodes([
+            ...nodesRef.current.filter((node) => node.id === `info_${flowId}`),
+            ...flowNodes,
+          ]),
         }).catch(() => ({
           ok: false as const,
           error: 'Saving the canvas failed.',

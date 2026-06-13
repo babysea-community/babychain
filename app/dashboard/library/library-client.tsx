@@ -36,6 +36,10 @@ import {
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
+import {
+  MAX_CANVAS_TITLE_LENGTH,
+  normalizeCanvasTitle,
+} from '@/lib/canvas/names';
 import { formatPublicModelName } from '@/lib/models/display';
 import { cn } from '@/lib/utils';
 import type { StoredCanvas } from '@/lib/canvas/canvas-library';
@@ -211,7 +215,7 @@ function CanvasCard({
 
   const commitRename = () => {
     setEditing(false);
-    const title = draft.trim();
+    const title = normalizeCanvasTitle(draft);
     if (!title || title === canvas.title) {
       setDraft(canvas.title);
       return;
@@ -262,14 +266,16 @@ function CanvasCard({
   return (
     <Card>
       <CardContent className="space-y-3 p-3">
-        {/* 1. Title — truncated to 50 characters, pencil to rename */}
+        {/* 1. Title — truncated to 40 characters, pencil to rename */}
         {editing ? (
           <input
             autoFocus
-            maxLength={50}
+            maxLength={MAX_CANVAS_TITLE_LENGTH}
             className="h-8 w-full border border-border bg-input px-2.5 text-sm text-foreground outline-none focus-visible:border-ring"
             value={draft}
-            onChange={(event) => setDraft(event.target.value.slice(0, 50))}
+            onChange={(event) =>
+              setDraft(event.target.value.slice(0, MAX_CANVAS_TITLE_LENGTH))
+            }
             onBlur={commitRename}
             onKeyDown={(event) => {
               if (event.key === 'Enter') commitRename();
@@ -406,7 +412,9 @@ function CanvasCard({
 }
 
 function truncateTitle(title: string) {
-  return title.length > 50 ? `${title.slice(0, 50)}…` : title;
+  return title.length > MAX_CANVAS_TITLE_LENGTH
+    ? `${title.slice(0, MAX_CANVAS_TITLE_LENGTH)}…`
+    : title;
 }
 
 function MetaRow({

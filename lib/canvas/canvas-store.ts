@@ -4,6 +4,7 @@ import { auroraQuery } from '@/lib/database/aurora';
 import { BabyChainError } from '@/lib/utils/errors';
 
 import type { StoredCanvas, StoredCanvasNode } from './canvas-library';
+import { normalizeCanvasTitle } from './names';
 
 /**
  * Aurora-backed canvas persistence.
@@ -21,7 +22,6 @@ const MAX_NODES_JSON_BYTES = 64 * 1024;
 // than a saved (single-flow) canvas.
 const MAX_WORKSPACE_NODES = 64;
 const MAX_WORKSPACE_JSON_BYTES = 256 * 1024;
-const MAX_TITLE_LENGTH = 200;
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
@@ -327,7 +327,7 @@ export async function renameCanvas(
     return false;
   }
 
-  const trimmed = title.trim().slice(0, MAX_TITLE_LENGTH);
+  const trimmed = normalizeCanvasTitle(title);
   if (!trimmed) {
     throw new BabyChainError(
       'invalid_canvas',
@@ -396,7 +396,7 @@ function validateSaveInput(input: SaveCanvasInput): SaveCanvasInput {
     );
   }
 
-  const title = input.title.trim().slice(0, MAX_TITLE_LENGTH) || 'Canvas';
+  const title = normalizeCanvasTitle(input.title) || 'Canvas';
 
   if (!Array.isArray(input.nodes) || input.nodes.length === 0) {
     throw new BabyChainError(
