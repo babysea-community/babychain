@@ -36,9 +36,10 @@ import {
   type ByokRunConfig,
   type ProviderName,
 } from '@/lib/providers';
-import { sha256Hex } from '@/lib/security/crypto';
+import { hmacSha256Hex } from '@/lib/security/crypto';
 import { jsonAccepted, jsonError } from '@/lib/security/http';
 import { BabyChainError } from '@/lib/utils/errors';
+import { getEnv } from '@/lib/utils/env';
 
 export const dynamic = 'force-dynamic';
 // Keep in sync with BABYCHAIN_SDK_ROUTE_MAX_DURATION_SECONDS.
@@ -89,7 +90,10 @@ export async function POST(request: NextRequest) {
     const idempotencyKey = getIdempotencyKey(request);
     const principalNamespace = principal.apiKeyId ?? 'env-api-key';
     const idempotencyKeyHash = idempotencyKey
-      ? sha256Hex(`${principalNamespace}:${template.slug}:${idempotencyKey}`)
+      ? hmacSha256Hex(
+          getEnv().BABYCHAIN_CALLBACK_SECRET,
+          `${principalNamespace}:${template.slug}:${idempotencyKey}`,
+        )
       : null;
     const replayRequest: IdempotentRunRequest = {
       callbackUrl: payload.webhook_url ?? null,

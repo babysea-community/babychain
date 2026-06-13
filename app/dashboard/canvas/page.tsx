@@ -1,8 +1,11 @@
 import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
+import { NextRequest } from 'next/server';
 
+import { POST as cancelRunRoute } from '@/app/api/v1/chains/cancel/[runId]/route';
+import { GET as getRunRoute } from '@/app/api/v1/chains/get/[runId]/route';
+import { POST as createRunRoute } from '@/app/api/v1/chains/runs/route';
 import { requireOwnerSession } from '@/lib/auth/owner';
-import { getInternalApiBaseUrl } from '@/lib/api/internal-url';
 import {
   getCanvas,
   getWorkspaceCanvas,
@@ -40,6 +43,9 @@ const PROVIDER_LABELS: Record<string, string> = {
   openai: 'OpenAI',
   runway: 'Runway',
 };
+
+const INTERNAL_ROUTE_ORIGIN = 'https://babychain.internal';
+type InternalRequestInit = ConstructorParameters<typeof NextRequest>[1];
 
 function rolesForModel(
   modelIdentifier: string,
@@ -230,16 +236,16 @@ async function getModelFieldsAction(
   return deriveSemanticFields(modelId);
 }
 
-function siteUrl(): string {
-  return getInternalApiBaseUrl();
-}
-
 function callerKey(): string {
   const key = getBabyChainApiKeys()[0];
   if (!key) {
     throw new Error('BABYCHAIN_API_KEY is not configured.');
   }
   return key;
+}
+
+function internalRequest(path: string, init?: InternalRequestInit) {
+  return new NextRequest(new URL(path, INTERNAL_ROUTE_ORIGIN), init);
 }
 
 async function runChainAction(
@@ -249,15 +255,17 @@ async function runChainAction(
   'use server';
   const session = await requireOwnerSession();
   try {
-    const response = await fetch(`${siteUrl()}/api/v1/chains/runs`, {
-      method: 'POST',
-      headers: {
-        authorization: `Bearer ${callerKey()}`,
-        'content-type': 'application/json',
-      },
-      body: JSON.stringify({ input }),
-      cache: 'no-store',
-    });
+    const response = await createRunRoute(
+      internalRequest('/api/v1/chains/runs', {
+        method: 'POST',
+        headers: {
+          authorization: `Bearer ${callerKey()}`,
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({ input }),
+        cache: 'no-store',
+      }),
+    );
     const json = (await response.json()) as Record<string, unknown>;
     if (!response.ok) {
       return { ok: false, error: extractError(json) };
@@ -283,10 +291,13 @@ async function getRunAction(runId: string): Promise<unknown | null> {
   'use server';
   await requireOwnerSession();
   try {
-    const response = await fetch(`${siteUrl()}/api/v1/chains/get/${runId}`, {
-      headers: { authorization: `Bearer ${callerKey()}` },
-      cache: 'no-store',
-    });
+    const response = await getRunRoute(
+      internalRequest('/api/v1/chains/get/internal', {
+        headers: { authorization: `Bearer ${callerKey()}` },
+        cache: 'no-store',
+      }),
+      { params: { runId } },
+    );
     if (!response.ok) {
       return null;
     }
@@ -300,11 +311,14 @@ async function cancelRunAction(runId: string): Promise<unknown | null> {
   'use server';
   await requireOwnerSession();
   try {
-    const response = await fetch(`${siteUrl()}/api/v1/chains/cancel/${runId}`, {
-      method: 'POST',
-      headers: { authorization: `Bearer ${callerKey()}` },
-      cache: 'no-store',
-    });
+    const response = await cancelRunRoute(
+      internalRequest('/api/v1/chains/cancel/internal', {
+        method: 'POST',
+        headers: { authorization: `Bearer ${callerKey()}` },
+        cache: 'no-store',
+      }),
+      { params: { runId } },
+    );
     if (!response.ok) {
       return null;
     }
