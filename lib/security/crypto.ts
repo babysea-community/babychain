@@ -1,7 +1,11 @@
-import { createHmac, timingSafeEqual } from 'node:crypto';
+import { createHmac, scryptSync, timingSafeEqual } from 'node:crypto';
 
 export function hmacSha256Hex(secret: string, value: string) {
   return createHmac('sha256', secret).update(value, 'utf8').digest('hex');
+}
+
+export function deriveSecretDigestHex(secret: string, value: string) {
+  return scryptSync(value, secret, 32).toString('hex');
 }
 
 export function safeEqualText(left: string, right: string) {

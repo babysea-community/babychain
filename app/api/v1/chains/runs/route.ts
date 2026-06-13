@@ -36,7 +36,7 @@ import {
   type ByokRunConfig,
   type ProviderName,
 } from '@/lib/providers';
-import { hmacSha256Hex } from '@/lib/security/crypto';
+import { deriveSecretDigestHex } from '@/lib/security/crypto';
 import { jsonAccepted, jsonError } from '@/lib/security/http';
 import { BabyChainError } from '@/lib/utils/errors';
 import { getEnv } from '@/lib/utils/env';
@@ -88,11 +88,10 @@ export async function POST(request: NextRequest) {
       ? { ...byokConfig, providers: byokProviders }
       : null;
     const idempotencyKey = getIdempotencyKey(request);
-    const principalNamespace = principal.apiKeyId ?? 'env-api-key';
     const idempotencyKeyHash = idempotencyKey
-      ? hmacSha256Hex(
+      ? deriveSecretDigestHex(
           getEnv().BABYCHAIN_CALLBACK_SECRET,
-          `${principalNamespace}:${template.slug}:${idempotencyKey}`,
+          `${template.slug}:${idempotencyKey}`,
         )
       : null;
     const replayRequest: IdempotentRunRequest = {
