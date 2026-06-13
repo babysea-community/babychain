@@ -1,7 +1,7 @@
 import Link from 'next/link';
-import { ArrowRight } from 'lucide-react';
 import type { ComponentType, SVGProps } from 'react';
 
+import { createFontAwesomeIcon } from '@/components/icons/font-awesome-icon';
 import { Button } from '@/components/ui/button';
 
 import type { DeployLink } from './deployment-links';
@@ -13,6 +13,8 @@ type CtaAction = {
   label: string;
   variant: 'default' | 'outline';
 };
+
+const ArrowRightIcon = createFontAwesomeIcon('arrow-right');
 
 export function CtaPanel({
   actions,
@@ -52,7 +54,7 @@ export function CtaPanel({
         </div>
         <div className="flex flex-col items-stretch justify-center gap-3 border-t border-border p-5 md:border-l md:border-t-0 md:p-8">
           {actions.map((action) => {
-            const Icon = action.icon ?? ArrowRight;
+            const Icon = action.icon ?? ArrowRightIcon;
 
             return (
               <Button

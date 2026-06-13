@@ -5,14 +5,12 @@ import { getBabyChainApiKeys } from '../utils/env';
 import { keyPrefix, safeEqualText } from '../security/crypto';
 import type { ApiKeyPrincipal } from '../chains/types';
 
-const DEFAULT_RATE_LIMIT_PER_MINUTE = 30;
 const FULL_ACCESS_SCOPES = ['chains:run', 'chains:read', 'runs:cancel'];
 
 export type StoredApiKey = {
   id: string;
   keyPrefix: string;
   name: string;
-  rateLimitPerMinute: number;
   scopes: string[];
 };
 
@@ -48,7 +46,6 @@ export async function authenticateApiKey(
     apiKeyId: storedKey.id,
     keyPrefix: storedKey.keyPrefix,
     name: storedKey.name,
-    rateLimitPerMinute: storedKey.rateLimitPerMinute,
     scopes: storedKey.scopes,
   };
 
@@ -64,7 +61,6 @@ function authenticateEnvApiKey(token: string) {
         apiKeyId: null,
         keyPrefix: keyPrefix(token),
         name: 'env-api-key',
-        rateLimitPerMinute: DEFAULT_RATE_LIMIT_PER_MINUTE,
         scopes: FULL_ACCESS_SCOPES,
       } satisfies ApiKeyPrincipal;
     }

@@ -1,5 +1,4 @@
-import { Code2 } from 'lucide-react';
-
+import { FontAwesomeIcon } from '@/components/icons/font-awesome-icon';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   Table,
@@ -28,7 +27,10 @@ export function SchemaFieldTable({
     <Card className="overflow-hidden border-0 bg-card shadow-none">
       <CardHeader className="border-b border-border bg-muted/40 py-3">
         <div className="flex items-center gap-2">
-          <Code2 className="size-4 text-muted-foreground" aria-hidden="true" />
+          <FontAwesomeIcon
+            className="size-4 text-muted-foreground"
+            icon="code"
+          />
           <CardTitle className="text-sm uppercase tracking-[0.14em] text-muted-foreground">
             {labels.title}
           </CardTitle>

@@ -3,8 +3,8 @@
 import type { CSSProperties } from 'react';
 import type { ReactNode } from 'react';
 import { useState } from 'react';
-import { Check, ChevronDown, Copy, Upload } from 'lucide-react';
 
+import { FontAwesomeIcon } from '@/components/icons/font-awesome-icon';
 import {
   InlineAlibabaCloud as InlineInferenceAlibabaCloud,
   InlineBlackForestLabsLight as InlineInferenceBlackForestLabsLight,
@@ -277,7 +277,7 @@ function TemplateHeroSubmissionCta({ entry }: { entry: TemplatePageEntry }) {
               target="_blank"
             >
               Submit your result
-              <Upload aria-hidden="true" />
+              <FontAwesomeIcon icon="upload" />
             </a>
           </Button>
         </div>
@@ -335,9 +335,9 @@ function EnvironmentSection({ entry }: { entry: TemplatePageEntry }) {
           variant="outline"
         >
           {copied ? (
-            <Check className="size-4" aria-hidden="true" />
+            <FontAwesomeIcon className="size-4" icon="check" />
           ) : (
-            <Copy className="size-4" aria-hidden="true" />
+            <FontAwesomeIcon className="size-4" icon="copy" />
           )}
           {copied ? 'Copied' : 'Copy'}
         </Button>
@@ -388,9 +388,9 @@ function CurlSection({ code }: { code: string }) {
           variant="outline"
         >
           {copied ? (
-            <Check className="size-4" aria-hidden="true" />
+            <FontAwesomeIcon className="size-4" icon="check" />
           ) : (
-            <Copy className="size-4" aria-hidden="true" />
+            <FontAwesomeIcon className="size-4" icon="copy" />
           )}
           {copied ? 'Copied' : 'Copy'}
         </Button>
@@ -569,11 +569,11 @@ function SchemaSection({
                   type="button"
                 >
                   <span className="min-w-0 truncate">{schema.label}</span>
-                  <ChevronDown
-                    aria-hidden="true"
+                  <FontAwesomeIcon
                     className={`size-4 shrink-0 text-muted-foreground transition ${
                       isOpen ? 'rotate-180' : ''
                     }`}
+                    icon="chevron-down"
                   />
                 </button>
                 <Button
@@ -585,9 +585,9 @@ function SchemaSection({
                   variant="outline"
                 >
                   {copiedModel === schema.modelIdentifier ? (
-                    <Check className="size-4" aria-hidden="true" />
+                    <FontAwesomeIcon className="size-4" icon="check" />
                   ) : (
-                    <Copy className="size-4" aria-hidden="true" />
+                    <FontAwesomeIcon className="size-4" icon="copy" />
                   )}
                   {copiedModel === schema.modelIdentifier ? 'Copied' : 'Copy'}
                 </Button>
@@ -693,9 +693,9 @@ function ModelSelect({
             </option>
           ))}
         </select>
-        <ChevronDown
+        <FontAwesomeIcon
           className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
-          aria-hidden="true"
+          icon="chevron-down"
         />
       </span>
     </label>
@@ -1010,16 +1010,6 @@ function createEnvironmentRows(entry: TemplatePageEntry): EnvironmentRow[] {
     {
       description: 'You can use: openssl rand -hex 32.',
       name: 'BABYCHAIN_CALLBACK_SECRET',
-      value: '',
-    },
-    {
-      description: 'Used for generation rate limiting.',
-      name: 'UPSTASH_REDIS_REST_URL',
-      value: '',
-    },
-    {
-      description: 'Used for generation rate limiting.',
-      name: 'UPSTASH_REDIS_REST_TOKEN',
       value: '',
     },
     {

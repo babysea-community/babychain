@@ -76,7 +76,6 @@ function createPrincipal(): ApiKeyPrincipal {
     apiKeyId: null,
     keyPrefix: 'bchn_alpha',
     name: 'test-key',
-    rateLimitPerMinute: 30,
     scopes: ['chains:run', 'chains:read'],
   };
 }

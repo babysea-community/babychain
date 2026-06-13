@@ -1,7 +1,7 @@
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import type { TemplateStepView } from '@/app/templates/synthesize-entry';
-import { LoaderCircle } from 'lucide-react';
+import { FontAwesomeIcon } from '@/components/icons/font-awesome-icon';
 import {
   InlineBlackForestLabsLight as InlineModelBlackForestLabsLight,
   InlineByteDance as InlineModelByteDance,
@@ -54,9 +54,9 @@ export function StepGrid({
                   className="inline-flex min-h-9 items-center gap-2 px-3 py-1.5 leading-none"
                   variant="muted"
                 >
-                  <LoaderCircle
-                    aria-hidden="true"
+                  <FontAwesomeIcon
                     className="size-4 shrink-0 animate-spin text-[var(--chain-accent)] motion-reduce:animate-none"
+                    icon="spinner"
                     style={{ animationDelay }}
                   />
                   <span className="leading-none">

@@ -25,7 +25,7 @@ Please report issues such as:
 
 ## Secret handling
 
-- Use `.env.example` as the source of truth for runtime, build, CI, provider, webhook, callback, cron, rate-limit, analytics, and monitoring variables when this project has environment configuration.
+- Use `.env.example` as the source of truth for runtime, build, CI, provider, webhook, callback, cron, analytics, and monitoring variables when this project has environment configuration.
 - Keep every secret server-side unless `.env.example` explicitly marks the value as public.
 - Keep provider keys, deployment tokens, database credentials, webhook secrets, signed URLs, private prompts, private media, and customer data out of logs, screenshots, chats, issues, pull requests, fixtures, generated files, and package artifacts.
 - Treat provider region, base URL, model routing, storage, queue, and integration settings as deployment configuration unless [README.md](README.md) intentionally documents them as public behavior.

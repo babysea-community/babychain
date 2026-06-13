@@ -1,8 +1,8 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { ChevronLeft, ChevronRight, Search, X } from 'lucide-react';
 
+import { FontAwesomeIcon } from '@/components/icons/font-awesome-icon';
 import { Button } from '@/components/ui/button';
 import type { ModelChainCatalogEntry } from '@/lib/chains/catalog';
 import { formatPublicModelName } from '@/lib/models/display';
@@ -52,9 +52,9 @@ export function ModelChainGrid({
     <div className="bg-background/50 p-5">
       <div className="mb-5 grid gap-3 border-b border-border pb-5 md:items-center xl:grid-cols-5">
         <div className="relative w-full xl:col-span-4">
-          <Search
-            aria-hidden="true"
+          <FontAwesomeIcon
             className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
+            icon="magnifying-glass"
           />
           <input
             aria-label="Search model chains"
@@ -73,7 +73,7 @@ export function ModelChainGrid({
               type="button"
               variant="ghost"
             >
-              <X aria-hidden="true" className="size-4" />
+              <FontAwesomeIcon className="size-4" icon="xmark" />
             </Button>
           ) : null}
         </div>
@@ -110,7 +110,7 @@ export function ModelChainGrid({
               type="button"
               variant="outline"
             >
-              <ChevronLeft aria-hidden="true" />
+              <FontAwesomeIcon icon="chevron-left" />
             </Button>
             {visiblePageNumbers.map((pageNumber) => {
               return (
@@ -134,7 +134,7 @@ export function ModelChainGrid({
               type="button"
               variant="outline"
             >
-              <ChevronRight aria-hidden="true" />
+              <FontAwesomeIcon icon="chevron-right" />
             </Button>
           </div>
         </div>

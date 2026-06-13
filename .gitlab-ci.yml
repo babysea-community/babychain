@@ -43,8 +43,6 @@ variables:
   BABYCHAIN_API_KEY: ci_babychain_api_key
   BABYCHAIN_CRON_SECRET: ci_babychain_cron_secret
   BABYCHAIN_CALLBACK_SECRET: ci_babychain_callback_secret
-  UPSTASH_REDIS_REST_URL: https://example.upstash.io
-  UPSTASH_REDIS_REST_TOKEN: ci_upstash_redis_rest_token
   BABYCHAIN_PROVIDER_MODE: byok
   DASHSCOPE_API_KEY: ci_dashscope_api_key
   BFL_API_KEY: ci_bfl_api_key

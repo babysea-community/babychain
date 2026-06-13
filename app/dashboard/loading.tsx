@@ -1,4 +1,4 @@
-import { Loader2 } from 'lucide-react';
+import { FontAwesomeIcon } from '@/components/icons/font-awesome-icon';
 
 /**
  * Shared loading state for dashboard pages. The library and canvas pages
@@ -9,7 +9,7 @@ export default function DashboardLoading() {
   return (
     <div className="grid h-full place-items-center">
       <div className="flex items-center gap-2.5 text-sm text-muted-foreground">
-        <Loader2 className="size-4 animate-spin" aria-hidden="true" />
+        <FontAwesomeIcon icon="spinner" className="size-4 animate-spin" />
         Loading…
       </div>
     </div>

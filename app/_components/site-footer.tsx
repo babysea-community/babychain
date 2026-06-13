@@ -1,5 +1,4 @@
-import { ArrowUpRight } from 'lucide-react';
-
+import { FontAwesomeIcon } from '@/components/icons/font-awesome-icon';
 import { InlineBabyChain } from '@/components/icons/inline-babychain';
 import { InlineGitHub, InlineGitLab } from '@/components/icons/inline-git';
 
@@ -77,9 +76,9 @@ export function SiteFooter({
             <span>
               <span className="flex items-center gap-2 text-lg font-semibold tracking-tight">
                 {githubPipeline.label}
-                <ArrowUpRight
-                  aria-hidden="true"
+                <FontAwesomeIcon
                   className="size-4 transition group-hover:translate-x-0.5 group-hover:-translate-y-0.5"
+                  icon="arrow-up-right-from-square"
                 />
               </span>
               <span className="mt-3 block text-sm leading-6 text-muted-foreground">
@@ -103,9 +102,9 @@ export function SiteFooter({
             <span>
               <span className="flex items-center gap-2 text-lg font-semibold tracking-tight">
                 {pipeline.label}
-                <ArrowUpRight
-                  aria-hidden="true"
+                <FontAwesomeIcon
                   className="size-4 transition group-hover:translate-x-0.5 group-hover:-translate-y-0.5"
+                  icon="arrow-up-right-from-square"
                 />
               </span>
               <span className="mt-3 block text-sm leading-6 text-muted-foreground">
@@ -136,9 +135,9 @@ export function SiteFooter({
                     target="_blank"
                   >
                     <span>{link.label}</span>
-                    <ArrowUpRight
-                      aria-hidden="true"
+                    <FontAwesomeIcon
                       className="size-3.5 shrink-0 text-muted-foreground transition group-hover:translate-x-0.5 group-hover:-translate-y-0.5 group-hover:text-primary"
+                      icon="arrow-up-right-from-square"
                     />
                   </a>
                 ))}

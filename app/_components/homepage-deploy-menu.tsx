@@ -1,8 +1,8 @@
 'use client';
 
 import { useEffect, useId, useRef, useState } from 'react';
-import { ArrowRight, ArrowUpRight, ChevronDown } from 'lucide-react';
 
+import { FontAwesomeIcon } from '@/components/icons/font-awesome-icon';
 import {
   InlineCloudflare,
   InlineCloudFormation,
@@ -79,9 +79,9 @@ export function HomepageDeployMenu({
       >
         Deploy options
         {isOpen ? (
-          <ChevronDown aria-hidden="true" />
+          <FontAwesomeIcon icon="chevron-down" />
         ) : (
-          <ArrowRight aria-hidden="true" />
+          <FontAwesomeIcon icon="arrow-right" />
         )}
       </Button>
 
@@ -127,9 +127,9 @@ export function HomepageDeployMenu({
                         {deployHostLabel(link.label)}
                       </span>
                     </span>
-                    <ArrowUpRight
-                      aria-hidden="true"
+                    <FontAwesomeIcon
                       className="size-3.5 shrink-0"
+                      icon="arrow-up-right-from-square"
                     />
                   </a>
                 ))}
@@ -185,6 +185,11 @@ function renderHostIcon(label: string) {
     case 'Vercel':
       return <InlineVercelLight className={iconClassName} aria-hidden="true" />;
     default:
-      return <ArrowUpRight className={iconClassName} aria-hidden="true" />;
+      return (
+        <FontAwesomeIcon
+          className={iconClassName}
+          icon="arrow-up-right-from-square"
+        />
+      );
   }
 }

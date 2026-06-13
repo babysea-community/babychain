@@ -42,7 +42,6 @@ const SERVER_ONLY_PATTERNS = [
       '@/lib/security/crypto',
       '@/lib/security/http',
       '@/lib/security/network-safety',
-      '@/lib/security/rate-limit',
     ],
     message: 'This module is server-only. Type-only imports are allowed.',
     allowTypeImports: true,

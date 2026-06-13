@@ -1,5 +1,7 @@
 const isProduction = process.env.NODE_ENV === 'production';
 const BABYSEA_CDN_ORIGIN = 'https://cdn.babysea.live';
+const FONT_AWESOME_ASSET_ORIGIN = 'https://ka-f.fontawesome.com';
+const FONT_AWESOME_KIT_ORIGIN = 'https://kit.fontawesome.com';
 
 export const SECURITY_HEADERS = [
   { key: 'X-Frame-Options', value: 'DENY' },
@@ -66,6 +68,9 @@ function buildContentSecurityPolicy() {
       : ["'self'", "'unsafe-inline'", "'unsafe-eval'"],
   );
   scriptHosts.add(BABYSEA_CDN_ORIGIN);
+  scriptHosts.add(FONT_AWESOME_ASSET_ORIGIN);
+  scriptHosts.add(FONT_AWESOME_KIT_ORIGIN);
+  connectHosts.add(FONT_AWESOME_ASSET_ORIGIN);
 
   appendHostFromUrl(connectHosts, process.env.BABYSEA_API_BASE_URL);
 
@@ -80,10 +85,10 @@ function buildContentSecurityPolicy() {
     'script-src': Array.from(scriptHosts),
     'script-src-elem': Array.from(scriptHosts),
     'script-src-attr': ["'none'"],
-    'style-src': ["'self'", "'unsafe-inline'"],
+    'style-src': ["'self'", "'unsafe-inline'", FONT_AWESOME_ASSET_ORIGIN],
     'img-src': Array.from(imageHosts),
     'media-src': Array.from(mediaHosts),
-    'font-src': ["'self'", 'data:'],
+    'font-src': ["'self'", 'data:', FONT_AWESOME_ASSET_ORIGIN],
     'connect-src': Array.from(connectHosts),
     'frame-ancestors': ["'none'"],
     'form-action': ["'self'"],

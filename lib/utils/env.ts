@@ -42,8 +42,6 @@ const EnvSchema = z.object({
     z.enum(['byok', 'babysea']).default('byok'),
   ),
   DATABASE_URL: z.string().trim().min(1),
-  UPSTASH_REDIS_REST_URL: z.string().trim().url(),
-  UPSTASH_REDIS_REST_TOKEN: z.string().trim().min(1),
   /**
    * Server-side provider keys for BYOK mode. These are never accepted from
    * public API requests and are never persisted to the database.

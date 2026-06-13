@@ -37,18 +37,18 @@ Canvas studio and durable chain API for image and video model workflows with one
 
 [![Next.js](https://img.shields.io/badge/next_js-000000?style=for-the-badge&logo=nextdotjs&logoColor=white)](https://nextjs.org)
 [![React](https://img.shields.io/badge/react-53C1DE?style=for-the-badge&logo=react&logoColor=white)](https://react.dev)
+[![React Flow](https://custom-icon-badges.demolab.com/badge/react_flow-FF0073?style=for-the-badge&logo=react-flow-1)](https://reactflow.dev)
 [![BabySea](https://custom-icon-badges.demolab.com/badge/babysea-48D1CC?style=for-the-badge&logo=babysea&logoColor=white)](https://babysea.ai)
-[![Semantic Lady](https://custom-icon-badges.demolab.com/badge/sdk-semantic_lady-FDA4Af?style=for-the-badge&logo=semantic-lady)](https://github.com/babysea-community/semantic-lady)
-[![AWS Aurora](https://custom-icon-badges.demolab.com/badge/aws_aurora-3B46CA?style=for-the-badge&logo=aws-aurora)](https://aws.amazon.com/rds/aurora)
-[![Vercel](https://custom-icon-badges.demolab.com/badge/vercel-000000?style=for-the-badge&logo=vercel)](https://vercel.com)
-[![Upstash](https://img.shields.io/badge/upstash-00E9A3?style=for-the-badge&logo=upstash&logoColor=white)](https://upstash.com)
+[![Semantic Lady](https://custom-icon-badges.demolab.com/badge/semantic_lady-FF99C7?style=for-the-badge&logo=semantic-lady)](https://github.com/babysea-community/semantic-lady)
+[![AWS Aurora](https://custom-icon-badges.demolab.com/badge/aws_aurora-3B46CA?style=for-the-badge&logo=aws-aurora&logoColor=white)](https://aws.amazon.com/rds/aurora)
+[![Vercel](https://custom-icon-badges.demolab.com/badge/vercel-000000?style=for-the-badge&logo=vercel&logoColor=white)](https://vercel.com)
 [![Sentry](https://img.shields.io/badge/sentry-181225?style=for-the-badge&logo=sentry&logoColor=white)](https://sentry.io)
 
 <br/>
 
 <strong>One-click deploy</strong>
 
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fbabysea-community%2Fbabychain&project-name=babychain&repository-name=babychain&env=NEXT_PUBLIC_SITE_URL,OWNER_EMAIL,OWNER_PASSWORD,OWNER_SESSION_SECRET,DATABASE_URL,BABYCHAIN_API_KEY,BABYCHAIN_CRON_SECRET,BABYCHAIN_CALLBACK_SECRET,UPSTASH_REDIS_REST_URL,UPSTASH_REDIS_REST_TOKEN,BABYCHAIN_PROVIDER_MODE,DASHSCOPE_API_KEY,BFL_API_KEY,BFL_REGION,BFL_API_BASE_URL,ARK_API_KEY,GEMINI_API_KEY,OPENAI_API_KEY,RUNWAYML_API_SECRET)
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fbabysea-community%2Fbabychain&project-name=babychain&repository-name=babychain&env=NEXT_PUBLIC_SITE_URL,OWNER_EMAIL,OWNER_PASSWORD,OWNER_SESSION_SECRET,DATABASE_URL,BABYCHAIN_API_KEY,BABYCHAIN_CRON_SECRET,BABYCHAIN_CALLBACK_SECRET,BABYCHAIN_PROVIDER_MODE,DASHSCOPE_API_KEY,BFL_API_KEY,BFL_REGION,BFL_API_BASE_URL,ARK_API_KEY,GEMINI_API_KEY,OPENAI_API_KEY,RUNWAYML_API_SECRET)
 
 <br />
 
@@ -57,10 +57,6 @@ Canvas studio and durable chain API for image and video model workflows with one
 <br />
 
 <img src="public/dashboard.png" alt="BabyChain dashboard" />
-
-<br />
-
-<img src="public/hero.png" alt="BabyChain hero" />
 
 </div>
 

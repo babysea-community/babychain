@@ -44,7 +44,7 @@ export class AuroraChainStore implements ApiKeyLookupStore {
 
     const prefix = apiKey.slice(0, 12);
     const result = await auroraQuery<Row>(
-      `select id, name, key_prefix, scopes, rate_limit_per_minute, expires_at
+      `select id, name, key_prefix, scopes, expires_at
          from ${SCHEMA}.api_key
         where key_prefix = $1
           and is_active = true
@@ -71,7 +71,6 @@ export class AuroraChainStore implements ApiKeyLookupStore {
       id: row.id as string,
       keyPrefix: row.key_prefix as string,
       name: row.name as string,
-      rateLimitPerMinute: Number(row.rate_limit_per_minute),
       scopes: arr(row.scopes),
     };
   }

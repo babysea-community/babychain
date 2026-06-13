@@ -2,8 +2,8 @@
 
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
-import { ArrowUpRight, Construction } from 'lucide-react';
 
+import { FontAwesomeIcon } from '@/components/icons/font-awesome-icon';
 import {
   InlineCloudflare,
   InlineCloudFormation,
@@ -101,7 +101,7 @@ export function DeploymentLinks({ links }: { links: DeployLink[] }) {
             type="button"
           >
             <span>{deployLink.label}</span>
-            <Construction aria-hidden="true" className="size-3 shrink-0" />
+            <FontAwesomeIcon className="size-3" icon="triangle-exclamation" />
           </button>
         ) : (
           <Link
@@ -112,7 +112,10 @@ export function DeploymentLinks({ links }: { links: DeployLink[] }) {
             title={deployLink.label}
           >
             <span>{deployLink.label}</span>
-            <ArrowUpRight aria-hidden="true" className="size-3 shrink-0" />
+            <FontAwesomeIcon
+              className="size-3"
+              icon="arrow-up-right-from-square"
+            />
           </Link>
         )}
       </div>
@@ -138,7 +141,10 @@ export function DeploymentLinks({ links }: { links: DeployLink[] }) {
           className="pointer-events-none fixed left-1/2 top-4 z-50 inline-flex max-w-[calc(100vw-2rem)] -translate-x-1/2 items-center gap-2 border border-border bg-background px-3 py-2 font-mono text-xs text-foreground shadow-xl"
           role="status"
         >
-          <Construction aria-hidden="true" className="size-4 text-[#d98026]" />
+          <FontAwesomeIcon
+            className="size-4 text-[#d98026]"
+            icon="triangle-exclamation"
+          />
           <span>{TOAST_MESSAGE}</span>
         </div>
       ) : null}
@@ -175,6 +181,11 @@ function renderDeployIcon(label: string) {
     case 'Deploy on Vercel':
       return <InlineVercelLight className={iconClassName} />;
     default:
-      return <ArrowUpRight className={iconClassName} />;
+      return (
+        <FontAwesomeIcon
+          className={iconClassName}
+          icon="arrow-up-right-from-square"
+        />
+      );
   }
 }

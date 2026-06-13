@@ -16,7 +16,6 @@ create table if not exists babychain_private.api_key (
   key_prefix varchar(12) not null,
   key_hash text not null,
   scopes text[] not null default array['chains:run','chains:read','runs:cancel']::text[],
-  rate_limit_per_minute integer not null default 30 check (rate_limit_per_minute between 1 and 600),
   expires_at timestamptz,
   last_used_at timestamptz,
   rotated_at timestamptz,

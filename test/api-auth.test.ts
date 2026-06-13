@@ -14,8 +14,6 @@ describe('api auth', () => {
     process.env.BABYCHAIN_CRON_SECRET = 'cron_test';
     process.env.DATABASE_URL =
       'postgresql://postgres:postgres@localhost:5432/postgres';
-    process.env.UPSTASH_REDIS_REST_URL = 'https://upstash.example.com';
-    process.env.UPSTASH_REDIS_REST_TOKEN = 'upstash_test';
   });
 
   it('accepts environment configured API keys', async () => {
@@ -52,7 +50,6 @@ describe('api auth', () => {
           id: '4a828963-4e0a-4f12-90ab-dcb0f5dc6c0e',
           keyPrefix: 'bchn_db_key',
           name: 'database-key',
-          rateLimitPerMinute: 60,
           scopes: ['chains:read'],
         }),
       },

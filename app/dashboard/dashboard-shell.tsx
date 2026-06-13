@@ -2,8 +2,8 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Library, LogOut, Layers, UserStar } from 'lucide-react';
 
+import { FontAwesomeIcon } from '@/components/icons/font-awesome-icon';
 import { ProtectedImage } from '@/components/protected-image';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -14,9 +14,9 @@ type DashboardShellProps = {
 };
 
 const NAV_ITEMS = [
-  { href: '/dashboard/canvas', icon: Layers, label: 'Canvas' },
-  { href: '/dashboard/library', icon: Library, label: 'Library' },
-  { href: '/dashboard/profile', icon: UserStar, label: 'Profile' },
+  { href: '/dashboard/canvas', icon: 'circle-nodes', label: 'Canvas' },
+  { href: '/dashboard/library', icon: 'layer-group', label: 'Library' },
+  { href: '/dashboard/profile', icon: 'user-astronaut', label: 'Profile' },
 ];
 
 export function DashboardShell({
@@ -54,7 +54,6 @@ export function DashboardShell({
 
           <nav className="flex flex-1 flex-col gap-1 p-3">
             {NAV_ITEMS.map((item) => {
-              const Icon = item.icon;
               const active =
                 pathname === item.href ||
                 (item.href === '/dashboard/canvas' &&
@@ -72,7 +71,7 @@ export function DashboardShell({
                   key={item.href}
                   title={item.label}
                 >
-                  <Icon className="size-4 shrink-0" />
+                  <FontAwesomeIcon className="size-4" icon={item.icon} />
                   <span>{item.label}</span>
                 </Link>
               );
@@ -89,7 +88,7 @@ export function DashboardShell({
                 className="flex h-auto w-full items-center justify-center gap-2 border-border px-3 py-2 text-sm font-medium text-muted-foreground transition hover:border-destructive/60 hover:bg-destructive/10 hover:text-foreground"
                 title="Sign out"
               >
-                <LogOut className="size-4" />
+                <FontAwesomeIcon className="size-4" icon="right-from-bracket" />
                 Sign out
               </Button>
             </form>

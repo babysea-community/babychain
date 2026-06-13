@@ -1,6 +1,8 @@
-import { Bot, SendToBack } from 'lucide-react';
-
+import { createFontAwesomeIcon } from '@/components/icons/font-awesome-icon';
 import { Card, CardContent } from '@/components/ui/card';
+
+const BotIcon = createFontAwesomeIcon('robot');
+const ChainIcon = createFontAwesomeIcon('layer-group');
 
 export function MetricStrip({
   metrics,
@@ -52,10 +54,10 @@ export function MetricStrip({
 function metricIcon(label: string) {
   switch (label) {
     case 'available models':
-      return Bot;
+      return BotIcon;
     case 'chain templates':
-      return SendToBack;
+      return ChainIcon;
     default:
-      return Bot;
+      return BotIcon;
   }
 }

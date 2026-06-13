@@ -590,7 +590,6 @@ function createPrincipal(
     apiKeyId: null,
     keyPrefix: 'bchn_alpha',
     name: 'test-key',
-    rateLimitPerMinute: 30,
     scopes: ['chains:run', 'chains:read', 'runs:cancel'],
     ...overrides,
   };

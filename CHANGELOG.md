@@ -4,6 +4,20 @@ All notable changes will be documented here. The format follows [Keep a Changelo
 
 ## Unreleased
 
+## [0.1.1] - 2026-06-13
+
+### Changed
+
+- Added Font Awesome Kit integration for Kit `1b8aa472ce`, including the root Kit script, CSP allowlist entries, a local Font Awesome icon wrapper, and `.font-awesome.md` project guidance.
+- Replaced all `lucide-react` UI glyphs with Font Awesome Kit-backed icons. Custom inline BabyChain, provider, model, host, and Git icons remain unchanged.
+- The fresh Aurora schema no longer includes API-key rate-limit metadata because request limiting is handled by BabySea mode through the BabySea SDK and by provider inference limits in BYOK mode.
+
+### Removed
+
+- Removed the Upstash-backed BabyChain API rate limiter, the `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN` environment variables, related deploy/docs/template references, and `@upstash/ratelimit` / `@upstash/redis` dependencies.
+- Removed the obsolete private `babychain_private.api_key.rate_limit_per_minute` column from the configured database and from the fresh schema.
+- Removed the `lucide-react` dependency after replacing its remaining usages.
+
 ### Added
 
 - Every flow starts with a `canvas_flow` info card carrying an editable canvas name (pencil to rename, 50-character limit); the name becomes the Library title on publish, and renaming on a saved canvas page updates the Library immediately. "Run and save" on the workspace mints a new canvas id per publish, so one lab flow can be published many times as separate Library canvases; on a saved canvas page it republishes the same canvas in place. The runner card explains both behaviors before the buttons.

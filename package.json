@@ -1,6 +1,6 @@
 {
   "name": "babychain",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Canvas studio and durable chain API for image and video model workflows with one final callback.",
   "private": true,
   "license": "Apache-2.0",
@@ -20,7 +20,10 @@
     "creative-tools",
     "generative-ai",
     "generative-media",
-    "upstash",
+    "aws-aurora",
+    "vercel",
+    "react-flow",
+    "semantic-lady",
     "sentry"
   ],
   "engines": {
@@ -47,14 +50,11 @@
   "dependencies": {
     "@radix-ui/react-slot": "catalog:",
     "@sentry/nextjs": "catalog:",
-    "@upstash/ratelimit": "catalog:",
-    "@upstash/redis": "catalog:",
     "@xyflow/react": "catalog:",
     "babysea": "catalog:",
     "class-variance-authority": "catalog:",
     "clsx": "catalog:",
     "jose": "catalog:",
-    "lucide-react": "catalog:",
     "next": "catalog:",
     "pg": "catalog:",
     "react": "catalog:",

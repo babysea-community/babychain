@@ -3,8 +3,8 @@
 import { ProtectedImage } from '@/components/protected-image';
 import Link from 'next/link';
 import type { ComponentType, CSSProperties, SVGProps } from 'react';
-import { ArrowRight } from 'lucide-react';
 
+import { FontAwesomeIcon } from '@/components/icons/font-awesome-icon';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import type { ModelChainCatalogEntry } from '@/lib/chains/catalog';
@@ -74,9 +74,9 @@ export function ModelChainCard({ entry }: { entry: ModelChainCatalogEntry }) {
         <CardContent className="mt-auto p-4 md:p-5">
           <div className="flex items-center justify-between gap-3 text-sm font-medium text-foreground">
             <span>{entry.actionLabel}</span>
-            <ArrowRight
+            <FontAwesomeIcon
               className="size-4 text-[var(--chain-accent)] transition group-hover:translate-x-1"
-              aria-hidden="true"
+              icon="arrow-right"
             />
           </div>
         </CardContent>

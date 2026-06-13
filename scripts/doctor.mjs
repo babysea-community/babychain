@@ -35,8 +35,6 @@ const requiredEnv = [
   'BABYCHAIN_CRON_SECRET',
   'BABYCHAIN_CALLBACK_SECRET',
   'DATABASE_URL',
-  'UPSTASH_REDIS_REST_URL',
-  'UPSTASH_REDIS_REST_TOKEN',
 ];
 
 /** @type {readonly [string, string | readonly string[]][]} */

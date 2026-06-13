@@ -1,8 +1,8 @@
 'use client';
 
 import { useEffect, useId, useRef, useState } from 'react';
-import { ArrowUpRight, PackageCheck } from 'lucide-react';
 
+import { FontAwesomeIcon } from '@/components/icons/font-awesome-icon';
 import {
   InlineCloudflare,
   InlineCloudFormation,
@@ -73,7 +73,7 @@ export function SiteHeaderDeployMenu({ links }: { links: DeployLink[] }) {
         type="button"
         variant="default"
       >
-        <PackageCheck aria-hidden="true" />
+        <FontAwesomeIcon icon="box" />
         <span className="hidden sm:inline">Deploy options</span>
       </Button>
 
@@ -119,9 +119,9 @@ export function SiteHeaderDeployMenu({ links }: { links: DeployLink[] }) {
                         {deployHostLabel(link.label)}
                       </span>
                     </span>
-                    <ArrowUpRight
-                      aria-hidden="true"
+                    <FontAwesomeIcon
                       className="size-3.5 shrink-0"
+                      icon="arrow-up-right-from-square"
                     />
                   </a>
                 ))}
@@ -177,6 +177,11 @@ function renderHostIcon(label: string) {
     case 'Vercel':
       return <InlineVercelLight className={iconClassName} aria-hidden="true" />;
     default:
-      return <ArrowUpRight className={iconClassName} aria-hidden="true" />;
+      return (
+        <FontAwesomeIcon
+          className={iconClassName}
+          icon="arrow-up-right-from-square"
+        />
+      );
   }
 }

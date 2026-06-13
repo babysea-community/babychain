@@ -28,26 +28,13 @@ import {
   type NodeProps,
   type NodeTypes,
 } from '@xyflow/react';
-import {
-  ChevronDown,
-  ImageOff,
-  Loader2,
-  Pencil,
-  Play,
-  LayersPlus,
-  Plus,
-  RotateCcw,
-  Save,
-  Square,
-  Trash2,
-  VideoOff,
-} from 'lucide-react';
 import type {
   ComponentType,
   SVGProps,
   WheelEvent as ReactWheelEvent,
 } from 'react';
 
+import { FontAwesomeIcon } from '@/components/icons/font-awesome-icon';
 import {
   InlineAlibabaCloud as InlineInferenceAlibabaCloud,
   InlineBlackForestLabsLight as InlineInferenceBlackForestLabsLight,
@@ -244,7 +231,10 @@ function ModelDropdown({
         <span className="min-w-0 flex-1 truncate">
           {selected?.label ?? 'Select a model'}
         </span>
-        <ChevronDown className="size-3.5 shrink-0 text-muted-foreground" />
+        <FontAwesomeIcon
+          className="size-3.5 shrink-0 text-muted-foreground"
+          icon="chevron-down"
+        />
       </button>
 
       {open ? (
@@ -322,7 +312,10 @@ function FieldSelectDropdown({
         className="flex h-8 w-full items-center gap-2 border border-border bg-input px-2.5 text-left text-xs text-foreground outline-none transition focus-visible:border-ring disabled:opacity-50"
       >
         <span className="min-w-0 flex-1 truncate">{value || 'Select'}</span>
-        <ChevronDown className="size-3.5 shrink-0 text-muted-foreground" />
+        <FontAwesomeIcon
+          className="size-3.5 shrink-0 text-muted-foreground"
+          icon="chevron-down"
+        />
       </button>
 
       {open ? (
@@ -805,7 +798,7 @@ function MediaPreview({ url, kind }: { url: string; kind: 'image' | 'video' }) {
           blank frame) with an explicit loading state. */}
       {!loaded ? (
         <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-1.5 bg-black text-muted-foreground">
-          <Loader2 className="size-4 animate-spin" aria-hidden="true" />
+          <FontAwesomeIcon className="size-4 animate-spin" icon="spinner" />
           <span className="text-[0.65rem] leading-4">Loading…</span>
         </div>
       ) : null}
@@ -822,7 +815,7 @@ function MediaUnavailable({
   kind: 'image' | 'video';
   className?: string;
 }) {
-  const Icon = kind === 'video' ? VideoOff : ImageOff;
+  const icon = kind === 'video' ? 'video' : 'image';
 
   return (
     <div
@@ -831,7 +824,7 @@ function MediaUnavailable({
         className,
       )}
     >
-      <Icon className="size-5" aria-hidden="true" />
+      <FontAwesomeIcon className="size-5" icon={icon} />
       <span className="px-2 text-center text-[0.65rem] leading-4">
         Removed by inference provider
       </span>
@@ -923,7 +916,7 @@ function ModelNodeComponent({ id, data }: NodeProps) {
           className="nodrag absolute right-0 top-1/2 z-10 flex -translate-y-1/2 translate-x-[calc(100%+14px)] items-center gap-1 border border-border bg-card px-2 py-1 text-[0.65rem] font-medium text-muted-foreground opacity-0 shadow-lg transition hover:border-ring hover:text-foreground group-hover:opacity-100"
           style={{ borderLeftColor: ROLE_COLOR[addableRole] }}
         >
-          <Plus className="size-3" />
+          <FontAwesomeIcon className="size-3" icon="plus" />
           {addableRole}_model
         </button>
       ) : null}
@@ -964,7 +957,7 @@ function ModelNodeComponent({ id, data }: NodeProps) {
                 onClick={() => removeNode(id)}
                 className="nodrag flex size-6 items-center justify-center border border-transparent text-muted-foreground transition hover:border-border hover:text-destructive disabled:opacity-40"
               >
-                <Trash2 className="size-3.5" />
+                <FontAwesomeIcon className="size-3.5" icon="trash" />
               </button>
               {isSavedCanvas ? (
                 <span className="pointer-events-none absolute right-0 top-full z-20 mt-1.5 hidden w-56 border border-border bg-card px-2.5 py-1.5 text-center text-[0.65rem] leading-4 text-foreground shadow-xl group-hover/remove:block">
@@ -1003,7 +996,7 @@ function ModelNodeComponent({ id, data }: NodeProps) {
 
         {!group ? (
           <div className="flex items-center gap-2 py-3 text-xs text-muted-foreground">
-            <Loader2 className="size-3.5 animate-spin" />
+            <FontAwesomeIcon className="size-3.5 animate-spin" icon="spinner" />
             Loading schema…
           </div>
         ) : (
@@ -1036,11 +1029,12 @@ function ModelNodeComponent({ id, data }: NodeProps) {
                   className="nodrag flex w-full items-center justify-between px-2.5 py-1.5 text-[0.7rem] font-medium uppercase tracking-wide text-muted-foreground transition hover:text-foreground"
                 >
                   <span>Advanced · {group.advanced.length}</span>
-                  <ChevronDown
+                  <FontAwesomeIcon
                     className={cn(
                       'size-3.5 transition-transform',
                       advancedOpen && 'rotate-180',
                     )}
+                    icon="chevron-down"
                   />
                 </button>
                 {advancedOpen ? (
@@ -1137,7 +1131,7 @@ function RunnerNodeComponent({ data }: NodeProps) {
           disabled={running}
           onClick={() => runFlow(flowId, false)}
         >
-          <Play />
+          <FontAwesomeIcon icon="play" />
           Run only
         </Button>
         <Button
@@ -1146,7 +1140,7 @@ function RunnerNodeComponent({ data }: NodeProps) {
           disabled={running}
           onClick={() => runFlow(flowId, true)}
         >
-          <Save />
+          <FontAwesomeIcon icon="floppy-disk" />
           Run and save
         </Button>
         {running ? (
@@ -1156,7 +1150,7 @@ function RunnerNodeComponent({ data }: NodeProps) {
             variant="destructive"
             onClick={() => stopFlow(flowId)}
           >
-            <Square />
+            <FontAwesomeIcon icon="square" />
             Stop
           </Button>
         ) : null}
@@ -1168,7 +1162,7 @@ function RunnerNodeComponent({ data }: NodeProps) {
             disabled={running || removeDisabledReason !== null}
             onClick={() => removeFlow(flowId)}
           >
-            <Trash2 />
+            <FontAwesomeIcon icon="trash" />
             Remove this flow
           </Button>
           {removeDisabledReason ? (
@@ -1268,7 +1262,7 @@ function InfoNodeComponent({ id, data }: NodeProps) {
                 }}
                 className="nodrag flex size-6 shrink-0 cursor-pointer items-center justify-center border border-transparent text-muted-foreground transition hover:border-border hover:text-foreground disabled:opacity-40"
               >
-                <Pencil className="size-3.5" />
+                <FontAwesomeIcon className="size-3.5" icon="pen-to-square" />
               </button>
             </div>
           )}
@@ -2302,7 +2296,7 @@ function CanvasInner(props: CanvasProps) {
       <div className="flex h-16 shrink-0 items-center gap-3 border-b border-border bg-sidebar px-4">
         <div className="flex items-center gap-1.5">
           <Button size="sm" disabled={!hydrated} onClick={addFlow}>
-            <LayersPlus />
+            <FontAwesomeIcon icon="layer-group" />
             Add canvas flow
           </Button>
         </div>
@@ -2314,7 +2308,7 @@ function CanvasInner(props: CanvasProps) {
               disabled={!hydrated || runningFlows.size > 0}
               onClick={resetCanvas}
             >
-              <RotateCcw />
+              <FontAwesomeIcon icon="rotate-left" />
               Reset canvas
             </Button>
           ) : null}

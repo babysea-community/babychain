@@ -17,8 +17,6 @@ describe('env validation', () => {
       BABYSEA_API_KEY: 'bye_test',
       NEXT_PUBLIC_SITE_URL: 'https://your-app.example.com',
       DATABASE_URL: 'postgresql://postgres:postgres@localhost:5432/postgres',
-      UPSTASH_REDIS_REST_TOKEN: 'upstash_test',
-      UPSTASH_REDIS_REST_URL: 'https://upstash.example.com',
     };
 
     for (const name of [
@@ -62,8 +60,6 @@ describe('env validation', () => {
       BABYCHAIN_API_KEY: 'bchn_test_key',
       BABYCHAIN_CRON_SECRET: 'cron_test_secret',
       BABYCHAIN_CALLBACK_SECRET: 'callback_test_secret',
-      UPSTASH_REDIS_REST_TOKEN: 'upstash_test',
-      UPSTASH_REDIS_REST_URL: 'https://upstash.example.com',
       BABYCHAIN_PROVIDER_MODE: 'byok',
       DASHSCOPE_API_KEY: 'dashscope_test_key_123',
       BFL_API_KEY: 'bfl_test_key_123',
@@ -99,8 +95,6 @@ describe('env validation', () => {
       BABYCHAIN_API_KEY: 'bchn_test_key',
       BABYCHAIN_CRON_SECRET: 'cron_test_secret',
       BABYCHAIN_CALLBACK_SECRET: 'callback_test_secret',
-      UPSTASH_REDIS_REST_TOKEN: 'upstash_test',
-      UPSTASH_REDIS_REST_URL: 'https://upstash.example.com',
       BABYCHAIN_PROVIDER_MODE: 'byok',
       DASHSCOPE_API_KEY: '',
       BFL_API_BASE_URL: '',
@@ -131,8 +125,6 @@ describe('env validation', () => {
       BABYCHAIN_API_KEY: 'bchn_test_key',
       BABYCHAIN_CRON_SECRET: 'cron_test_secret',
       BABYCHAIN_CALLBACK_SECRET: 'callback_test_secret',
-      UPSTASH_REDIS_REST_TOKEN: 'upstash_test',
-      UPSTASH_REDIS_REST_URL: 'https://upstash.example.com',
       BABYCHAIN_PROVIDER_MODE: 'byok',
       DASHSCOPE_API_KEY: 'dashscope_test_key_123',
       BFL_API_BASE_URL: '',
@@ -173,8 +165,6 @@ describe('env validation', () => {
       BABYCHAIN_CRON_SECRET: 'cron_test_secret',
       NEXT_PUBLIC_SITE_URL: 'https://your-app.example.com',
       DATABASE_URL: 'postgresql://postgres:postgres@localhost:5432/postgres',
-      UPSTASH_REDIS_REST_TOKEN: 'upstash_test',
-      UPSTASH_REDIS_REST_URL: 'https://upstash.example.com',
     };
 
     const { getEnv } = await import('@/lib/utils/env');
@@ -197,8 +187,6 @@ describe('env validation', () => {
       BABYCHAIN_API_KEY: 'bchn_test_key',
       BABYCHAIN_CRON_SECRET: 'cron_test_secret',
       BABYCHAIN_CALLBACK_SECRET: 'callback_test_secret',
-      UPSTASH_REDIS_REST_TOKEN: 'upstash_test',
-      UPSTASH_REDIS_REST_URL: 'https://upstash.example.com',
       BABYCHAIN_PROVIDER_MODE: '',
       DASHSCOPE_API_KEY: '',
       BFL_API_BASE_URL: '',
@@ -233,8 +221,6 @@ describe('env validation', () => {
       BABYCHAIN_CRON_SECRET: 'cron_test_secret',
       NEXT_PUBLIC_SITE_URL: 'https://your-app.example.com',
       DATABASE_URL: 'postgresql://postgres:postgres@localhost:5432/postgres',
-      UPSTASH_REDIS_REST_TOKEN: 'upstash_test',
-      UPSTASH_REDIS_REST_URL: 'https://upstash.example.com',
     };
 
     const { getEnv } = await import('@/lib/utils/env');

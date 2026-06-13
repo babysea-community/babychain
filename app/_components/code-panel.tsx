@@ -1,5 +1,4 @@
-import { Code2 } from 'lucide-react';
-
+import { FontAwesomeIcon } from '@/components/icons/font-awesome-icon';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 export function CodePanel({ code, title }: { code: string; title: string }) {
@@ -7,7 +6,10 @@ export function CodePanel({ code, title }: { code: string; title: string }) {
     <Card className="overflow-hidden">
       <CardHeader className="border-b border-border bg-muted/40 py-3">
         <div className="flex items-center gap-2">
-          <Code2 className="size-4 text-muted-foreground" aria-hidden="true" />
+          <FontAwesomeIcon
+            className="size-4 text-muted-foreground"
+            icon="code"
+          />
           <CardTitle className="text-sm text-card-foreground">
             {title}
           </CardTitle>

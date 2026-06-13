@@ -9,7 +9,6 @@ import { authenticateApiKey } from './auth';
 import { createChainStore } from '../chains/store';
 import type { ApiKeyPrincipal, ChainRunRecord } from '../chains/types';
 import { BabyChainError } from '../utils/errors';
-import { assertRateLimit } from '../security/rate-limit';
 
 export const MAX_JSON_BODY_BYTES = 256 * 1024;
 
@@ -22,11 +21,6 @@ export async function authenticateRequest(
     request.headers.get('authorization'),
     store,
     requiredScope,
-  );
-
-  await assertRateLimit(
-    `api:${principal.keyPrefix}:${requiredScope}`,
-    principal.rateLimitPerMinute,
   );
 
   return { principal, store };

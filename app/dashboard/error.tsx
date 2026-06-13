@@ -1,7 +1,6 @@
 'use client';
 
-import { RotateCcw } from 'lucide-react';
-
+import { FontAwesomeIcon } from '@/components/icons/font-awesome-icon';
 import { Button } from '@/components/ui/button';
 
 /**
@@ -26,7 +25,7 @@ export default function DashboardError({
           transient connection issue.
         </p>
         <Button className="mt-4 w-full" size="sm" onClick={() => reset()}>
-          <RotateCcw />
+          <FontAwesomeIcon icon="rotate-left" />
           Try again
         </Button>
       </div>

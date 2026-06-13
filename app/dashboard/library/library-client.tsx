@@ -1,19 +1,11 @@
 'use client';
 
 import Link from 'next/link';
-import {
-  ArrowUpRight,
-  ImageOff,
-  Loader2,
-  Pencil,
-  Layers,
-  Trash2,
-  VideoOff,
-} from 'lucide-react';
 import type { ComponentType, SVGProps } from 'react';
 import { useEffect, useMemo, useState, useTransition } from 'react';
 import { toast } from 'sonner';
 
+import { FontAwesomeIcon } from '@/components/icons/font-awesome-icon';
 import {
   InlineAlibabaCloud as InlineInferenceAlibabaCloud,
   InlineBlackForestLabsLight as InlineInferenceBlackForestLabsLight,
@@ -156,7 +148,7 @@ export function LibraryClient({
       <div className="flex h-16 shrink-0 items-center justify-between gap-3 border-b border-border bg-sidebar px-4">
         <Button asChild size="sm">
           <Link href="/dashboard/canvas">
-            <Layers />
+            <FontAwesomeIcon icon="layer-group" />
             New canvas
           </Link>
         </Button>
@@ -304,9 +296,12 @@ function CanvasCard({
               className="flex size-6 shrink-0 cursor-pointer items-center justify-center border border-transparent text-muted-foreground transition hover:border-border hover:text-foreground disabled:opacity-40"
             >
               {renaming ? (
-                <Loader2 className="size-3.5 animate-spin" />
+                <FontAwesomeIcon
+                  className="size-3.5 animate-spin"
+                  icon="spinner"
+                />
               ) : (
-                <Pencil className="size-3.5" />
+                <FontAwesomeIcon className="size-3.5" icon="pen-to-square" />
               )}
             </button>
           </div>
@@ -393,7 +388,7 @@ function CanvasCard({
             target="_blank"
           >
             Open canvas
-            <ArrowUpRight />
+            <FontAwesomeIcon icon="arrow-up-right-from-square" />
           </Link>
         </Button>
         <Button
@@ -403,7 +398,11 @@ function CanvasCard({
           size="sm"
           variant="outline"
         >
-          {deleting ? <Loader2 className="animate-spin" /> : <Trash2 />}
+          {deleting ? (
+            <FontAwesomeIcon className="animate-spin" icon="spinner" />
+          ) : (
+            <FontAwesomeIcon icon="trash" />
+          )}
           {deleting ? 'Deleting…' : 'Delete canvas'}
         </Button>
       </CardContent>
@@ -459,7 +458,7 @@ function ResultPreview({
   const [loaded, setLoaded] = useState(false);
 
   if (failed) {
-    const Icon = preview.kind === 'video' ? VideoOff : ImageOff;
+    const icon = preview.kind === 'video' ? 'video' : 'image';
     return (
       <div
         className={cn(
@@ -467,7 +466,7 @@ function ResultPreview({
           className,
         )}
       >
-        <Icon className="size-5" aria-hidden="true" />
+        <FontAwesomeIcon className="size-5" icon={icon} />
         <span className="px-2 text-center text-[0.65rem] leading-4">
           Removed by inference provider
         </span>
@@ -503,7 +502,7 @@ function ResultPreview({
           with an explicit loading state. */}
       {!loaded ? (
         <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-1.5 border border-border bg-black text-muted-foreground">
-          <Loader2 className="size-5 animate-spin" aria-hidden="true" />
+          <FontAwesomeIcon className="size-5 animate-spin" icon="spinner" />
           <span className="text-[0.65rem] leading-4">Loading…</span>
         </div>
       ) : null}

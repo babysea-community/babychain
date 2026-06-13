@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import '@/styles/globals.css';
 import { Inter, JetBrains_Mono } from 'next/font/google';
+import Script from 'next/script';
 
 const fontSans = Inter({
   subsets: ['latin'],
@@ -36,7 +37,10 @@ export const metadata: Metadata = {
     'creative-tools',
     'generative-ai',
     'generative-media',
-    'upstash',
+    'aws-aurora',
+    'vercel',
+    'react-flow',
+    'semantic-lady',
     'sentry',
   ],
   icons: {
@@ -78,6 +82,11 @@ export default function RootLayout({
   return (
     <html className="dark" lang="en">
       <body className={`${fontSans.variable} ${fontMono.variable} antialiased`}>
+        <Script
+          crossOrigin="anonymous"
+          src="https://kit.fontawesome.com/1b8aa472ce.js"
+          strategy="beforeInteractive"
+        />
         {children}
       </body>
     </html>

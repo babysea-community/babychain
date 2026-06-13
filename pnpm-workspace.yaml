@@ -11,8 +11,6 @@ catalog:
   '@types/pg': 8.15.6
   '@types/react': 19.2.14
   '@types/react-dom': 19.2.3
-  '@upstash/ratelimit': 2.0.8
-  '@upstash/redis': 1.38.0
   '@vitest/coverage-v8': 4.0.7
   '@xyflow/react': 12.11.0
   babysea: 2.0.0
@@ -23,7 +21,6 @@ catalog:
   eslint-config-next: 16.2.9
   globals: 17.6.0
   jose: 5.10.0
-  lucide-react: 0.575.0
   next: 16.2.6
   pg: 8.21.0
   prettier: 3.8.3

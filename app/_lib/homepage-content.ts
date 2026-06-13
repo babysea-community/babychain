@@ -1,19 +1,18 @@
-import {
-  Activity,
-  Cloud,
-  LayersPlus,
-  Command,
-  DatabaseZap,
-  GitFork,
-  FingerprintPattern,
-  ShieldCheck,
-  KeySquare,
-  KeyRound,
-} from 'lucide-react';
-
+import { createFontAwesomeIcon } from '@/components/icons/font-awesome-icon';
 import { InlineGitHub } from '@/components/icons/inline-git';
 import type { ModelChainCatalogEntry } from '@/lib/chains/catalog';
 import type { ModelCatalogEntry } from '@/lib/models/model-catalog';
+
+const ChartLine = createFontAwesomeIcon('chart-line');
+const Cloud = createFontAwesomeIcon('cloud');
+const LayerGroup = createFontAwesomeIcon('layer-group');
+const Terminal = createFontAwesomeIcon('terminal');
+const Database = createFontAwesomeIcon('database');
+const CodeFork = createFontAwesomeIcon('code-fork');
+const Fingerprint = createFontAwesomeIcon('fingerprint');
+const ShieldHalved = createFontAwesomeIcon('shield-halved');
+const Key = createFontAwesomeIcon('key');
+const Lock = createFontAwesomeIcon('lock');
 
 export const siteNavigation = {
   brand: 'BabyChain',
@@ -44,7 +43,7 @@ export const homepageHero = {
   actions: [
     {
       href: '/templates',
-      icon: LayersPlus,
+      icon: LayerGroup,
       label: 'Chain templates',
       variant: 'outline' as const,
     },
@@ -133,7 +132,7 @@ export const homepageHero = {
         status: 'under-development' as const,
       },
       {
-        href: 'https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fbabysea-community%2Fbabychain&project-name=babychain&repository-name=babychain&env=NEXT_PUBLIC_SITE_URL,OWNER_EMAIL,OWNER_PASSWORD,OWNER_SESSION_SECRET,DATABASE_URL,BABYCHAIN_API_KEY,BABYCHAIN_CRON_SECRET,BABYCHAIN_CALLBACK_SECRET,UPSTASH_REDIS_REST_URL,UPSTASH_REDIS_REST_TOKEN,BABYCHAIN_PROVIDER_MODE,BFL_API_KEY,BFL_REGION,BFL_API_BASE_URL,ARK_API_KEY,DASHSCOPE_API_KEY,GEMINI_API_KEY,OPENAI_API_KEY,RUNWAYML_API_SECRET',
+        href: 'https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fbabysea-community%2Fbabychain&project-name=babychain&repository-name=babychain&env=NEXT_PUBLIC_SITE_URL,OWNER_EMAIL,OWNER_PASSWORD,OWNER_SESSION_SECRET,DATABASE_URL,BABYCHAIN_API_KEY,BABYCHAIN_CRON_SECRET,BABYCHAIN_CALLBACK_SECRET,BABYCHAIN_PROVIDER_MODE,BFL_API_KEY,BFL_REGION,BFL_API_BASE_URL,ARK_API_KEY,DASHSCOPE_API_KEY,GEMINI_API_KEY,OPENAI_API_KEY,RUNWAYML_API_SECRET',
         label: 'Deploy on Vercel',
       },
     ],
@@ -159,14 +158,14 @@ export const providerModes = {
   modes: [
     {
       env: 'BABYCHAIN_PROVIDER_MODE=byok',
-      icon: KeySquare,
+      icon: Key,
       label: 'Direct inference access',
       text: 'Connect your inference provider credentials. Your BabyChain deployment owns model access, provider settings, and orchestration.',
       title: 'BYOK mode',
     },
     {
       env: 'BABYCHAIN_PROVIDER_MODE=babysea',
-      icon: KeyRound,
+      icon: Lock,
       label: 'Managed execution path',
       text: 'Use one BabySea API key for supported chain execution while keeping BabyChain routes, callbacks, and template contracts unchanged.',
       title: 'BabySea mode',
@@ -176,32 +175,32 @@ export const providerModes = {
 
 export const workflowNotes = [
   {
-    icon: GitFork,
+    icon: CodeFork,
     title: 'Chain templates',
     text: 'Each route defines step order, default models, dependencies, and the public run contract in the template layer.',
   },
   {
-    icon: FingerprintPattern,
+    icon: Fingerprint,
     title: 'Request contracts',
     text: 'Create-run requests are validated before execution so inputs, callbacks, and model overrides stay predictable.',
   },
   {
-    icon: Activity,
+    icon: ChartLine,
     title: 'Persistent runs',
     text: 'Runs, ordered steps, outputs, provider metadata, callbacks, and replay checks stay in server-side storage.',
   },
   {
-    icon: ShieldCheck,
+    icon: ShieldHalved,
     title: 'Credential isolation',
     text: 'Caller apps authenticate at your API boundary while provider BYOK credentials remain inside your backend.',
   },
   {
-    icon: DatabaseZap,
+    icon: Database,
     title: 'Output handoff',
     text: 'A successful generation output becomes the next model input without extra orchestration from the caller.',
   },
   {
-    icon: Command,
+    icon: Terminal,
     title: 'API control plane',
     text: 'Your deployment owns the orchestration API, queues, callbacks, and route contracts for products and tools.',
   },

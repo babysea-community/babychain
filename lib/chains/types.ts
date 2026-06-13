@@ -169,7 +169,6 @@ export type ApiKeyPrincipal = {
   apiKeyId: string | null;
   keyPrefix: string;
   name: string;
-  rateLimitPerMinute: number;
   scopes: string[];
 };
 

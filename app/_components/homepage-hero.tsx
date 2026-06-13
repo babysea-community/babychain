@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import type { ComponentType, SVGProps } from 'react';
-import { ArrowRight } from 'lucide-react';
 
+import { createFontAwesomeIcon } from '@/components/icons/font-awesome-icon';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -16,6 +16,8 @@ type HeroAction = {
   label: string;
   variant: 'default' | 'outline';
 };
+
+const ArrowRightIcon = createFontAwesomeIcon('arrow-right');
 
 export function HomepageHero({
   actions,
@@ -68,7 +70,7 @@ export function HomepageHero({
               <HomepageDeployMenu links={console.deployLinks ?? []} />
 
               {actions.map((action) => {
-                const Icon = action.icon ?? ArrowRight;
+                const Icon = action.icon ?? ArrowRightIcon;
 
                 return (
                   <Button
