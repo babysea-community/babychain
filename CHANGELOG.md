@@ -2,7 +2,7 @@
 
 All notable changes will be documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## Unreleased
+## [Unreleased]
 
 ## [0.1.1] - 2026-06-13
 
@@ -17,6 +17,7 @@ All notable changes will be documented here. The format follows [Keep a Changelo
 - Starting a run from the workspace now persists the workspace row before creating the run, so run tracking can be recorded and resumed after reload, logout/login, or a fast navigation even if the autosave interval has not fired yet.
 - Workspace "Run and save" now reuses each flow's Library canvas id after the first publish, so later publishes update the same Library card instead of creating duplicates.
 - Compact canvas action icons now center inside their square hover targets after the Font Awesome conversion.
+- Updated the BYOK schema catalog to `semantic-lady@0.2.2`, including documented Z-Image `7:9`/`9:7` ratios and BytePlus multimodal reference media roles.
 - The fresh Aurora schema no longer includes API-key rate-limit metadata because request limiting is handled by BabySea mode through the BabySea SDK and by provider inference limits in BYOK mode.
 
 ### Removed

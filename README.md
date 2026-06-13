@@ -17,7 +17,7 @@ Canvas studio and durable chain API for image and video model workflows with one
 <strong>Project details</strong>
 
 [![BabySea OSS Starter](https://custom-icon-badges.demolab.com/badge/oss-starter-2563EB?style=for-the-badge&logo=babysea&logoColor=white)](#babysea-oss-taxonomy)
-[![BabySea OSS Status Production](https://custom-icon-badges.demolab.com/badge/oss_status-production-C026D3?style=for-the-badge&logo=babysea&logoColor=white)](#status)
+[![BabySea OSS Status Production](https://custom-icon-badges.demolab.com/badge/status-production-C026D3?style=for-the-badge&logo=babysea&logoColor=white)](#status)
 [![License](https://custom-icon-badges.demolab.com/badge/license-apache_2.0-059669?style=for-the-badge&logo=apache&logoColor=white)](LICENSE)
 
 <br/>
@@ -40,7 +40,7 @@ Canvas studio and durable chain API for image and video model workflows with one
 [![React](https://img.shields.io/badge/react-53C1DE?style=for-the-badge&logo=react&logoColor=white)](https://react.dev)
 [![React Flow](https://custom-icon-badges.demolab.com/badge/react_flow-FF0073?style=for-the-badge&logo=react-flow-1)](https://reactflow.dev)
 [![BabySea](https://custom-icon-badges.demolab.com/badge/babysea-14B8A6?style=for-the-badge&logo=babysea&logoColor=white)](https://babysea.ai)
-[![Semantic Lady](https://custom-icon-badges.demolab.com/badge/semantic_lady-EC4899?style=for-the-badge&logo=semantic-lady&logoColor=white)](https://github.com/babysea-community/semantic-lady)
+[![Semantic Lady](https://custom-icon-badges.demolab.com/badge/semantic_lady-EC4899?style=for-the-badge&logo=semantic-lady)](https://github.com/babysea-community/semantic-lady)
 [![AWS Aurora](https://custom-icon-badges.demolab.com/badge/aws_aurora-3B46CA?style=for-the-badge&logo=aws-aurora&logoColor=white)](https://aws.amazon.com/rds/aurora)
 [![Vercel](https://custom-icon-badges.demolab.com/badge/vercel-000000?style=for-the-badge&logo=vercel&logoColor=white)](https://vercel.com)
 [![Sentry](https://img.shields.io/badge/sentry-181225?style=for-the-badge&logo=sentry&logoColor=white)](https://sentry.io)
@@ -81,9 +81,9 @@ BabySea open source projects are organized into three categories:
 
 BabySea OSS projects are published into three status levels:
 
-[![BabySea OSS Status Working](https://custom-icon-badges.demolab.com/badge/oss_status-working-DB2777?style=for-the-badge&logo=babysea&logoColor=white)](#status)
-[![BabySea OSS Status Production](https://custom-icon-badges.demolab.com/badge/oss_status-production-C026D3?style=for-the-badge&logo=babysea&logoColor=white)](#status)
-[![BabySea OSS Status Alpha](https://custom-icon-badges.demolab.com/badge/oss_status-alpha-D97706?style=for-the-badge&logo=babysea&logoColor=white)](#status)
+[![BabySea OSS Status Working](https://custom-icon-badges.demolab.com/badge/status-working-DB2777?style=for-the-badge&logo=babysea&logoColor=white)](#status)
+[![BabySea OSS Status Production](https://custom-icon-badges.demolab.com/badge/status-production-C026D3?style=for-the-badge&logo=babysea&logoColor=white)](#status)
+[![BabySea OSS Status Alpha](https://custom-icon-badges.demolab.com/badge/status-alpha-D97706?style=for-the-badge&logo=babysea&logoColor=white)](#status)
 
 | Status         | Description                                                                                                                                                                          |
 | :------------- | :----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |

@@ -2427,7 +2427,8 @@ describe('provider adapters', () => {
 
       expect(ratioField?.enum?.length).toBeGreaterThan(0);
 
-      for (const ratio of ratioField!.enum!) {
+      for (const ratioValue of ratioField!.enum!) {
+        const ratio = String(ratioValue);
         const body = await submitRatio({
           modelIdentifier: 'runway/gen4_image',
           ratio,
@@ -2446,7 +2447,8 @@ describe('provider adapters', () => {
 
       expect(ratioField?.enum?.length).toBeGreaterThan(0);
 
-      for (const ratio of ratioField!.enum!) {
+      for (const ratioValue of ratioField!.enum!) {
+        const ratio = String(ratioValue);
         const body = await submitRatio({
           modelIdentifier: 'runway/gen4_turbo',
           ratio,
