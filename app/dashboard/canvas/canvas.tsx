@@ -1883,6 +1883,18 @@ function normalizeStringArrayValue(value: unknown) {
     .filter(Boolean);
 }
 
+function normalizeInitialImageInputArrays(params: Record<string, unknown>) {
+  const inputFile = params.generation_input_file;
+  if (typeof inputFile === 'string') {
+    params.generation_input_file = [inputFile];
+  }
+
+  const inputImageFile = params.generation_input_image_file;
+  if (typeof inputImageFile === 'string') {
+    params.generation_input_image_file = [inputImageFile];
+  }
+}
+
 const CHAIN_WIRED_DOWNSTREAM_FIELDS = [
   'generation_input_file',
   'generation_input_file_last_content',
@@ -1919,14 +1931,7 @@ function buildFlowRunInput(
     );
 
     if (node.data.role === 'image') {
-      const inputFile = params.generation_input_file;
-      if (typeof inputFile === 'string') {
-        params.generation_input_file = [inputFile];
-      }
-      const inputImageFile = params.generation_input_image_file;
-      if (typeof inputImageFile === 'string') {
-        params.generation_input_image_file = [inputImageFile];
-      }
+      normalizeInitialImageInputArrays(params);
     } else {
       for (const key of CHAIN_WIRED_DOWNSTREAM_FIELDS) {
         delete params[key];
@@ -1940,9 +1945,258 @@ function buildFlowRunInput(
   return { flowNodes, input };
 }
 
+function buildFlowCurlInput(
+  nodes: FlowNode[],
+  flowId: string,
+  fieldsByModel: Record<string, FieldGroup | undefined>,
+) {
+  const flowNodes = nodes
+    .filter((node) => node.type === 'model' && node.data.flowId === flowId)
+    .sort((a, b) => ROLE_RANK[a.data.role] - ROLE_RANK[b.data.role]);
+  const chainModels: Record<string, unknown> = {};
+  const input: Record<string, unknown> = { chain_models: chainModels };
+
+  for (const node of flowNodes) {
+    const group = fieldsByModel[node.data.modelId];
+    const schemaFields = group
+      ? [...group.core, ...group.advanced].filter((field) =>
+          shouldRenderFieldForRole(field, node.data.role),
+        )
+      : [];
+    const liveParams = normalizeRunParams(compact(node.data.values), group);
+
+    if (node.data.role === 'image') {
+      normalizeInitialImageInputArrays(liveParams);
+    } else {
+      for (const key of CHAIN_WIRED_DOWNSTREAM_FIELDS) {
+        delete liveParams[key];
+      }
+    }
+
+    chainModels[`${node.data.role}_model`] = node.data.modelId;
+    input[`${node.data.role}_model_input`] = createSchemaCurlParams(
+      schemaFields,
+      liveParams,
+      promptValue(node.data.values) ?? '',
+    );
+  }
+
+  return input;
+}
+
+function createSchemaCurlParams(
+  fields: FieldSpec[],
+  liveParams: Record<string, unknown>,
+  preferredPrompt: string,
+) {
+  const params: Record<string, unknown> = {};
+
+  for (const field of fields) {
+    const liveValue = liveParams[field.name];
+
+    if (isMeaningfulCurlValue(liveValue)) {
+      params[field.name] = liveValue;
+      continue;
+    }
+
+    const schemaValue = createSchemaExample(field.schema, {
+      key: field.name,
+      preferredPrompt,
+    });
+
+    if (schemaValue !== undefined) {
+      params[field.name] = schemaValue;
+    }
+  }
+
+  return params;
+}
+
+function createSchemaExample(
+  schema: unknown,
+  context: { key?: string; preferredPrompt: string },
+): unknown {
+  if (!isJsonObject(schema)) {
+    return undefined;
+  }
+
+  const type = getPreferredSchemaType(schema.type);
+
+  if ('default' in schema) {
+    if (isValidSchemaExample(schema.default, schema, type)) {
+      return schema.default;
+    }
+  }
+
+  if ('const' in schema) {
+    return schema.const;
+  }
+
+  const examples = Array.isArray(schema.examples) ? schema.examples : [];
+
+  if (examples.length > 0) {
+    const example = examples.find((value) =>
+      isValidSchemaExample(value, schema, type),
+    );
+
+    if (example !== undefined) {
+      return example;
+    }
+  }
+
+  const variants = [schema.oneOf, schema.anyOf].flatMap((value) =>
+    Array.isArray(value) ? value : [],
+  );
+
+  if (variants.length > 0) {
+    return createSchemaExample(variants[0], context);
+  }
+
+  if (context.key && isPromptLikeKey(context.key)) {
+    return context.preferredPrompt;
+  }
+
+  if (type === 'array') {
+    const item = createSchemaExample(schema.items, context);
+
+    return item === undefined ? undefined : [item];
+  }
+
+  if (type === 'object' || isJsonObject(schema.properties)) {
+    const properties = isJsonObject(schema.properties) ? schema.properties : {};
+
+    return Object.fromEntries(
+      Object.entries(properties).flatMap(([key, propertySchema]) => {
+        const value = createSchemaExample(propertySchema, {
+          ...context,
+          key,
+        });
+
+        return value === undefined ? [] : [[key, value]];
+      }),
+    );
+  }
+
+  if (type === 'string' && context.key && isSourceImageInputKey(context.key)) {
+    return 'https://example.com/source-image.png';
+  }
+
+  return undefined;
+}
+
+function getPreferredSchemaType(type: unknown) {
+  const types = Array.isArray(type) ? type : [type];
+
+  return (
+    types.find((value) => value !== 'null' && typeof value === 'string') ??
+    'object'
+  );
+}
+
+function isValidSchemaExample(
+  value: unknown,
+  schema: Record<string, unknown>,
+  type: string,
+) {
+  if (value === null || value === undefined) {
+    return false;
+  }
+
+  if ('const' in schema) {
+    return value === schema.const;
+  }
+
+  if (Array.isArray(schema.enum)) {
+    return schema.enum.includes(value);
+  }
+
+  const variants = [schema.oneOf, schema.anyOf].flatMap((variant) =>
+    Array.isArray(variant) ? variant : [],
+  );
+
+  if (variants.length > 0) {
+    return variants.some((variant): boolean => {
+      if (!isJsonObject(variant)) {
+        return false;
+      }
+
+      return isValidSchemaExample(
+        value,
+        variant,
+        getPreferredSchemaType(variant.type),
+      );
+    });
+  }
+
+  if (type === 'integer' || type === 'number') {
+    if (typeof value !== 'number' || !Number.isFinite(value)) {
+      return false;
+    }
+
+    if (type === 'integer' && !Number.isInteger(value)) {
+      return false;
+    }
+
+    if (typeof schema.minimum === 'number' && value < schema.minimum) {
+      return false;
+    }
+
+    if (typeof schema.maximum === 'number' && value > schema.maximum) {
+      return false;
+    }
+
+    return true;
+  }
+
+  if (type === 'string') {
+    return typeof value === 'string';
+  }
+
+  if (type === 'boolean') {
+    return typeof value === 'boolean';
+  }
+
+  if (type === 'array') {
+    return Array.isArray(value);
+  }
+
+  return true;
+}
+
+function isPromptLikeKey(key: string) {
+  const normalized = key.toLowerCase();
+
+  return (
+    normalized !== 'image_prompt' &&
+    (normalized === 'prompt' ||
+      normalized === 'prompttext' ||
+      normalized === 'prompt_text' ||
+      normalized === 'text' ||
+      normalized.endsWith('_prompt'))
+  );
+}
+
+function isSourceImageInputKey(key: string) {
+  return (
+    key === 'generation_input_file' || key === 'generation_input_image_file'
+  );
+}
+
+function isMeaningfulCurlValue(value: unknown) {
+  if (value === undefined || value === null || value === '') {
+    return false;
+  }
+
+  return !(Array.isArray(value) && value.length === 0);
+}
+
+function isJsonObject(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+}
+
 function createNodeCurl(input: Record<string, unknown>) {
   const body = {
-    input: createNodeCurlInput(input),
+    input,
     metadata: {
       client_reference_id: 'your-unique-metadata',
     },
@@ -1958,27 +2212,6 @@ function createNodeCurl(input: Record<string, unknown>) {
   ];
 
   return lines.join(lineContinuation());
-}
-
-function createNodeCurlInput(input: Record<string, unknown>) {
-  const chainModels: Record<string, unknown> = {};
-  const output: Record<string, unknown> = { chain_models: chainModels };
-
-  for (const role of ['image', 'refine', 'video', 'modify'] as const) {
-    const modelKey = `${role}_model`;
-    const inputKey = `${role}_model_input`;
-    const model = input[modelKey];
-
-    if (typeof model === 'string' && model.trim()) {
-      chainModels[modelKey] = model;
-    }
-
-    if (inputKey in input) {
-      output[inputKey] = input[inputKey];
-    }
-  }
-
-  return output;
 }
 
 function lineContinuation() {
@@ -3098,7 +3331,7 @@ function CanvasInner(props: CanvasProps) {
       duplicateFlow,
       createFlowCurl: (flowId: string) => {
         try {
-          const { input } = buildFlowRunInput(
+          const input = buildFlowCurlInput(
             nodesRef.current,
             flowId,
             fieldsRef.current,
