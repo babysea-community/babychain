@@ -1430,7 +1430,10 @@ function ModelNodeComponent({ id, data }: NodeProps) {
                   type="button"
                   aria-expanded={schemaOpen}
                   onClick={() => setSchemaOpen((open) => !open)}
-                  className="nodrag flex w-full items-center justify-between gap-3 border-b border-border px-2.5 py-1.5 text-left font-mono text-[0.7rem] font-medium uppercase tracking-wide text-muted-foreground transition hover:text-foreground"
+                  className={cn(
+                    'nodrag flex w-full items-center justify-between gap-3 px-2.5 py-1.5 text-left font-mono text-[0.7rem] font-medium uppercase tracking-wide text-muted-foreground transition hover:text-foreground',
+                    schemaOpen && 'border-b border-border',
+                  )}
                 >
                   <span>JSON Schema</span>
                   <FontAwesomeIcon
@@ -1544,7 +1547,10 @@ function CurlNodeComponent({ data }: NodeProps) {
             aria-expanded={open}
             disabled={!curlText}
             onClick={() => setOpen((value) => !value)}
-            className="nodrag flex w-full items-center justify-between gap-3 border-b border-border px-2.5 py-1.5 text-left font-mono text-[0.7rem] font-medium uppercase tracking-wide text-muted-foreground transition hover:text-foreground disabled:opacity-50"
+            className={cn(
+              'nodrag flex w-full items-center justify-between gap-3 px-2.5 py-1.5 text-left font-mono text-[0.7rem] font-medium uppercase tracking-wide text-muted-foreground transition hover:text-foreground disabled:opacity-50',
+              open && 'border-b border-border',
+            )}
           >
             <span>cURL</span>
             <FontAwesomeIcon

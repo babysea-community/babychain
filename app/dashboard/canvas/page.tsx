@@ -24,6 +24,7 @@ import {
   isImageInputCapableModel,
   isImageToVideoChainModel,
   isVideoToVideoChainModel,
+  semanticFieldJsonSchema,
 } from '@/lib/models/semantic-schema';
 import { BabyChainError } from '@/lib/utils/errors';
 import { getBabyChainApiKeys } from '@/lib/utils/env';
@@ -203,69 +204,6 @@ function semanticFieldSpec(field: {
   }
 
   return null;
-}
-
-function semanticFieldJsonSchema(field: {
-  default?: unknown;
-  enum?: readonly (number | string)[];
-  max?: number;
-  min?: number;
-  type: string;
-}) {
-  const schema: Record<string, unknown> = {
-    type: semanticJsonType(field.type),
-  };
-
-  if (field.enum && field.enum.length > 0) {
-    schema.enum = [...field.enum];
-  }
-
-  if (field.default !== undefined) {
-    schema.default = field.default;
-  }
-
-  if (typeof field.min === 'number') {
-    schema.minimum = field.min;
-  }
-
-  if (typeof field.max === 'number') {
-    schema.maximum = field.max;
-  }
-
-  if (field.type === 'integer') {
-    schema.type = 'integer';
-  }
-
-  if (field.type === 'url-array' || field.type === 'string-array') {
-    schema.items = {
-      type: 'string',
-      ...(field.type === 'url-array' ? { format: 'uri' } : {}),
-    };
-  }
-
-  if (field.type === 'url') {
-    schema.format = 'uri';
-  }
-
-  return schema;
-}
-
-function semanticJsonType(type: string) {
-  switch (type) {
-    case 'boolean':
-      return 'boolean';
-    case 'integer':
-      return 'integer';
-    case 'number':
-      return 'number';
-    case 'object':
-      return 'object';
-    case 'string-array':
-    case 'url-array':
-      return 'array';
-    default:
-      return 'string';
-  }
 }
 
 function selectOptions(values: readonly (string | number)[]) {

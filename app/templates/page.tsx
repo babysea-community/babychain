@@ -10,15 +10,13 @@ import { canModifyVideoOutput } from '@/lib/chains/catalog';
 import { formatPublicModelName } from '@/lib/models/display';
 import { listModelCatalog } from '@/lib/models/model-library';
 import {
-  getSemanticModelSchemaFields,
+  createSemanticRequestSchema,
   isImageInputCapableModel,
   isImageToVideoChainModel,
   isVideoToVideoChainModel,
 } from '@/lib/models/semantic-schema';
 
 import { TemplateDetailClient } from './template-detail-client';
-
-type JsonObject = Record<string, unknown>;
 
 export const metadata: Metadata = {
   title: 'Templates',
@@ -88,84 +86,6 @@ function createModelRequestSchemas() {
       createSemanticRequestSchema(model.modelIdentifier),
     ]),
   );
-}
-
-function createSemanticRequestSchema(modelIdentifier: string): JsonObject {
-  const fields = getSemanticModelSchemaFields(modelIdentifier) ?? [];
-  const required = fields
-    .filter((field) => field.required)
-    .map((field) => field.name);
-
-  return {
-    type: 'object',
-    ...(required.length > 0 ? { required } : {}),
-    properties: Object.fromEntries(
-      fields.map((field) => [field.name, semanticFieldJsonSchema(field)]),
-    ),
-  };
-}
-
-function semanticFieldJsonSchema(field: {
-  default?: unknown;
-  enum?: readonly (number | string)[];
-  max?: number;
-  min?: number;
-  type: string;
-}) {
-  const schema: JsonObject = {
-    type: semanticJsonType(field.type),
-  };
-
-  if (field.enum && field.enum.length > 0) {
-    schema.enum = [...field.enum];
-  }
-
-  if (field.default !== undefined) {
-    schema.default = field.default;
-  }
-
-  if (typeof field.min === 'number') {
-    schema.minimum = field.min;
-  }
-
-  if (typeof field.max === 'number') {
-    schema.maximum = field.max;
-  }
-
-  if (field.type === 'integer') {
-    schema.type = 'integer';
-  }
-
-  if (field.type === 'url-array' || field.type === 'string-array') {
-    schema.items = {
-      type: 'string',
-      ...(field.type === 'url-array' ? { format: 'uri' } : {}),
-    };
-  }
-
-  if (field.type === 'url') {
-    schema.format = 'uri';
-  }
-
-  return schema;
-}
-
-function semanticJsonType(type: string) {
-  switch (type) {
-    case 'boolean':
-      return 'boolean';
-    case 'integer':
-      return 'integer';
-    case 'number':
-      return 'number';
-    case 'object':
-      return 'object';
-    case 'string-array':
-    case 'url-array':
-      return 'array';
-    default:
-      return 'string';
-  }
 }
 
 function sortedIdentifiers(models: Array<{ modelIdentifier: string }>) {

@@ -2,9 +2,11 @@ import { describe, expect, it } from 'vitest';
 
 import {
   assertByokGenerationFields,
+  createSemanticRequestSchema,
   findByokGenerationFieldIssue,
   getSemanticModel,
   getSemanticModelSchemaFields,
+  semanticFieldJsonSchema,
 } from '@/lib/models/semantic-schema';
 import { listRegisteredModels } from '@/lib/models/model-library';
 import { BabyChainError } from '@/lib/utils/errors';
@@ -28,6 +30,22 @@ describe('semantic-lady BYOK schema core', () => {
     expect(fields!.every((field) => field.name.startsWith('generation_'))).toBe(
       true,
     );
+  });
+
+  it('builds request schemas from the shared field schema helper', () => {
+    const fields = getSemanticModelSchemaFields('bfl/flux-2-pro');
+    const schema = createSemanticRequestSchema('bfl/flux-2-pro');
+    const properties = schema.properties as Record<string, unknown>;
+
+    expect(fields).not.toBeNull();
+    expect(schema.type).toBe('object');
+    expect(schema.required).toEqual(
+      fields!.filter((field) => field.required).map((field) => field.name),
+    );
+
+    for (const field of fields!) {
+      expect(properties[field.name]).toEqual(semanticFieldJsonSchema(field));
+    }
   });
 
   it('accepts valid generation_* fields', () => {
