@@ -1037,16 +1037,31 @@ function createModelSchemaViews(
   entry: TemplatePageEntry,
   modelRequestSchemas: ModelRequestSchemas,
 ): ModelSchemaView[] {
-  return Array.from(new Set(entry.modelIdentifiers)).map((modelIdentifier) => {
+  const seen = new Set<string>();
+  const views: ModelSchemaView[] = [];
+
+  // Models are ordered image -> refine -> video -> modify. Only the first
+  // image model takes a user-supplied image; every downstream model is wired
+  // the previous step's output, so its chain-wired image/video input fields
+  // are hidden from the published schema.
+  entry.modelIdentifiers.forEach((modelIdentifier, index) => {
+    if (seen.has(modelIdentifier)) {
+      return;
+    }
+
+    seen.add(modelIdentifier);
+
     const schema = modelRequestSchemas[modelIdentifier] ?? {};
     const label = formatPublicModelName(modelIdentifier);
 
-    return {
+    views.push({
       label,
       modelIdentifier,
-      schema: createSchemaJson(label, modelIdentifier, schema),
-    };
+      schema: createSchemaJson(label, modelIdentifier, schema, index > 0),
+    });
   });
+
+  return views;
 }
 
 function createSchemaCopyText(schema: ModelSchemaView) {
@@ -1057,15 +1072,19 @@ function createSchemaJson(
   label: string,
   modelIdentifier: string,
   schema: JsonObject,
+  excludeChainWiredImageInputs: boolean,
 ): JsonObject {
   return {
     model: label,
     model_identifier: modelIdentifier,
-    schema: createInferenceSchema(schema),
+    schema: createInferenceSchema(schema, excludeChainWiredImageInputs),
   };
 }
 
-function createInferenceSchema(schema: JsonObject): JsonObject {
+function createInferenceSchema(
+  schema: JsonObject,
+  excludeChainWiredImageInputs: boolean,
+): JsonObject {
   const required = new Set(
     Array.isArray(schema.required)
       ? schema.required.filter(
@@ -1078,7 +1097,7 @@ function createInferenceSchema(schema: JsonObject): JsonObject {
   let order = 0;
 
   for (const [key, propertySchema] of Object.entries(properties)) {
-    if (MODEL_SCHEMA_KEYS_HANDLED_BY_BABYCHAIN.has(key)) {
+    if (isOmittedInferenceSchemaKey(key, excludeChainWiredImageInputs)) {
       continue;
     }
 
@@ -1095,12 +1114,24 @@ function createInferenceSchema(schema: JsonObject): JsonObject {
     ...(required.size > 0
       ? {
           required: Array.from(required).filter(
-            (key) => !MODEL_SCHEMA_KEYS_HANDLED_BY_BABYCHAIN.has(key),
+            (key) =>
+              !isOmittedInferenceSchemaKey(key, excludeChainWiredImageInputs),
           ),
         }
       : {}),
     properties: orderedSchema,
   };
+}
+
+function isOmittedInferenceSchemaKey(
+  key: string,
+  excludeChainWiredImageInputs: boolean,
+) {
+  if (MODEL_SCHEMA_KEYS_HANDLED_BY_BABYCHAIN.has(key)) {
+    return true;
+  }
+
+  return excludeChainWiredImageInputs && CHAIN_WIRED_IMAGE_INPUT_KEYS.has(key);
 }
 
 function normalizeInferenceSchemaProperty(

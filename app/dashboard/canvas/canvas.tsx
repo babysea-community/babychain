@@ -1223,7 +1223,11 @@ function ModelNodeComponent({ id, data }: NodeProps) {
   }, [liveGroup]);
   const group = liveGroup ?? stickyGroup;
   const loading = !liveGroup;
-  const schemaFields = group ? [...group.core, ...group.advanced] : [];
+  const schemaFields = group
+    ? [...group.core, ...group.advanced].filter((field) =>
+        shouldRenderFieldForRole(field, role),
+      )
+    : [];
   const schemaJson = group
     ? createNodeSchemaJson({
         fields: schemaFields,
