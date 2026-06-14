@@ -48,6 +48,24 @@ describe('semantic-lady BYOK schema core', () => {
     }
   });
 
+  it('never exposes a schema field name as its own default value', () => {
+    for (const modelIdentifier of listRegisteredModels()) {
+      const fields = getSemanticModelSchemaFields(modelIdentifier);
+
+      expect(fields, modelIdentifier).not.toBeNull();
+
+      for (const field of fields!) {
+        expect(field.default, `${modelIdentifier}.${field.name}`).not.toBe(
+          field.name,
+        );
+        expect(
+          semanticFieldJsonSchema(field).default,
+          `${modelIdentifier}.${field.name}`,
+        ).not.toBe(field.name);
+      }
+    }
+  });
+
   it('accepts valid generation_* fields', () => {
     expect(
       findByokGenerationFieldIssue('bfl/flux-2-pro', {

@@ -1952,7 +1952,7 @@ function buildFlowRunInput(
 
 function createNodeCurl(input: Record<string, unknown>) {
   const body = {
-    input,
+    input: createNodeCurlInput(input),
     metadata: {
       client_reference_id: 'your-unique-metadata',
     },
@@ -1970,6 +1970,27 @@ function createNodeCurl(input: Record<string, unknown>) {
   return `${lines.join(lineContinuation())}
 ${JSON.stringify(body, null, 2)}
 JSON`;
+}
+
+function createNodeCurlInput(input: Record<string, unknown>) {
+  const chainModels: Record<string, unknown> = {};
+  const output: Record<string, unknown> = { chain_models: chainModels };
+
+  for (const role of ['image', 'refine', 'video', 'modify'] as const) {
+    const modelKey = `${role}_model`;
+    const inputKey = `${role}_model_input`;
+    const model = input[modelKey];
+
+    if (typeof model === 'string' && model.trim()) {
+      chainModels[modelKey] = model;
+    }
+
+    if (inputKey in input) {
+      output[inputKey] = input[inputKey];
+    }
+  }
+
+  return output;
 }
 
 function lineContinuation() {

@@ -433,6 +433,20 @@ const SHELL_EXACT_TOKEN_TONES = new Map<string, CodeTokenTone>([
 const JSON_LITERAL_TOKENS = new Set(['true', 'false', 'null']);
 
 function highlightCurlCode(code: string) {
+  const heredocMarker = "<<'JSON'\n";
+  const heredocStart = code.indexOf(heredocMarker);
+
+  if (heredocStart !== -1 && code.endsWith('\nJSON')) {
+    const jsonStart = heredocStart + heredocMarker.length;
+    const jsonEnd = code.length - '\nJSON'.length;
+
+    return [
+      ...highlightShellCode(code.slice(0, jsonStart), 'curl-shell'),
+      ...highlightJsonCode(code.slice(jsonStart, jsonEnd), 'curl-json'),
+      ...highlightShellCode(code.slice(jsonEnd), 'curl-tail'),
+    ];
+  }
+
   const dataMarker = "--data '";
   const dataStart = code.indexOf(dataMarker);
 
@@ -927,12 +941,22 @@ function createRunCurl(
   entry: TemplatePageEntry,
   modelRequestSchemas: ModelRequestSchemas,
 ) {
-  return `curl --request POST \\
-  --url "$NEXT_PUBLIC_SITE_URL/api/v1/chains/runs" \\
-  --header "Authorization: Bearer $BABYCHAIN_API_KEY" \\
-  --header "Content-Type: application/json" \\
-  --header "Idempotency-Key: ${IDEMPOTENCY_KEY_PLACEHOLDER}" \\
-  --data '${JSON.stringify(createRunRequest(entry, modelRequestSchemas), null, 2)}'`;
+  const lines = [
+    'curl --request POST',
+    '  --url "$NEXT_PUBLIC_SITE_URL/api/v1/chains/runs"',
+    '  --header "Authorization: Bearer $BABYCHAIN_API_KEY"',
+    '  --header "Content-Type: application/json"',
+    `  --header "Idempotency-Key: ${IDEMPOTENCY_KEY_PLACEHOLDER}"`,
+    "  --data @- <<'JSON'",
+  ];
+
+  return `${lines.join(lineContinuation())}
+${JSON.stringify(createRunRequest(entry, modelRequestSchemas), null, 2)}
+JSON`;
+}
+
+function lineContinuation() {
+  return ` ${String.fromCharCode(92)}\n`;
 }
 
 function createHeroSubmissionUrl(entry: TemplatePageEntry) {
@@ -1386,15 +1410,17 @@ function createStepParams({
   const schema = modelRequestSchemas[modelIdentifier];
 
   if (!schema) {
-    return { prompt: preferredPrompt };
+    return {};
   }
 
-  return createSchemaExample(schema, {
+  const example = createSchemaExample(schema, {
     excludedKeys: excludeChainWiredImageInputs
       ? MODEL_SCHEMA_KEYS_OMITTED_FROM_DOWNSTREAM_EXAMPLES
       : MODEL_SCHEMA_KEYS_HANDLED_BY_BABYCHAIN,
     preferredPrompt,
   });
+
+  return isJsonObject(example) ? example : {};
 }
 
 const MODEL_SCHEMA_KEYS_HANDLED_BY_BABYCHAIN = new Set([
@@ -1439,8 +1465,6 @@ const MODEL_SCHEMA_KEYS_OMITTED_FROM_DOWNSTREAM_EXAMPLES = new Set([
   ...CHAIN_WIRED_IMAGE_INPUT_KEYS,
 ]);
 
-const DEFAULT_NEGATIVE_PROMPT = 'blur, distorted details, noise';
-
 function createSchemaExample(
   schema: unknown,
   context: {
@@ -1465,13 +1489,6 @@ function createSchemaExample(
     return schema.const;
   }
 
-  const enumValues = Array.isArray(schema.enum) ? schema.enum : [];
-  const firstEnumValue = enumValues.find((value) => value !== null);
-
-  if (firstEnumValue !== undefined) {
-    return firstEnumValue;
-  }
-
   const examples = Array.isArray(schema.examples) ? schema.examples : [];
 
   if (examples.length > 0) {
@@ -1492,12 +1509,8 @@ function createSchemaExample(
     return createSchemaExample(variants[0], context);
   }
 
-  if (context.key && isNegativePromptLikeKey(context.key)) {
-    return DEFAULT_NEGATIVE_PROMPT;
-  }
-
   if (context.key && isPromptLikeKey(context.key)) {
-    return context.preferredPrompt;
+    return context.preferredPrompt || undefined;
   }
 
   if (type === 'object' || isJsonObject(schema.properties)) {
@@ -1508,38 +1521,24 @@ function createSchemaExample(
         .filter(
           ([key]) => !isExcludedSchemaExampleKey(key, context.excludedKeys),
         )
-        .map(([key, propertySchema]) => [
-          key,
-          createSchemaExample(propertySchema, { ...context, key }),
-        ]),
+        .flatMap(([key, propertySchema]) => {
+          const value = createSchemaExample(propertySchema, {
+            ...context,
+            key,
+          });
+
+          return value === undefined ? [] : [[key, value]];
+        }),
     );
   }
 
   if (type === 'array') {
-    return [createSchemaExample(schema.items, context)];
+    const item = createSchemaExample(schema.items, context);
+
+    return item === undefined ? undefined : [item];
   }
 
-  if (type === 'integer' || type === 'number') {
-    return typeof schema.minimum === 'number' ? schema.minimum : 1;
-  }
-
-  if (type === 'boolean') {
-    return false;
-  }
-
-  if (context.key && isPathLikeKey(context.key)) {
-    return 'inputs/source-image.png';
-  }
-
-  if (context.key && isCallbackUrlLikeKey(context.key)) {
-    return WEBHOOK_URL;
-  }
-
-  if (context.key && isUrlLikeKey(context.key)) {
-    return 'https://example.com/source-file.png';
-  }
-
-  return context.key ?? 'value';
+  return undefined;
 }
 
 function isExcludedSchemaExampleKey(key: string, excludedKeys: Set<string>) {
@@ -1670,30 +1669,6 @@ function isPromptLikeKey(key: string) {
       normalized === 'text' ||
       normalized.endsWith('_prompt'))
   );
-}
-
-function isNegativePromptLikeKey(key: string) {
-  return key === 'negative_prompt' || key.endsWith('_negative_prompt');
-}
-
-function isUrlLikeKey(key: string) {
-  return (
-    key === 'image' ||
-    key === 'images' ||
-    key === 'image_prompt' ||
-    /^input_image(?:_\d+)?$/.test(key) ||
-    key === 'url' ||
-    key.endsWith('_url') ||
-    key.endsWith('_image')
-  );
-}
-
-function isPathLikeKey(key: string) {
-  return key.endsWith('_path');
-}
-
-function isCallbackUrlLikeKey(key: string) {
-  return key === 'callback_url' || key === 'webhook_url';
 }
 
 function stringValue(value: unknown, fallback: string) {
