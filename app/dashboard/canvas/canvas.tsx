@@ -948,20 +948,6 @@ function NodeCurlBlock({ value }: { value: string }) {
 }
 
 function highlightCurlCode(code: string) {
-  const heredocMarker = "<<'JSON'\n";
-  const heredocStart = code.indexOf(heredocMarker);
-
-  if (heredocStart !== -1 && code.endsWith('\nJSON')) {
-    const jsonStart = heredocStart + heredocMarker.length;
-    const jsonEnd = code.length - '\nJSON'.length;
-
-    return [
-      ...highlightShellCode(code.slice(0, jsonStart), 'node-curl-shell'),
-      ...highlightJsonCode(code.slice(jsonStart, jsonEnd), 'node-curl-json'),
-      ...highlightShellCode(code.slice(jsonEnd), 'node-curl-tail'),
-    ];
-  }
-
   const dataMarker = "--data '";
   const dataStart = code.indexOf(dataMarker);
 
@@ -1964,12 +1950,10 @@ function createNodeCurl(input: Record<string, unknown>) {
     '  --header "Authorization: Bearer $BABYCHAIN_API_KEY"',
     '  --header "Content-Type: application/json"',
     '  --header "Idempotency-Key: your-unique-idempotency-key"',
-    "  --data @- <<'JSON'",
+    `  --data '${JSON.stringify(body, null, 2)}'`,
   ];
 
-  return `${lines.join(lineContinuation())}
-${JSON.stringify(body, null, 2)}
-JSON`;
+  return lines.join(lineContinuation());
 }
 
 function createNodeCurlInput(input: Record<string, unknown>) {

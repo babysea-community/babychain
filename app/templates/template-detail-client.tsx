@@ -433,20 +433,6 @@ const SHELL_EXACT_TOKEN_TONES = new Map<string, CodeTokenTone>([
 const JSON_LITERAL_TOKENS = new Set(['true', 'false', 'null']);
 
 function highlightCurlCode(code: string) {
-  const heredocMarker = "<<'JSON'\n";
-  const heredocStart = code.indexOf(heredocMarker);
-
-  if (heredocStart !== -1 && code.endsWith('\nJSON')) {
-    const jsonStart = heredocStart + heredocMarker.length;
-    const jsonEnd = code.length - '\nJSON'.length;
-
-    return [
-      ...highlightShellCode(code.slice(0, jsonStart), 'curl-shell'),
-      ...highlightJsonCode(code.slice(jsonStart, jsonEnd), 'curl-json'),
-      ...highlightShellCode(code.slice(jsonEnd), 'curl-tail'),
-    ];
-  }
-
   const dataMarker = "--data '";
   const dataStart = code.indexOf(dataMarker);
 
@@ -947,12 +933,10 @@ function createRunCurl(
     '  --header "Authorization: Bearer $BABYCHAIN_API_KEY"',
     '  --header "Content-Type: application/json"',
     `  --header "Idempotency-Key: ${IDEMPOTENCY_KEY_PLACEHOLDER}"`,
-    "  --data @- <<'JSON'",
+    `  --data '${JSON.stringify(createRunRequest(entry, modelRequestSchemas), null, 2)}'`,
   ];
 
-  return `${lines.join(lineContinuation())}
-${JSON.stringify(createRunRequest(entry, modelRequestSchemas), null, 2)}
-JSON`;
+  return lines.join(lineContinuation());
 }
 
 function lineContinuation() {
@@ -1538,11 +1522,21 @@ function createSchemaExample(
     return item === undefined ? undefined : [item];
   }
 
+  if (type === 'string' && context.key && isSourceImageInputKey(context.key)) {
+    return 'https://example.com/source-image.png';
+  }
+
   return undefined;
 }
 
 function isExcludedSchemaExampleKey(key: string, excludedKeys: Set<string>) {
   return excludedKeys.has(key);
+}
+
+function isSourceImageInputKey(key: string) {
+  return (
+    key === 'generation_input_file' || key === 'generation_input_image_file'
+  );
 }
 
 function getPreferredSchemaType(type: unknown) {
