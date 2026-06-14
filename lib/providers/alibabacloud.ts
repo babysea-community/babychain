@@ -64,6 +64,64 @@ const VIDEO_GENERATION_MODELS = new Set([
   'wan2.7-videoedit',
 ]);
 
+const VIDEO_PARAMETER_KEYS_BY_MODEL: Record<string, readonly string[]> = {
+  'happyhorse-1.0-t2v': [
+    'duration',
+    'ratio',
+    'resolution',
+    'seed',
+    'watermark',
+  ],
+  'happyhorse-1.0-i2v': ['duration', 'resolution', 'seed', 'watermark'],
+  'happyhorse-1.0-r2v': [
+    'duration',
+    'ratio',
+    'resolution',
+    'seed',
+    'watermark',
+  ],
+  'happyhorse-1.0-video-edit': [
+    'audio_setting',
+    'resolution',
+    'seed',
+    'watermark',
+  ],
+  'wan2.7-t2v': [
+    'duration',
+    'prompt_extend',
+    'ratio',
+    'resolution',
+    'seed',
+    'watermark',
+  ],
+  'wan2.7-i2v-2026-04-25': [
+    'duration',
+    'prompt_extend',
+    'resolution',
+    'seed',
+    'watermark',
+  ],
+  'wan2.7-r2v': [
+    'duration',
+    'prompt_extend',
+    'ratio',
+    'resolution',
+    'seed',
+    'watermark',
+  ],
+  'wan2.7-videoedit': [
+    'audio_setting',
+    'duration',
+    'prompt_extend',
+    'ratio',
+    'resolution',
+    'seed',
+    'watermark',
+  ],
+};
+
+const ANIMATE_PARAMETER_KEYS = new Set(['check_image', 'mode']);
+
 const ANIMATE_IMAGE_TO_VIDEO_MODELS = new Set([
   'wan2.2-animate-mix',
   'wan2.2-animate-move',
@@ -292,20 +350,46 @@ function buildSubmitBody(args: {
   const input = readJsonObject(args.params.input);
   const parameters = readJsonObject(args.params.parameters);
   const generationPrompt = readNonEmptyString(args.params.generation_prompt);
-  const inputFiles = collectStringValues(args.params.generation_input_file);
-  const lastFrameFiles = collectStringValues(
-    args.params.generation_input_file_last_content,
+  const handoffFiles = collectStringValues(args.params.generation_input_file);
+  const imageFiles = collectStringValues(
+    args.params.generation_input_image_file,
+  );
+  const videoFiles = collectStringValues(
+    args.params.generation_input_video_file,
+  );
+  const audioFiles = collectStringValues(
+    args.params.generation_input_audio_file,
+  );
+  const inputFiles = [...handoffFiles, ...imageFiles, ...videoFiles];
+  const lastFrameFiles = [
+    ...collectStringValues(
+      args.params.generation_input_image_file_last_content,
+    ),
+    ...collectStringValues(args.params.generation_input_file_last_content),
+  ];
+  const negativePrompt = readNonEmptyString(
+    args.params.generation_negative_prompt,
+  );
+  const mediaRole = readNonEmptyString(args.params.generation_media_role);
+  const referenceVoice = readNonEmptyString(
+    args.params.generation_reference_voice_file,
   );
 
   if (args.route.protocol === 'multimodal') {
     mergeMultimodalInput(input, generationPrompt, inputFiles);
   } else if (args.route.protocol === 'video') {
     mergeVideoInput({
+      audioFiles,
+      handoffFiles,
+      imageFiles,
       input,
-      model: args.model,
-      prompt: generationPrompt,
-      inputFiles,
       lastFrameFiles,
+      mediaRole,
+      model: args.model,
+      negativePrompt,
+      prompt: generationPrompt,
+      referenceVoice,
+      videoFiles,
     });
   } else if (args.route.protocol === 'animate_image_to_video') {
     mergeAnimateImageToVideoInput({
@@ -388,41 +472,100 @@ function mergeImageTaskInput(args: {
 }
 
 function mergeVideoInput(args: {
+  audioFiles: string[];
+  handoffFiles: string[];
+  imageFiles: string[];
   input: JsonObject;
-  model: string;
-  prompt: string | null;
-  inputFiles: string[];
   lastFrameFiles: string[];
+  mediaRole: string | null;
+  model: string;
+  negativePrompt: string | null;
+  prompt: string | null;
+  referenceVoice: string | null;
+  videoFiles: string[];
 }) {
   if (args.prompt && args.input.prompt === undefined) {
     args.input.prompt = args.prompt;
   }
 
-  if (args.input.media !== undefined || args.inputFiles.length === 0) {
+  if (args.negativePrompt && args.input.negative_prompt === undefined) {
+    args.input.negative_prompt = args.negativePrompt;
+  }
+
+  if (
+    args.model === 'wan2.7-t2v' &&
+    args.audioFiles[0] &&
+    args.input.audio_url === undefined
+  ) {
+    args.input.audio_url = args.audioFiles[0];
+  }
+
+  if (args.input.media !== undefined) {
     return;
   }
 
   const media: JsonObject[] = [];
 
   if (isVideoEditModel(args.model)) {
-    const [videoFile, ...referenceFiles] = args.inputFiles;
+    const videoFile = args.videoFiles[0] ?? args.handoffFiles[0];
+    const referenceFiles = [
+      ...args.imageFiles,
+      ...(args.videoFiles[0] ? args.handoffFiles : args.handoffFiles.slice(1)),
+    ];
     if (videoFile) {
       media.push({ type: 'video', url: videoFile });
     }
     for (const file of referenceFiles) {
-      media.push({ type: 'reference_image', url: file });
+      media.push({
+        type: mediaImageType(args.mediaRole, 'reference_image'),
+        url: file,
+      });
     }
   } else if (args.model.includes('r2v')) {
-    for (const file of args.inputFiles) {
-      media.push({ type: 'reference_image', url: file });
+    for (const file of [...args.handoffFiles, ...args.imageFiles]) {
+      media.push(
+        compactJsonObject({
+          reference_voice:
+            media.length === 0 && !args.videoFiles[0]
+              ? args.referenceVoice
+              : undefined,
+          type: mediaImageType(args.mediaRole, 'reference_image'),
+          url: file,
+        }),
+      );
+    }
+    for (const file of args.videoFiles) {
+      media.push(
+        compactJsonObject({
+          reference_voice: args.referenceVoice,
+          type: mediaVideoType(args.mediaRole, 'reference_video'),
+          url: file,
+        }),
+      );
     }
   } else {
-    const [firstFile, ...referenceFiles] = args.inputFiles;
+    const firstFile = args.imageFiles[0] ?? args.handoffFiles[0];
+    const referenceFiles = [
+      ...args.imageFiles.slice(firstFile === args.imageFiles[0] ? 1 : 0),
+      ...args.handoffFiles.slice(firstFile === args.handoffFiles[0] ? 1 : 0),
+    ];
     if (firstFile) {
-      media.push({ type: 'first_frame', url: firstFile });
+      media.push({
+        type: mediaImageType(args.mediaRole, 'first_frame'),
+        url: firstFile,
+      });
     }
     for (const file of referenceFiles) {
-      media.push({ type: 'reference_image', url: file });
+      media.push({
+        type: mediaImageType(args.mediaRole, 'reference_image'),
+        url: file,
+      });
+    }
+    for (const file of args.videoFiles) {
+      media.push({
+        type: mediaVideoType(args.mediaRole, 'first_clip'),
+        url: file,
+      });
     }
   }
 
@@ -430,9 +573,29 @@ function mergeVideoInput(args: {
     media.push({ type: 'last_frame', url: file });
   }
 
+  if (args.model !== 'wan2.7-t2v') {
+    for (const file of args.audioFiles) {
+      media.push({ type: 'driving_audio', url: file });
+    }
+  }
+
   if (media.length > 0) {
     args.input.media = media;
   }
+}
+
+function mediaImageType(role: string | null, fallback: string) {
+  return role === 'first_frame' ||
+    role === 'last_frame' ||
+    role === 'reference_image'
+    ? role
+    : fallback;
+}
+
+function mediaVideoType(role: string | null, fallback: string) {
+  return role === 'video' || role === 'first_clip' || role === 'reference_video'
+    ? role
+    : fallback;
 }
 
 function isVideoEditModel(model: string) {
@@ -446,23 +609,64 @@ function mergeCommonParameters(args: {
   route: AlibabaCloudRoute;
 }) {
   if (args.route.protocol === 'animate_image_to_video') {
+    pruneUnsupportedParameters(args.parameters, ANIMATE_PARAMETER_KEYS);
     return;
   }
 
+  const videoParameterKeys =
+    args.route.protocol === 'video'
+      ? new Set(VIDEO_PARAMETER_KEYS_BY_MODEL[args.model] ?? [])
+      : null;
+
   if (args.route.protocol === 'video') {
+    pruneUnsupportedParameters(
+      args.parameters,
+      videoParameterKeys ?? new Set(),
+    );
     delete args.parameters.n;
   } else {
     setIfMissing(args.parameters, 'n', args.params.generation_output_number);
   }
-  setIfMissing(args.parameters, 'duration', args.params.generation_duration);
-  setIfMissing(args.parameters, 'prompt_extend', args.params.prompt_extend);
-  setIfMissing(args.parameters, 'watermark', args.params.watermark);
-  setIfMissing(args.parameters, 'seed', args.params.seed);
+  setIfSupported(
+    args.parameters,
+    videoParameterKeys,
+    'duration',
+    args.params.generation_duration,
+  );
+  setIfSupported(
+    args.parameters,
+    videoParameterKeys,
+    'prompt_extend',
+    args.params.prompt_extend ??
+      enhancePromptToBoolean(args.params.generation_enhance_prompt),
+  );
+  setIfSupported(
+    args.parameters,
+    videoParameterKeys,
+    'watermark',
+    args.params.watermark ?? args.params.generation_watermark,
+  );
+  setIfSupported(
+    args.parameters,
+    videoParameterKeys,
+    'seed',
+    args.params.seed ?? args.params.generation_seed,
+  );
+  setIfSupported(
+    args.parameters,
+    videoParameterKeys,
+    'audio_setting',
+    args.params.audio_setting ?? args.params.generation_audio_setting,
+  );
 
   const outputSize =
     readNonEmptyString(args.params.generation_size) ??
     readNonEmptyString(args.params.size);
-  if (outputSize && args.parameters.size === undefined) {
+  if (
+    args.route.protocol !== 'video' &&
+    outputSize &&
+    args.parameters.size === undefined
+  ) {
     args.parameters.size = normalizeSize(outputSize);
   }
 
@@ -470,12 +674,13 @@ function mergeCommonParameters(args: {
   const resolution = readNonEmptyString(args.params.generation_resolution);
 
   if (args.route.protocol === 'video') {
-    setIfMissing(
+    setIfSupported(
       args.parameters,
+      videoParameterKeys,
       'resolution',
       normalizeResolution(resolution),
     );
-    setIfMissing(args.parameters, 'ratio', ratio);
+    setIfSupported(args.parameters, videoParameterKeys, 'ratio', ratio);
     return;
   }
 
@@ -485,6 +690,42 @@ function mergeCommonParameters(args: {
       args.parameters.size = size;
     }
   }
+}
+
+function enhancePromptToBoolean(value: unknown) {
+  if (value === undefined) {
+    return undefined;
+  }
+
+  if (typeof value === 'boolean') {
+    return value;
+  }
+
+  return value !== 'off';
+}
+
+function pruneUnsupportedParameters(
+  parameters: JsonObject,
+  supportedKeys: ReadonlySet<string>,
+) {
+  for (const key of Object.keys(parameters)) {
+    if (!supportedKeys.has(key)) {
+      delete parameters[key];
+    }
+  }
+}
+
+function setIfSupported(
+  target: JsonObject,
+  supportedKeys: ReadonlySet<string> | null,
+  key: string,
+  value: unknown,
+) {
+  if (supportedKeys && !supportedKeys.has(key)) {
+    return;
+  }
+
+  setIfMissing(target, key, value);
 }
 
 function readOrCreateFirstMessageContent(input: JsonObject) {
@@ -735,7 +976,7 @@ function readJsonObject(value: unknown): JsonObject {
   return { ...value };
 }
 
-function compactJsonObject(value: JsonObject): JsonObject {
+function compactJsonObject(value: Record<string, unknown>): JsonObject {
   return Object.fromEntries(
     Object.entries(value).filter(([, entryValue]) => entryValue !== undefined),
   ) as JsonObject;

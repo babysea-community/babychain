@@ -172,7 +172,13 @@ function buildSubmitBody(args: {
   stepKind: 'image' | 'video';
 }): JsonObject {
   const body: JsonObject = { model: args.model };
-  const inputFiles = collectStringValues(args.params.generation_input_file);
+  const inputFiles = [
+    ...collectStringValues(args.params.generation_input_file),
+    ...collectStringValues(args.params.generation_input_image_file),
+  ];
+  const videoFiles = collectStringValues(
+    args.params.generation_input_video_file,
+  );
 
   for (const [rawKey, value] of Object.entries(args.params)) {
     if (value === undefined) continue;
@@ -201,6 +207,8 @@ function buildSubmitBody(args: {
 
     if (
       rawKey === 'generation_input_file' ||
+      rawKey === 'generation_input_image_file' ||
+      rawKey === 'generation_input_video_file' ||
       rawKey === 'generation_input_file_last_content' ||
       rawKey === 'generation_output_format' ||
       rawKey === 'generation_output_number' ||
@@ -244,10 +252,10 @@ function buildSubmitBody(args: {
 
   if (
     RUNWAY_VIDEO_TO_VIDEO_MODELS.has(args.model) &&
-    inputFiles.length > 0 &&
+    (videoFiles.length > 0 || inputFiles.length > 0) &&
     body.videoUri === undefined
   ) {
-    body.videoUri = inputFiles[0] ?? null;
+    body.videoUri = videoFiles[0] ?? inputFiles[0] ?? null;
   }
 
   if (

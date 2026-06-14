@@ -447,6 +447,8 @@ async function mapSubmitBody(
   opts: { fetchImpl: typeof fetch; endpoint: string },
 ): Promise<JsonObject> {
   const body: JsonObject = {};
+  const endpointFamily = classifyBflEndpoint(opts.endpoint);
+  const usesDimensionSize = endpointFamily !== 'flux1-ultra';
 
   for (const [rawKey, value] of Object.entries(params)) {
     if (value === undefined) continue;
@@ -456,14 +458,25 @@ async function mapSubmitBody(
       continue;
     }
     if (rawKey === 'generation_ratio') {
-      body.aspect_ratio = value as never;
+      if (!usesDimensionSize) {
+        body.aspect_ratio = value as never;
+      }
+      continue;
+    }
+    if (rawKey === 'generation_resolution') {
+      continue;
+    }
+    if (rawKey === 'generation_size') {
       continue;
     }
     if (rawKey === 'generation_output_format') {
       body.output_format = normalizeProviderOutputFormat(value) as never;
       continue;
     }
-    if (rawKey === 'generation_input_file') {
+    if (
+      rawKey === 'generation_input_file' ||
+      rawKey === 'generation_input_image_file'
+    ) {
       // handled after the loop
       continue;
     }
@@ -474,7 +487,6 @@ async function mapSubmitBody(
       // Concept does not apply to single-provider BYOK.
       continue;
     }
-
     if (rawKey.startsWith('generation_')) {
       const providerKey = rawKey.slice('generation_'.length);
       body[providerKey] =
@@ -490,18 +502,28 @@ async function mapSubmitBody(
         : (value as never);
   }
 
-  const inputFiles = params.generation_input_file;
-  const inputUrls = Array.isArray(inputFiles)
-    ? (inputFiles as unknown[]).filter(
-        (item): item is string => typeof item === 'string' && item.length > 0,
-      )
-    : [];
+  if (usesDimensionSize) {
+    const size = bflSizeForParams(params);
+    if (body.width === undefined) {
+      body.width = size.width;
+    }
+    if (body.height === undefined) {
+      body.height = size.height;
+    }
+    delete body.aspect_ratio;
+    delete body.resolution;
+    delete body.size;
+  }
+
+  const inputUrls = [
+    ...collectStringValues(params.generation_input_file),
+    ...collectStringValues(params.generation_input_image_file),
+  ];
 
   if (inputUrls.length > 0) {
-    const family = classifyBflEndpoint(opts.endpoint);
     const firstUrl = inputUrls[0]!;
 
-    switch (family) {
+    switch (endpointFamily) {
       case 'flux2-klein':
         if (!hasExplicitBflAggregateImage(body)) {
           assignBflInputImageFields(body, inputUrls, 4);
@@ -539,12 +561,117 @@ async function mapSubmitBody(
   return body;
 }
 
+function bflSizeForParams(params: Record<string, unknown>) {
+  const width = numericValue(params.generation_width ?? params.width);
+  const height = numericValue(params.generation_height ?? params.height);
+
+  if (width !== null && height !== null) {
+    return { height, width };
+  }
+
+  const rawSize = readString(params.generation_size ?? params.size);
+  const parsedSize = rawSize ? parsePixelSize(rawSize) : null;
+
+  if (parsedSize) {
+    return parsedSize;
+  }
+
+  const resolution = readString(params.generation_resolution) ?? '1K';
+  const ratio = readString(params.generation_ratio) ?? '1:1';
+
+  return bflSizeForRatio(resolution, ratio);
+}
+
+function bflSizeForRatio(resolution: string, ratio: string) {
+  const exact = bflSizeMap(resolution)[ratio];
+  if (exact) {
+    return exact;
+  }
+
+  const parsed = parseRatio(ratio);
+  const base = resolution === '2K' ? 2048 : 1024;
+
+  if (!parsed) {
+    return { height: base, width: base };
+  }
+
+  const area = base * base;
+  const width = roundToMultiple(Math.sqrt(area * parsed), 16);
+  const height = roundToMultiple(width / parsed, 16);
+
+  return { height, width };
+}
+
+function bflSizeMap(
+  resolution: string,
+): Record<string, { height: number; width: number }> {
+  if (resolution === '2K') {
+    return {
+      '1:1': { height: 2048, width: 2048 },
+      '3:4': { height: 2304, width: 1728 },
+      '4:3': { height: 1728, width: 2304 },
+      '9:16': { height: 2848, width: 1600 },
+      '16:9': { height: 1600, width: 2848 },
+      '21:9': { height: 1344, width: 3136 },
+      '9:21': { height: 3136, width: 1344 },
+    };
+  }
+
+  return {
+    '1:1': { height: 1024, width: 1024 },
+    '3:4': { height: 1152, width: 864 },
+    '4:3': { height: 864, width: 1152 },
+    '9:16': { height: 1280, width: 720 },
+    '16:9': { height: 720, width: 1280 },
+    '21:9': { height: 576, width: 1344 },
+    '9:21': { height: 1344, width: 576 },
+  };
+}
+
+function parsePixelSize(value: string) {
+  const [width, height] = value.split(/[x*]/).map((item) => Number(item));
+
+  return width && height ? { height, width } : null;
+}
+
+function parseRatio(value: string) {
+  const [width, height] = value.split(':').map((item) => Number(item));
+
+  return width && height ? width / height : null;
+}
+
+function roundToMultiple(value: number, multiple: number) {
+  return Math.max(multiple, Math.round(value / multiple) * multiple);
+}
+
+function numericValue(value: unknown) {
+  return typeof value === 'number' && Number.isFinite(value) ? value : null;
+}
+
+function readString(value: unknown) {
+  return typeof value === 'string' && value.trim().length > 0
+    ? value.trim()
+    : null;
+}
+
 function hasExplicitBflAggregateImage(body: JsonObject) {
   return (
     typeof body.input_images !== 'undefined' ||
     typeof body.images !== 'undefined' ||
     typeof body.image_url === 'string'
   );
+}
+
+function collectStringValues(value: unknown) {
+  if (typeof value === 'string' && value.length > 0) {
+    return [value];
+  }
+
+  return Array.isArray(value)
+    ? value.filter(
+        (item): item is string => typeof item === 'string' && item.length > 0,
+      )
+    : [];
 }
 
 function assignBflInputImageFields(
@@ -590,10 +717,11 @@ function normalizeProviderOutputFormat(value: unknown) {
  */
 function classifyBflEndpoint(
   endpoint: string,
-): 'flux2-klein' | 'flux2' | 'flux1-redux' | 'unknown' {
+): 'flux2-klein' | 'flux2' | 'flux1-redux' | 'flux1-ultra' | 'unknown' {
   const normalized = endpoint.toLowerCase();
   if (normalized.startsWith('flux-2-klein')) return 'flux2-klein';
   if (normalized.startsWith('flux-2-')) return 'flux2';
+  if (normalized === 'flux-pro-1.1-ultra') return 'flux1-ultra';
   if (normalized.startsWith('flux-1.1-') || normalized.startsWith('flux-1-'))
     return 'flux1-redux';
   return 'unknown';

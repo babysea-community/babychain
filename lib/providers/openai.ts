@@ -181,6 +181,8 @@ function buildImageGenerationBody(args: {
 
     if (
       rawKey === 'generation_input_file' ||
+      rawKey === 'generation_input_image_file' ||
+      rawKey === 'generation_mask_file' ||
       rawKey === 'image' ||
       rawKey === 'mask' ||
       rawKey === 'generation_provider_order'
@@ -234,7 +236,9 @@ async function buildImageEditForm(args: {
     form.append('image[]', file.blob, file.filename);
   }
 
-  const mask = readOptionalStringValue(args.params, 'mask');
+  const mask =
+    readOptionalStringValue(args.params, 'generation_mask_file') ??
+    readOptionalStringValue(args.params, 'mask');
   if (mask) {
     const file = await readImageInputFile(mask, args.fetchImpl, 0, 'mask');
     form.append('mask', file.blob, file.filename);
@@ -246,6 +250,7 @@ async function buildImageEditForm(args: {
 function collectImageInputValues(params: Record<string, unknown>) {
   return [
     ...collectOptionalStringValues(params, 'generation_input_file'),
+    ...collectOptionalStringValues(params, 'generation_input_image_file'),
     ...collectOptionalStringValues(params, 'image'),
   ];
 }

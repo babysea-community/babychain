@@ -569,6 +569,106 @@ describe('provider adapters', () => {
     expect(submittedBody.output_format).toBe('jpeg');
   });
 
+  it('maps BFL semantic size fields to width and height instead of unsupported raw fields', async () => {
+    let submittedBody: Record<string, unknown> = {};
+    const fetchImpl = vi.fn(async (_url: string | URL | Request, init) => {
+      submittedBody = JSON.parse(String(init?.body));
+
+      return new Response(
+        JSON.stringify({
+          id: 'bfl_task_123',
+          polling_url: 'https://api.bfl.ai/v1/get_result?id=bfl_task_123',
+        }),
+        { status: 200 },
+      );
+    }) as typeof fetch;
+
+    const provider = createBflProvider({ apiKey: 'bfl_test_key', fetchImpl });
+
+    await provider.submit({
+      idempotencyKey: 'idem_bfl_size',
+      modelIdentifier: 'bfl/flux-2-pro',
+      params: {
+        generation_prompt: 'A clean product render',
+        generation_ratio: '16:9',
+        generation_resolution: '2K',
+      },
+      stepKind: 'image',
+    });
+
+    expect(submittedBody).toMatchObject({
+      height: 1600,
+      width: 2848,
+    });
+    expect(submittedBody).not.toHaveProperty('aspect_ratio');
+    expect(submittedBody).not.toHaveProperty('resolution');
+    expect(submittedBody).not.toHaveProperty('size');
+  });
+
+  it('maps BFL explicit generation_size to width and height without leaking size', async () => {
+    let submittedBody: Record<string, unknown> = {};
+    const fetchImpl = vi.fn(async (_url: string | URL | Request, init) => {
+      submittedBody = JSON.parse(String(init?.body));
+
+      return new Response(
+        JSON.stringify({
+          id: 'bfl_task_123',
+          polling_url: 'https://api.bfl.ai/v1/get_result?id=bfl_task_123',
+        }),
+        { status: 200 },
+      );
+    }) as typeof fetch;
+
+    const provider = createBflProvider({ apiKey: 'bfl_test_key', fetchImpl });
+
+    await provider.submit({
+      idempotencyKey: 'idem_bfl_explicit_size',
+      modelIdentifier: 'bfl/flux-2-pro',
+      params: {
+        generation_prompt: 'A clean product render',
+        generation_size: '1024x1024',
+      },
+      stepKind: 'image',
+    });
+
+    expect(submittedBody).toMatchObject({
+      height: 1024,
+      width: 1024,
+    });
+    expect(submittedBody).not.toHaveProperty('size');
+  });
+
+  it('keeps BFL Ultra aspect-ratio driven without width or height fields', async () => {
+    let submittedBody: Record<string, unknown> = {};
+    const fetchImpl = vi.fn(async (_url: string | URL | Request, init) => {
+      submittedBody = JSON.parse(String(init?.body));
+
+      return new Response(
+        JSON.stringify({
+          id: 'bfl_task_123',
+          polling_url: 'https://api.bfl.ai/v1/get_result?id=bfl_task_123',
+        }),
+        { status: 200 },
+      );
+    }) as typeof fetch;
+
+    const provider = createBflProvider({ apiKey: 'bfl_test_key', fetchImpl });
+
+    await provider.submit({
+      idempotencyKey: 'idem_bfl_ultra',
+      modelIdentifier: 'bfl/flux-pro-1.1-ultra',
+      params: {
+        generation_prompt: 'A clean product render',
+        generation_ratio: '21:9',
+      },
+      stepKind: 'image',
+    });
+
+    expect(submittedBody.aspect_ratio).toBe('21:9');
+    expect(submittedBody).not.toHaveProperty('height');
+    expect(submittedBody).not.toHaveProperty('width');
+  });
+
   it('maps Flux 2 chained images to documented BFL input_image fields', async () => {
     let submittedBody: Record<string, unknown> = {};
     const fetchImpl = vi.fn(async (_url: string | URL | Request, init) => {
@@ -590,7 +690,7 @@ describe('provider adapters', () => {
       modelIdentifier: 'bfl/flux-2-max',
       params: {
         generation_prompt: 'Enhance this product render',
-        generation_input_file: [
+        generation_input_image_file: [
           'https://cdn.example.com/input-a.png',
           'https://cdn.example.com/input-b.png',
         ],
@@ -841,7 +941,8 @@ describe('provider adapters', () => {
         generation_output_format: 'mp4',
         generation_prompt: 'Do not duplicate this prompt.',
         generation_input_file: ['https://cdn.example.com/first.png'],
-        generation_input_file_last_content: 'https://cdn.example.com/last.png',
+        generation_input_image_file_last_content:
+          'https://cdn.example.com/last.png',
         model: 'untrusted-model',
         output_format: 'mp4',
       },
@@ -864,6 +965,104 @@ describe('provider adapters', () => {
     ]);
     expect(submittedBody).not.toHaveProperty('callback_url');
     expect(submittedBody).not.toHaveProperty('output_format');
+  });
+
+  it('maps BytePlus multimodal normalized media to documented reference roles', async () => {
+    let submittedBody: Record<string, unknown> = {};
+    const fetchImpl = vi.fn(async (_url: string | URL | Request, init) => {
+      submittedBody = JSON.parse(String(init?.body));
+
+      return new Response(JSON.stringify({ id: 'byteplus_task_roles' }), {
+        status: 200,
+      });
+    }) as typeof fetch;
+
+    const provider = createBytePlusProvider({
+      apiKey: 'byteplus_test_key',
+      fetchImpl,
+    });
+
+    await provider.submit({
+      idempotencyKey: 'idem_byteplus_roles',
+      modelIdentifier: 'byteplus/dreamina-seedance-2-0-260128',
+      params: {
+        generation_input_audio_file: 'https://cdn.example.com/dialogue.wav',
+        generation_input_file: [
+          'https://cdn.example.com/reference.png',
+          'https://cdn.example.com/source.mp4',
+        ],
+        generation_media_role: 'reference_image',
+        generation_prompt: 'Restyle this source video.',
+      },
+      stepKind: 'video',
+    });
+
+    expect(submittedBody.content).toEqual([
+      { type: 'text', text: 'Restyle this source video.' },
+      {
+        type: 'video_url',
+        video_url: { url: 'https://cdn.example.com/source.mp4' },
+        role: 'reference_video',
+      },
+      {
+        type: 'image_url',
+        image_url: { url: 'https://cdn.example.com/reference.png' },
+        role: 'reference_image',
+      },
+      {
+        type: 'audio_url',
+        audio_url: { url: 'https://cdn.example.com/dialogue.wav' },
+        role: 'reference_audio',
+      },
+    ]);
+    expect(submittedBody).not.toHaveProperty('input_audio_file');
+    expect(submittedBody).not.toHaveProperty('media_role');
+  });
+
+  it('honors explicit BytePlus media roles for canonical image inputs', async () => {
+    let submittedBody: Record<string, unknown> = {};
+    const fetchImpl = vi.fn(async (_url: string | URL | Request, init) => {
+      submittedBody = JSON.parse(String(init?.body));
+
+      return new Response(
+        JSON.stringify({ id: 'byteplus_task_role_override' }),
+        {
+          status: 200,
+        },
+      );
+    }) as typeof fetch;
+
+    const provider = createBytePlusProvider({
+      apiKey: 'byteplus_test_key',
+      fetchImpl,
+    });
+
+    await provider.submit({
+      idempotencyKey: 'idem_byteplus_role_override',
+      modelIdentifier: 'byteplus/dreamina-seedance-2-0-260128',
+      params: {
+        generation_input_image_file: ['https://cdn.example.com/style.png'],
+        generation_input_image_file_last_content:
+          'https://cdn.example.com/end.png',
+        generation_media_role: 'reference_image',
+        generation_prompt: 'Use this as a visual reference.',
+      },
+      stepKind: 'video',
+    });
+
+    expect(submittedBody.content).toEqual([
+      { type: 'text', text: 'Use this as a visual reference.' },
+      {
+        type: 'image_url',
+        image_url: { url: 'https://cdn.example.com/style.png' },
+        role: 'reference_image',
+      },
+      {
+        type: 'image_url',
+        image_url: { url: 'https://cdn.example.com/end.png' },
+        role: 'last_frame',
+      },
+    ]);
   });
 
   it('keeps BytePlus last-frame URLs in metadata instead of output files', async () => {
@@ -1183,6 +1382,7 @@ describe('provider adapters', () => {
       modelIdentifier: 'alibabacloud/wan2.7-videoedit',
       params: {
         generation_input_file: ['https://cdn.example.com/source-video.mp4'],
+        generation_audio_setting: 'origin',
         input: { prompt: 'Polish the generated product video.' },
         parameters: {
           duration: 0,
@@ -1208,6 +1408,7 @@ describe('provider adapters', () => {
         ],
       },
       parameters: {
+        audio_setting: 'origin',
         duration: 0,
         watermark: false,
       },
@@ -1216,6 +1417,63 @@ describe('provider adapters', () => {
       kind: 'async',
       generationId: 'dashscope_videoedit_task_123',
       providerOrder: ['alibabacloud'],
+    });
+  });
+
+  it('maps Alibaba Cloud canonical R2V media and negative prompt fields', async () => {
+    let submittedBody: Record<string, unknown> = {};
+    const fetchImpl = vi.fn(async (_url: string | URL | Request, init) => {
+      submittedBody = JSON.parse(String(init?.body));
+
+      return new Response(
+        JSON.stringify({
+          output: { task_id: 'dashscope_r2v_task_123' },
+          request_id: 'dashscope_request_123',
+        }),
+        { status: 200 },
+      );
+    }) as typeof fetch;
+    const provider = createAlibabaCloudProvider({
+      apiKey: 'dashscope_test_key',
+      fetchImpl,
+    });
+
+    await provider.submit({
+      idempotencyKey: 'idem_alibaba_r2v',
+      modelIdentifier: 'alibabacloud/wan2.7-r2v',
+      params: {
+        generation_enhance_prompt: 'standard',
+        generation_input_image_file: ['https://cdn.example.com/ref.png'],
+        generation_input_video_file: 'https://cdn.example.com/ref.mp4',
+        generation_negative_prompt: 'No text overlays',
+        generation_prompt: 'Combine the reference subjects.',
+        generation_ratio: '16:9',
+        generation_reference_voice_file: 'https://cdn.example.com/voice.wav',
+      },
+      stepKind: 'video',
+    });
+
+    expect(submittedBody).toMatchObject({
+      model: 'wan2.7-r2v',
+      input: {
+        prompt: 'Combine the reference subjects.',
+        negative_prompt: 'No text overlays',
+        media: [
+          {
+            type: 'reference_image',
+            url: 'https://cdn.example.com/ref.png',
+          },
+          {
+            type: 'reference_video',
+            url: 'https://cdn.example.com/ref.mp4',
+            reference_voice: 'https://cdn.example.com/voice.wav',
+          },
+        ],
+      },
+      parameters: {
+        prompt_extend: true,
+        ratio: '16:9',
+      },
     });
   });
 
@@ -1486,6 +1744,39 @@ describe('provider adapters', () => {
       outputFiles: ['data:image/png;base64,ZWRpdGVkLWltYWdl'],
       providerUsed: 'openai',
     });
+  });
+
+  it('maps GPT Image 2 generation_mask_file to the multipart mask field', async () => {
+    let submittedBody: BodyInit | null | undefined;
+    const fetchImpl = vi.fn(async (_url: string | URL | Request, init) => {
+      submittedBody = init?.body;
+
+      return new Response(
+        JSON.stringify({ data: [{ b64_json: 'bWFza2VkLWltYWdl' }] }),
+        { status: 200 },
+      );
+    }) as typeof fetch;
+    const provider = createOpenAiProvider({
+      apiKey: 'openai_test_key',
+      fetchImpl,
+    });
+    const resolution = resolveProvider('gpt/image-2', { byokMode: true });
+
+    await provider.submit({
+      idempotencyKey: 'idem_openai_mask',
+      modelIdentifier: resolution.modelIdentifier,
+      params: {
+        generation_input_image_file: ['data:image/png;base64,aW1hZ2U='],
+        generation_mask_file: 'data:image/png;base64,bWFzaw==',
+        generation_prompt: 'Replace the masked area.',
+      },
+      stepKind: 'image',
+    });
+
+    expect(submittedBody).toBeInstanceOf(FormData);
+    const form = submittedBody as FormData;
+    expect(form.get('mask')).toBeInstanceOf(File);
+    expect(form.get('mask_file')).toBeNull();
   });
 
   it('submits GPT Image 2 edits with raw image data URL input', async () => {
@@ -2105,7 +2396,8 @@ describe('provider adapters', () => {
       idempotencyKey: 'idem_google_video_handoff',
       modelIdentifier: resolution.modelIdentifier,
       params: {
-        generation_input_file: ['https://8.8.8.8/image.png'],
+        generation_generate_audio: false,
+        generation_input_image_file: ['https://8.8.8.8/image.png'],
         generation_prompt: 'Waves roll in slowly',
       },
       stepKind: 'video',
@@ -2122,6 +2414,7 @@ describe('provider adapters', () => {
         },
       ],
     });
+    expect(submittedBody).not.toHaveProperty('parameters');
     expect(submitted).toMatchObject({
       kind: 'async',
       generationId: 'operations/google_video_handoff',
@@ -2151,8 +2444,11 @@ describe('provider adapters', () => {
       modelIdentifier: resolution.modelIdentifier,
       params: {
         image: 'data:image/png;base64,aW1hZ2U=',
+        generation_input_image_file_last_content:
+          'data:image/png;base64,bGFzdA==',
         parameters: {
           durationSeconds: '4',
+          generateAudio: false,
           numberOfVideos: 1,
           resolution: '4k',
           seed: -1,
@@ -2167,6 +2463,10 @@ describe('provider adapters', () => {
         {
           image: {
             bytesBase64Encoded: 'aW1hZ2U=',
+            mimeType: 'image/png',
+          },
+          lastFrame: {
+            bytesBase64Encoded: 'bGFzdA==',
             mimeType: 'image/png',
           },
           prompt: 'A slow cinematic push in',
@@ -2300,9 +2600,9 @@ describe('provider adapters', () => {
       });
       expect(submittedBody.parameters).toEqual({
         duration: 5,
-        ratio: '16:9',
         resolution: '720P',
       });
+      expect(submittedBody.parameters).not.toHaveProperty('size');
 
       return new Response(
         JSON.stringify({
@@ -2322,12 +2622,14 @@ describe('provider adapters', () => {
       modelIdentifier: 'alibabacloud/wan2.7-i2v-2026-04-25',
       params: {
         generation_prompt: 'Move the product camera slowly',
-        generation_input_file: ['https://cdn.example.com/first.png'],
-        generation_input_file_last_content: 'https://cdn.example.com/last.png',
+        generation_input_image_file: ['https://cdn.example.com/first.png'],
+        generation_input_image_file_last_content:
+          'https://cdn.example.com/last.png',
         generation_duration: 5,
         generation_output_number: 3,
         generation_ratio: '16:9',
         generation_resolution: '720p',
+        generation_size: '1024x1024',
         parameters: { n: 9 },
       },
       stepKind: 'video',

@@ -93,6 +93,7 @@ export function createGoogleProvider(config: GoogleProviderConfig): Provider {
 
       if (input.stepKind === 'video' && VEO_VIDEO_MODELS.has(model)) {
         const body = await buildVeoVideoBody(
+          model,
           input.params as Record<string, unknown>,
           fetchImpl,
         );
@@ -231,7 +232,10 @@ function buildGeminiImageBody(params: Record<string, unknown>): JsonObject {
     const prompt = readPrompt(params);
     const parts: JsonObject[] = [{ text: prompt }];
 
-    for (const value of collectStringValues(params.generation_input_file)) {
+    for (const value of [
+      ...collectStringValues(params.generation_input_file),
+      ...collectStringValues(params.generation_input_image_file),
+    ]) {
       parts.push(toGoogleMediaPart(value));
     }
 
@@ -297,6 +301,7 @@ function buildImagenImageBody(params: Record<string, unknown>): JsonObject {
 }
 
 async function buildVeoVideoBody(
+  model: string,
   params: Record<string, unknown>,
   fetchImpl: typeof fetch,
 ): Promise<JsonObject> {
@@ -318,7 +323,10 @@ async function buildVeoVideoBody(
   } else {
     const prompt = readOptionalPrompt(params);
     const instance: JsonObject = {};
-    const inputFiles = collectStringValues(params.generation_input_file);
+    const inputFiles = [
+      ...collectStringValues(params.generation_input_file),
+      ...collectStringValues(params.generation_input_image_file),
+    ];
 
     if (prompt) {
       instance.prompt = prompt;
@@ -335,6 +343,13 @@ async function buildVeoVideoBody(
 
     const lastFrame =
       (await readVeoMediaParam(params.lastFrame, fetchImpl)) ??
+      (typeof params.generation_input_image_file_last_content === 'string' &&
+      params.generation_input_image_file_last_content.trim().length > 0
+        ? await toVeoMediaValue(
+            params.generation_input_image_file_last_content.trim(),
+            fetchImpl,
+          )
+        : null) ??
       (typeof params.generation_input_file_last_content === 'string' &&
       params.generation_input_file_last_content.trim().length > 0
         ? await toVeoMediaValue(
@@ -373,7 +388,11 @@ async function buildVeoVideoBody(
     body.instances = [instance];
   }
 
-  const parameters = normalizeVeoParameters(readObject(params.parameters));
+  const supportsGenerateAudio = model === 'veo-3.1-generate-preview';
+  const parameters = normalizeVeoParameters(
+    readObject(params.parameters),
+    supportsGenerateAudio,
+  );
 
   if (params.generation_ratio !== undefined) {
     parameters.aspectRatio = jsonValue(params.generation_ratio);
@@ -392,7 +411,7 @@ async function buildVeoVideoBody(
     );
   }
 
-  if (params.generation_generate_audio !== undefined) {
+  if (supportsGenerateAudio && params.generation_generate_audio !== undefined) {
     parameters.generateAudio = jsonValue(params.generation_generate_audio);
   }
 
@@ -855,7 +874,10 @@ async function readVeoMediaParam(
   return media;
 }
 
-function normalizeVeoParameters(input: JsonObject) {
+function normalizeVeoParameters(
+  input: JsonObject,
+  supportsGenerateAudio: boolean,
+) {
   const parameters = { ...input };
 
   if (parameters.durationSeconds !== undefined) {
@@ -880,6 +902,10 @@ function normalizeVeoParameters(input: JsonObject) {
   }
 
   delete parameters.numberOfVideos;
+
+  if (!supportsGenerateAudio) {
+    delete parameters.generateAudio;
+  }
 
   return parameters;
 }

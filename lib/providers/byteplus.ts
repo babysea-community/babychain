@@ -218,10 +218,11 @@ async function submitImage(
       body.size = mapAspectToSize(value) as never;
       continue;
     }
-    if (rawKey === 'generation_input_file' && Array.isArray(value)) {
-      const urls = (value as unknown[]).filter(
-        (item): item is string => typeof item === 'string' && item.length > 0,
-      );
+    if (
+      rawKey === 'generation_input_file' ||
+      rawKey === 'generation_input_image_file'
+    ) {
+      const urls = collectStringValues(value);
       if (urls.length === 1) {
         body.image = urls[0] as never;
       } else if (urls.length > 1) {
@@ -333,8 +334,17 @@ async function submitVideoTask(
   // previous video step output entering a Seedance 2.0 modify step) map to
   // `video_url` reference items; everything else stays an image input.
   const handoffFiles = collectStringValues(ctx.params.generation_input_file);
-  const videoFiles = handoffFiles.filter(isVideoInputValue);
-  const inputFiles = handoffFiles.filter((file) => !isVideoInputValue(file));
+  const videoFiles = [
+    ...handoffFiles.filter(isVideoInputValue),
+    ...collectStringValues(ctx.params.generation_input_video_file),
+  ];
+  const inputFiles = [
+    ...handoffFiles.filter((file) => !isVideoInputValue(file)),
+    ...collectStringValues(ctx.params.generation_input_image_file),
+  ];
+  const audioFiles = collectStringValues(
+    ctx.params.generation_input_audio_file,
+  );
 
   for (const file of videoFiles) {
     if (file.startsWith('data:')) {
@@ -353,21 +363,36 @@ async function submitVideoTask(
   }
 
   const hasFirstFrame = content.some((item) => item.role === 'first_frame');
+  const explicitImageRole = readMediaRole(ctx.params.generation_media_role);
 
   for (const [index, file] of inputFiles.entries()) {
+    const inferredRole =
+      index === 0 &&
+      !hasFirstFrame &&
+      videoFiles.length === 0 &&
+      audioFiles.length === 0
+        ? 'first_frame'
+        : 'reference_image';
+
     content.push({
       type: 'image_url',
       image_url: { url: file },
-      role:
-        index === 0 && !hasFirstFrame && videoFiles.length === 0
-          ? 'first_frame'
-          : 'reference_image',
+      role: explicitImageRole ?? inferredRole,
     });
   }
 
-  const lastFrameFiles = collectStringValues(
-    ctx.params.generation_input_file_last_content,
-  );
+  for (const file of audioFiles) {
+    content.push({
+      type: 'audio_url',
+      audio_url: { url: file },
+      role: 'reference_audio',
+    });
+  }
+
+  const lastFrameFiles = [
+    ...collectStringValues(ctx.params.generation_input_image_file_last_content),
+    ...collectStringValues(ctx.params.generation_input_file_last_content),
+  ];
 
   for (const file of lastFrameFiles) {
     content.push({
@@ -386,7 +411,12 @@ async function submitVideoTask(
       rawKey === 'generation_prompt' ||
       rawKey === 'content' ||
       rawKey === 'generation_input_file' ||
+      rawKey === 'generation_input_image_file' ||
+      rawKey === 'generation_input_video_file' ||
+      rawKey === 'generation_input_audio_file' ||
       rawKey === 'generation_input_file_last_content' ||
+      rawKey === 'generation_input_image_file_last_content' ||
+      rawKey === 'generation_media_role' ||
       rawKey === 'generation_output_format' ||
       rawKey === 'generation_output_number' ||
       rawKey === 'generation_provider_order'
@@ -458,6 +488,13 @@ async function submitVideoTask(
       task_id: payload.id,
     },
   };
+}
+
+function readMediaRole(value: unknown) {
+  return typeof value === 'string' &&
+    ['first_frame', 'last_frame', 'reference_image'].includes(value)
+    ? value
+    : null;
 }
 
 function readRawContent(value: unknown): JsonObject[] {
