@@ -107,6 +107,7 @@ function semanticFieldSpec(field: {
   required?: boolean;
 }): FieldSpec | null {
   const required = field.required === true;
+  const schema = semanticFieldJsonSchema(field);
   const enumOptions = selectOptions(field.enum ?? []);
 
   if (enumOptions.length > 0) {
@@ -114,6 +115,7 @@ function semanticFieldSpec(field: {
       name: field.name,
       type: 'select',
       options: enumOptions,
+      schema,
       valueKind: enumOptions.every((option) => typeof option.value === 'number')
         ? 'number'
         : 'string',
@@ -129,6 +131,7 @@ function semanticFieldSpec(field: {
       name: field.name,
       type: 'select',
       options: boundedIntegerOptions,
+      schema,
       valueKind: 'number',
       ...defaultFieldValue(field.default),
       ...(required ? { required } : {}),
@@ -143,6 +146,7 @@ function semanticFieldSpec(field: {
     return {
       name: field.name,
       type: 'number',
+      schema,
       valueKind: 'number',
       ...(typeof field.min === 'number' ? { min: field.min } : {}),
       ...(typeof field.max === 'number' ? { max: field.max } : {}),
@@ -155,6 +159,7 @@ function semanticFieldSpec(field: {
     return {
       name: field.name,
       type: 'boolean',
+      schema,
       valueKind: 'boolean',
       ...defaultFieldValue(field.default),
     };
@@ -165,6 +170,7 @@ function semanticFieldSpec(field: {
       name: field.name,
       type: 'textarea',
       rows: 2,
+      schema,
       valueKind: 'string-array',
       ...defaultFieldValue(field.default),
       ...(required ? { required } : {}),
@@ -176,6 +182,7 @@ function semanticFieldSpec(field: {
       name: field.name,
       type: 'textarea',
       rows: 4,
+      schema,
       valueKind: 'json',
       ...defaultFieldValue(field.default),
       ...(required ? { required } : {}),
@@ -187,6 +194,7 @@ function semanticFieldSpec(field: {
     return {
       name: field.name,
       type: isPrompt ? 'textarea' : 'text',
+      schema,
       valueKind: 'string',
       ...(isPrompt ? { rows: 3 } : {}),
       ...defaultFieldValue(field.default),
@@ -195,6 +203,69 @@ function semanticFieldSpec(field: {
   }
 
   return null;
+}
+
+function semanticFieldJsonSchema(field: {
+  default?: unknown;
+  enum?: readonly (number | string)[];
+  max?: number;
+  min?: number;
+  type: string;
+}) {
+  const schema: Record<string, unknown> = {
+    type: semanticJsonType(field.type),
+  };
+
+  if (field.enum && field.enum.length > 0) {
+    schema.enum = [...field.enum];
+  }
+
+  if (field.default !== undefined) {
+    schema.default = field.default;
+  }
+
+  if (typeof field.min === 'number') {
+    schema.minimum = field.min;
+  }
+
+  if (typeof field.max === 'number') {
+    schema.maximum = field.max;
+  }
+
+  if (field.type === 'integer') {
+    schema.type = 'integer';
+  }
+
+  if (field.type === 'url-array' || field.type === 'string-array') {
+    schema.items = {
+      type: 'string',
+      ...(field.type === 'url-array' ? { format: 'uri' } : {}),
+    };
+  }
+
+  if (field.type === 'url') {
+    schema.format = 'uri';
+  }
+
+  return schema;
+}
+
+function semanticJsonType(type: string) {
+  switch (type) {
+    case 'boolean':
+      return 'boolean';
+    case 'integer':
+      return 'integer';
+    case 'number':
+      return 'number';
+    case 'object':
+      return 'object';
+    case 'string-array':
+    case 'url-array':
+      return 'array';
+    default:
+      return 'string';
+  }
 }
 
 function selectOptions(values: readonly (string | number)[]) {

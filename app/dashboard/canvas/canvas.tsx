@@ -375,6 +375,7 @@ export type FieldSpec = {
   required?: boolean;
   default?: string | number | boolean;
   options?: SelectOption[];
+  schema?: Record<string, unknown>;
   valueKind?: 'string' | 'number' | 'boolean' | 'string-array' | 'json';
   min?: number;
   max?: number;
@@ -529,7 +530,7 @@ function snapshotNodes(nodes: FlowNode[]): StoredCanvasNode[] {
   // Runner cards are derived UI; info cards persist (they carry the flow's
   // canvas id + name).
   return nodes
-    .filter((node) => node.type !== 'runner')
+    .filter((node) => node.type !== 'curl' && node.type !== 'runner')
     .map((node) => ({
       id: node.id,
       role: node.data.role,
@@ -613,7 +614,7 @@ function needsFlowAuxReconcile(nodes: FlowNode[]) {
       .filter((node) => node.type !== 'model')
       .map((node) => [node.id, node]),
   );
-  const expectedAux = new Map<string, 'info' | 'runner'>();
+  const expectedAux = new Map<string, 'curl' | 'info' | 'runner'>();
 
   for (const [flowId, flowNodes] of flowsFrom(modelNodes)) {
     const first = flowNodes[0];
@@ -621,6 +622,7 @@ function needsFlowAuxReconcile(nodes: FlowNode[]) {
     if (!first || !last) continue;
 
     expectedAux.set(`info_${flowId}`, 'info');
+    expectedAux.set(`curl_${flowId}`, 'curl');
     expectedAux.set(`runner_${flowId}`, 'runner');
   }
 
@@ -645,10 +647,14 @@ function relayoutFlow(nodes: FlowNode[], flowId: string): FlowNode[] {
       { x: FLOW_X + INFO_COL_W + index * FLOW_COL_W, y: rowY },
     ]),
   );
-  // Info card leads the flow; the runner follows the last model card.
+  // Info card leads the flow; curl and runner follow the last model card.
   positions.set(`info_${flowId}`, { x: FLOW_X, y: rowY });
-  positions.set(`runner_${flowId}`, {
+  positions.set(`curl_${flowId}`, {
     x: FLOW_X + INFO_COL_W + flowNodes.length * FLOW_COL_W,
+    y: rowY,
+  });
+  positions.set(`runner_${flowId}`, {
+    x: FLOW_X + INFO_COL_W + (flowNodes.length + 1) * FLOW_COL_W,
     y: rowY,
   });
 
@@ -1082,34 +1088,15 @@ function createNodeSchemaJson({
 }
 
 function createNodeSchemaProperty(field: FieldSpec, order: number) {
-  const property: Record<string, unknown> = {
-    type: jsonSchemaTypeForField(field),
-    'x-order': order,
-  };
-
-  if (field.options?.length) {
-    property.enum = field.options.map((option) => option.value);
-  }
-
-  if (field.default !== undefined) {
-    property.default = field.default;
-  }
-
-  if (field.min !== undefined) {
-    property.minimum = field.min;
-  }
-
-  if (field.max !== undefined) {
-    property.maximum = field.max;
-  }
+  const property: Record<string, unknown> = field.schema
+    ? { ...field.schema }
+    : { type: jsonSchemaTypeForField(field) };
 
   if (field.required) {
     property.required = true;
   }
 
-  if (field.valueKind === 'string-array') {
-    property.items = { type: 'string' };
-  }
+  property['x-order'] = order;
 
   return property;
 }
@@ -1221,13 +1208,10 @@ function ModelNodeComponent({ id, data }: NodeProps) {
     updateValue,
     removeNode,
     addNodeToFlow,
-    createFlowCurl,
   } = useCanvas();
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [schemaOpen, setSchemaOpen] = useState(false);
   const [schemaCopied, setSchemaCopied] = useState(false);
-  const [curlOpen, setCurlOpen] = useState(false);
-  const [curlCopied, setCurlCopied] = useState(false);
 
   const kind = kindForRole(role);
   const color = ROLE_COLOR[role];
@@ -1253,11 +1237,7 @@ function ModelNodeComponent({ id, data }: NodeProps) {
   }, [liveGroup]);
   const group = liveGroup ?? stickyGroup;
   const loading = !liveGroup;
-  const schemaFields = group
-    ? [...group.core, ...group.advanced].filter((field) =>
-        shouldRenderFieldForRole(field, role),
-      )
-    : [];
+  const schemaFields = group ? [...group.core, ...group.advanced] : [];
   const schemaJson = group
     ? createNodeSchemaJson({
         fields: schemaFields,
@@ -1265,7 +1245,6 @@ function ModelNodeComponent({ id, data }: NodeProps) {
         modelLabel: model?.label ?? modelId,
       })
     : null;
-  const curlText = group ? createFlowCurl(flowId) : null;
 
   const copySchema = useCallback(async () => {
     if (!schemaJson) return;
@@ -1278,18 +1257,6 @@ function ModelNodeComponent({ id, data }: NodeProps) {
       toast.error('Copying the JSON schema failed.');
     }
   }, [schemaJson]);
-
-  const copyCurl = useCallback(async () => {
-    if (!curlText) return;
-
-    try {
-      await navigator.clipboard.writeText(curlText);
-      setCurlCopied(true);
-      window.setTimeout(() => setCurlCopied(false), 1600);
-    } catch {
-      toast.error('Copying the cURL request failed.');
-    }
-  }, [curlText]);
 
   return (
     <div className="group relative w-[400px] border border-border bg-card shadow-lg">
@@ -1481,8 +1448,8 @@ function ModelNodeComponent({ id, data }: NodeProps) {
                         aria-label={
                           schemaCopied ? 'Schema copied' : 'Copy schema'
                         }
-                        className="nodrag size-7 p-0"
-                        size="icon"
+                        className="nodrag h-7 px-2 text-[0.65rem]"
+                        size="sm"
                         title={schemaCopied ? 'Copied' : 'Copy'}
                         variant="ghost"
                         onClick={() => void copySchema()}
@@ -1490,45 +1457,10 @@ function ModelNodeComponent({ id, data }: NodeProps) {
                         <FontAwesomeIcon
                           icon={schemaCopied ? 'check' : 'copy'}
                         />
+                        {schemaCopied ? 'Copied' : 'Copy'}
                       </Button>
                     </div>
                     <NodeSchemaJsonBlock value={schemaJson} />
-                  </div>
-                ) : null}
-              </div>
-            ) : null}
-            {curlText ? (
-              <div className="border border-border">
-                <button
-                  type="button"
-                  aria-expanded={curlOpen}
-                  onClick={() => setCurlOpen((open) => !open)}
-                  className="nodrag flex w-full items-center justify-between gap-3 border-b border-border px-2.5 py-1.5 text-left font-mono text-[0.7rem] font-medium uppercase tracking-wide text-muted-foreground transition hover:text-foreground"
-                >
-                  <span>cURL</span>
-                  <FontAwesomeIcon
-                    className={cn(
-                      'size-3.5 transition-transform',
-                      curlOpen && 'rotate-180',
-                    )}
-                    icon="chevron-down"
-                  />
-                </button>
-                {curlOpen ? (
-                  <div className="p-2.5">
-                    <div className="mb-2 flex justify-end">
-                      <Button
-                        aria-label={curlCopied ? 'cURL copied' : 'Copy cURL'}
-                        className="nodrag size-7 p-0"
-                        size="icon"
-                        title={curlCopied ? 'Copied' : 'Copy'}
-                        variant="ghost"
-                        onClick={() => void copyCurl()}
-                      >
-                        <FontAwesomeIcon icon={curlCopied ? 'check' : 'copy'} />
-                      </Button>
-                    </div>
-                    <NodeCurlBlock value={curlText} />
                   </div>
                 ) : null}
               </div>
@@ -1547,6 +1479,101 @@ function ModelNodeComponent({ id, data }: NodeProps) {
             />
           </div>
         ) : null}
+      </div>
+    </div>
+  );
+}
+
+function CurlNodeComponent({ data }: NodeProps) {
+  const { flowId } = data as NodeData;
+  const { createFlowCurl, runningFlowIds } = useCanvas();
+  const [open, setOpen] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const curlText = createFlowCurl(flowId);
+  const running = runningFlowIds.has(flowId);
+
+  const copyCurl = useCallback(async () => {
+    if (!curlText) return;
+
+    try {
+      await navigator.clipboard.writeText(curlText);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1600);
+    } catch {
+      toast.error('Copying the cURL request failed.');
+    }
+  }, [curlText]);
+
+  return (
+    <div className="w-[280px] border border-border bg-card shadow-lg">
+      <div className="h-1.5 w-full" style={{ backgroundColor: RUNNER_COLOR }} />
+      <Handle
+        type="target"
+        position={Position.Left}
+        className="!size-3 !border-2 !border-background"
+        style={{ backgroundColor: RUNNER_COLOR }}
+      />
+      <Handle
+        type="source"
+        position={Position.Right}
+        className="!size-3 !border-2 !border-background"
+        style={{ backgroundColor: RUNNER_COLOR }}
+      />
+
+      <div className="flex items-center justify-between gap-2 border-b border-border px-3 py-2.5">
+        <div
+          className="font-mono text-xs font-semibold"
+          style={{ color: RUNNER_COLOR }}
+        >
+          curl
+        </div>
+        {running ? (
+          <span className="border border-primary px-1.5 py-0.5 text-[0.6rem] font-medium uppercase tracking-wide text-primary animate-pulse">
+            Running
+          </span>
+        ) : null}
+      </div>
+
+      <div className="space-y-2 p-3">
+        <p className="text-[0.65rem] leading-4 text-muted-foreground">
+          Copy a request for this flow using the current model inputs.
+        </p>
+        <div className="border border-border">
+          <button
+            type="button"
+            aria-expanded={open}
+            disabled={!curlText}
+            onClick={() => setOpen((value) => !value)}
+            className="nodrag flex w-full items-center justify-between gap-3 border-b border-border px-2.5 py-1.5 text-left font-mono text-[0.7rem] font-medium uppercase tracking-wide text-muted-foreground transition hover:text-foreground disabled:opacity-50"
+          >
+            <span>cURL</span>
+            <FontAwesomeIcon
+              className={cn(
+                'size-3.5 transition-transform',
+                open && 'rotate-180',
+              )}
+              icon="chevron-down"
+            />
+          </button>
+          {open && curlText ? (
+            <div className="p-2.5">
+              <div className="mb-2 flex justify-end">
+                <Button
+                  aria-label={copied ? 'cURL copied' : 'Copy cURL'}
+                  className="nodrag h-7 px-2 text-[0.65rem]"
+                  size="sm"
+                  title={copied ? 'Copied' : 'Copy'}
+                  variant="ghost"
+                  onClick={() => void copyCurl()}
+                >
+                  <FontAwesomeIcon icon={copied ? 'check' : 'copy'} />
+                  {copied ? 'Copied' : 'Copy'}
+                </Button>
+              </div>
+              <NodeCurlBlock value={curlText} />
+            </div>
+          ) : null}
+        </div>
       </div>
     </div>
   );
@@ -1770,10 +1797,12 @@ function InfoNodeComponent({ id, data }: NodeProps) {
 }
 
 const ModelNode = memo(ModelNodeComponent);
+const CurlNode = memo(CurlNodeComponent);
 const RunnerNode = memo(RunnerNodeComponent);
 const InfoNode = memo(InfoNodeComponent);
 const nodeTypes: NodeTypes = {
   model: ModelNode,
+  curl: CurlNode,
   runner: RunnerNode,
   info: InfoNode,
 };
@@ -2343,9 +2372,24 @@ function CanvasInner(props: CanvasProps) {
           });
         }
       }
-      // Last model card connects into the flow's runner card.
+      // Last model card connects into the flow's cURL card, then runner card.
       const last = flowNodes[flowNodes.length - 1];
-      if (last && auxIds.has(`runner_${flowId}`)) {
+      if (last && auxIds.has(`curl_${flowId}`)) {
+        result.push({
+          id: `${last.id}->curl_${flowId}`,
+          source: last.id,
+          target: `curl_${flowId}`,
+          animated,
+        });
+      }
+      if (auxIds.has(`curl_${flowId}`) && auxIds.has(`runner_${flowId}`)) {
+        result.push({
+          id: `curl_${flowId}->runner_${flowId}`,
+          source: `curl_${flowId}`,
+          target: `runner_${flowId}`,
+          animated,
+        });
+      } else if (last && auxIds.has(`runner_${flowId}`)) {
         result.push({
           id: `${last.id}->runner_${flowId}`,
           source: last.id,
@@ -2357,14 +2401,14 @@ function CanvasInner(props: CanvasProps) {
     return result;
   }, [nodes, flows, runningFlows]);
 
-  // Runner cards must be REAL state nodes: ReactFlow v12 delivers measured
+  // Aux cards must be REAL state nodes: ReactFlow v12 delivers measured
   // node dimensions through onNodesChange, and nodes absent from the managed
   // state never receive them — they can stay hidden in production builds.
-  // Reconcile one runner per flow into the state. Runners are normal,
+  // Reconcile one cURL and one runner per flow into the state. They are normal,
   // draggable cards (ReactFlow disables pointer-events on fully
   // non-interactive nodes, which made the run buttons unclickable) — they
-  // just cannot be deleted, so every flow always ends in its runner. New
-  // runners spawn after the flow's last model card; existing ones keep
+  // just cannot be deleted, so every flow always ends in cURL → runner. New
+  // aux cards spawn after the flow's last model card; existing ones keep
   // whatever position the user dragged them to.
   useEffect(() => {
     if (!needsFlowAuxReconcile(nodes)) return;
@@ -2416,6 +2460,24 @@ function CanvasInner(props: CanvasProps) {
           });
         }
 
+        const curlId = `curl_${flowId}`;
+        const existingCurl = auxById.get(curlId);
+        if (existingCurl) {
+          matched += 1;
+          next.push(existingCurl);
+        } else {
+          changed = true;
+          next.push({
+            id: curlId,
+            type: 'curl',
+            position: {
+              x: last.position.x + FLOW_COL_W,
+              y: last.position.y,
+            },
+            data: { role: 'image', modelId: '', flowId, values: {} },
+          });
+        }
+
         const runnerId = `runner_${flowId}`;
         const existingRunner = auxById.get(runnerId);
         if (existingRunner) {
@@ -2427,7 +2489,7 @@ function CanvasInner(props: CanvasProps) {
             id: runnerId,
             type: 'runner',
             position: {
-              x: last.position.x + FLOW_COL_W,
+              x: last.position.x + FLOW_COL_W * 2,
               y: last.position.y,
             },
             data: { role: 'image', modelId: '', flowId, values: {} },
@@ -2435,7 +2497,7 @@ function CanvasInner(props: CanvasProps) {
         }
       }
 
-      // Orphaned info/runner cards (their flow was removed) are dropped.
+      // Orphaned info/curl/runner cards (their flow was removed) are dropped.
       if (matched !== auxById.size) changed = true;
 
       return changed ? next : current;

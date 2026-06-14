@@ -12,7 +12,7 @@ All notable changes will be documented here. The format follows [Keep a Changelo
 - Added a Duplicate button to each workspace runner card so users can clone a flow's current models and inputs into a new unsaved flow without overwriting the original Library card.
 - Canvas node cards now expose the selected model's Semantic Lady fields more completely, preserve documented defaults, and render numeric enums or small bounded integer ranges as dropdowns instead of free number inputs.
 - Each canvas model node now includes a collapsible JSON Schema view for the effective node inputs, matching the schema inspection pattern used on the templates page.
-- Canvas model nodes now include a collapsible cURL request view below JSON Schema, using the current flow input and the same scroll-safe highlighted code styling.
+- Each canvas flow now includes a separate cURL card after the model cards, using the current flow input and the same scroll-safe highlighted code styling.
 - The templates page curl examples and schema section now use the same Semantic Lady `generation_*` request contract as the run API and canvas node cards instead of raw provider field names.
 
 ## [0.1.1] - 2026-06-13

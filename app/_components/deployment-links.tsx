@@ -27,7 +27,7 @@ export type DeployLink = {
 
 export type DeployLinkGroup = {
   links: DeployLink[];
-  title: 'One-click deploy' | 'Custom deploy';
+  title: 'ONE-CLICK DEPLOY' | 'CUSTOM DEPLOY';
 };
 
 const ONE_CLICK_DEPLOY_LABELS = new Set([
@@ -44,11 +44,11 @@ const TOAST_MESSAGE = 'Under development';
 export function groupDeployLinks(links: DeployLink[]): DeployLinkGroup[] {
   return [
     {
-      title: 'One-click deploy' as const,
+      title: 'ONE-CLICK DEPLOY' as const,
       links: links.filter((link) => ONE_CLICK_DEPLOY_LABELS.has(link.label)),
     },
     {
-      title: 'Custom deploy' as const,
+      title: 'CUSTOM DEPLOY' as const,
       links: links.filter((link) => !ONE_CLICK_DEPLOY_LABELS.has(link.label)),
     },
   ].filter((group) => group.links.length > 0);
