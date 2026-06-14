@@ -755,6 +755,7 @@ type CanvasContextValue = {
   removeNode: (id: string) => void;
   removeFlow: (flowId: string) => void;
   duplicateFlow: (flowId: string) => void;
+  createFlowCurl: (flowId: string) => string | null;
   renameCanvas: (flowId: string, title: string) => void;
   addNodeToFlow: (flowId: string, role: StepRole) => void;
   runFlow: (flowId: string, save: boolean) => void;
@@ -922,6 +923,76 @@ const CODE_TOKEN_CLASSES: Record<CodeTokenTone, string> = {
 };
 
 const JSON_LITERAL_TOKENS = new Set(['true', 'false', 'null']);
+
+const SHELL_EXACT_TOKEN_TONES = new Map<string, CodeTokenTone>([
+  ['curl', 'command'],
+  ['\\', 'punctuation'],
+]);
+
+function NodeCurlBlock({ value }: { value: string }) {
+  return (
+    <pre
+      className="nodrag nopan nowheel max-h-80 cursor-auto overflow-auto overscroll-contain border border-border bg-[#050505] p-3 font-mono text-[0.65rem] leading-5 text-[#f8fafc]"
+      onPointerDown={(event) => event.stopPropagation()}
+      onWheel={handleDropdownWheel}
+    >
+      <code>{highlightCurlCode(value)}</code>
+    </pre>
+  );
+}
+
+function highlightCurlCode(code: string) {
+  const heredocMarker = "<<'JSON'\n";
+  const heredocStart = code.indexOf(heredocMarker);
+
+  if (heredocStart !== -1 && code.endsWith('\nJSON')) {
+    const jsonStart = heredocStart + heredocMarker.length;
+    const jsonEnd = code.length - '\nJSON'.length;
+
+    return [
+      ...highlightShellCode(code.slice(0, jsonStart), 'node-curl-shell'),
+      ...highlightJsonCode(code.slice(jsonStart, jsonEnd), 'node-curl-json'),
+      ...highlightShellCode(code.slice(jsonEnd), 'node-curl-tail'),
+    ];
+  }
+
+  const dataMarker = "--data '";
+  const dataStart = code.indexOf(dataMarker);
+
+  if (dataStart === -1) {
+    return highlightShellCode(code, 'node-curl');
+  }
+
+  const jsonStart = dataStart + dataMarker.length;
+  const jsonEnd = code.lastIndexOf("'");
+
+  if (jsonEnd <= jsonStart) {
+    return highlightShellCode(code, 'node-curl');
+  }
+
+  return [
+    ...highlightShellCode(code.slice(0, jsonStart), 'node-curl-shell'),
+    ...highlightJsonCode(code.slice(jsonStart, jsonEnd), 'node-curl-json'),
+    ...highlightShellCode(code.slice(jsonEnd), 'node-curl-tail'),
+  ];
+}
+
+function highlightShellCode(source: string, keyPrefix: string) {
+  return tokenizeCode(
+    source,
+    /(curl|--[a-z-]+|\\|'[^']*'|https?:\/\/[^\s']+|\$[A-Z_]+)/gi,
+    (token) => {
+      const exactTone = SHELL_EXACT_TOKEN_TONES.get(token);
+
+      if (exactTone) return exactTone;
+      if (token.startsWith('--')) return 'option';
+      if (token.startsWith('http') || token.startsWith("'")) return 'string';
+      if (token.startsWith('$')) return 'literal';
+      return 'text';
+    },
+    keyPrefix,
+  );
+}
 
 function highlightJsonCode(source: string, keyPrefix: string) {
   return tokenizeCode(
@@ -1150,10 +1221,13 @@ function ModelNodeComponent({ id, data }: NodeProps) {
     updateValue,
     removeNode,
     addNodeToFlow,
+    createFlowCurl,
   } = useCanvas();
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [schemaOpen, setSchemaOpen] = useState(false);
   const [schemaCopied, setSchemaCopied] = useState(false);
+  const [curlOpen, setCurlOpen] = useState(false);
+  const [curlCopied, setCurlCopied] = useState(false);
 
   const kind = kindForRole(role);
   const color = ROLE_COLOR[role];
@@ -1191,6 +1265,7 @@ function ModelNodeComponent({ id, data }: NodeProps) {
         modelLabel: model?.label ?? modelId,
       })
     : null;
+  const curlText = group ? createFlowCurl(flowId) : null;
 
   const copySchema = useCallback(async () => {
     if (!schemaJson) return;
@@ -1203,6 +1278,18 @@ function ModelNodeComponent({ id, data }: NodeProps) {
       toast.error('Copying the JSON schema failed.');
     }
   }, [schemaJson]);
+
+  const copyCurl = useCallback(async () => {
+    if (!curlText) return;
+
+    try {
+      await navigator.clipboard.writeText(curlText);
+      setCurlCopied(true);
+      window.setTimeout(() => setCurlCopied(false), 1600);
+    } catch {
+      toast.error('Copying the cURL request failed.');
+    }
+  }, [curlText]);
 
   return (
     <div className="group relative w-[400px] border border-border bg-card shadow-lg">
@@ -1372,35 +1459,76 @@ function ModelNodeComponent({ id, data }: NodeProps) {
             ) : null}
             {schemaJson ? (
               <div className="border border-border">
-                <div className="flex items-center justify-between gap-2 border-b border-border">
-                  <button
-                    type="button"
-                    aria-expanded={schemaOpen}
-                    onClick={() => setSchemaOpen((open) => !open)}
-                    className="nodrag flex min-w-0 flex-1 items-center justify-between gap-3 px-2.5 py-1.5 text-left font-mono text-[0.7rem] font-medium uppercase tracking-wide text-muted-foreground transition hover:text-foreground"
-                  >
-                    <span>JSON Schema</span>
-                    <FontAwesomeIcon
-                      className={cn(
-                        'size-3.5 transition-transform',
-                        schemaOpen && 'rotate-180',
-                      )}
-                      icon="chevron-down"
-                    />
-                  </button>
-                  <Button
-                    className="nodrag mr-1 h-7 px-2 text-[0.65rem]"
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => void copySchema()}
-                  >
-                    <FontAwesomeIcon icon={schemaCopied ? 'check' : 'copy'} />
-                    {schemaCopied ? 'Copied' : 'Copy'}
-                  </Button>
-                </div>
+                <button
+                  type="button"
+                  aria-expanded={schemaOpen}
+                  onClick={() => setSchemaOpen((open) => !open)}
+                  className="nodrag flex w-full items-center justify-between gap-3 border-b border-border px-2.5 py-1.5 text-left font-mono text-[0.7rem] font-medium uppercase tracking-wide text-muted-foreground transition hover:text-foreground"
+                >
+                  <span>JSON Schema</span>
+                  <FontAwesomeIcon
+                    className={cn(
+                      'size-3.5 transition-transform',
+                      schemaOpen && 'rotate-180',
+                    )}
+                    icon="chevron-down"
+                  />
+                </button>
                 {schemaOpen ? (
                   <div className="p-2.5">
+                    <div className="mb-2 flex justify-end">
+                      <Button
+                        aria-label={
+                          schemaCopied ? 'Schema copied' : 'Copy schema'
+                        }
+                        className="nodrag size-7 p-0"
+                        size="icon"
+                        title={schemaCopied ? 'Copied' : 'Copy'}
+                        variant="ghost"
+                        onClick={() => void copySchema()}
+                      >
+                        <FontAwesomeIcon
+                          icon={schemaCopied ? 'check' : 'copy'}
+                        />
+                      </Button>
+                    </div>
                     <NodeSchemaJsonBlock value={schemaJson} />
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
+            {curlText ? (
+              <div className="border border-border">
+                <button
+                  type="button"
+                  aria-expanded={curlOpen}
+                  onClick={() => setCurlOpen((open) => !open)}
+                  className="nodrag flex w-full items-center justify-between gap-3 border-b border-border px-2.5 py-1.5 text-left font-mono text-[0.7rem] font-medium uppercase tracking-wide text-muted-foreground transition hover:text-foreground"
+                >
+                  <span>cURL</span>
+                  <FontAwesomeIcon
+                    className={cn(
+                      'size-3.5 transition-transform',
+                      curlOpen && 'rotate-180',
+                    )}
+                    icon="chevron-down"
+                  />
+                </button>
+                {curlOpen ? (
+                  <div className="p-2.5">
+                    <div className="mb-2 flex justify-end">
+                      <Button
+                        aria-label={curlCopied ? 'cURL copied' : 'Copy cURL'}
+                        className="nodrag size-7 p-0"
+                        size="icon"
+                        title={curlCopied ? 'Copied' : 'Copy'}
+                        variant="ghost"
+                        onClick={() => void copyCurl()}
+                      >
+                        <FontAwesomeIcon icon={curlCopied ? 'check' : 'copy'} />
+                      </Button>
+                    </div>
+                    <NodeCurlBlock value={curlText} />
                   </div>
                 ) : null}
               </div>
@@ -1747,6 +1875,70 @@ function shouldRenderFieldForRole(field: FieldSpec, role: StepRole) {
 function promptValue(values: Record<string, FieldValue>) {
   const value = values.generation_prompt;
   return typeof value === 'string' && value.trim() ? value : undefined;
+}
+
+function buildFlowRunInput(
+  nodes: FlowNode[],
+  flowId: string,
+  fieldsByModel: Record<string, FieldGroup | undefined>,
+) {
+  const flowNodes = nodes
+    .filter((node) => node.type === 'model' && node.data.flowId === flowId)
+    .sort((a, b) => ROLE_RANK[a.data.role] - ROLE_RANK[b.data.role]);
+  const input: Record<string, unknown> = {};
+
+  for (const node of flowNodes) {
+    const params = normalizeRunParams(
+      compact(node.data.values),
+      fieldsByModel[node.data.modelId],
+    );
+
+    if (node.data.role === 'image') {
+      const inputFile = params.generation_input_file;
+      if (typeof inputFile === 'string') {
+        params.generation_input_file = [inputFile];
+      }
+      const inputImageFile = params.generation_input_image_file;
+      if (typeof inputImageFile === 'string') {
+        params.generation_input_image_file = [inputImageFile];
+      }
+    } else {
+      for (const key of CHAIN_WIRED_DOWNSTREAM_FIELDS) {
+        delete params[key];
+      }
+    }
+
+    input[`${node.data.role}_model`] = node.data.modelId;
+    input[`${node.data.role}_model_input`] = params;
+  }
+
+  return { flowNodes, input };
+}
+
+function createNodeCurl(input: Record<string, unknown>) {
+  const body = {
+    input,
+    metadata: {
+      client_reference_id: 'your-unique-metadata',
+    },
+    webhook_url: 'https://example.com/api/babychain-webhook',
+  };
+  const lines = [
+    'curl --request POST',
+    '  --url "$NEXT_PUBLIC_SITE_URL/api/v1/chains/runs"',
+    '  --header "Authorization: Bearer $BABYCHAIN_API_KEY"',
+    '  --header "Content-Type: application/json"',
+    '  --header "Idempotency-Key: your-unique-idempotency-key"',
+    "  --data @- <<'JSON'",
+  ];
+
+  return `${lines.join(lineContinuation())}
+${JSON.stringify(body, null, 2)}
+JSON`;
+}
+
+function lineContinuation() {
+  return ` ${String.fromCharCode(92)}\n`;
 }
 
 function CanvasInner(props: CanvasProps) {
@@ -2614,9 +2806,22 @@ function CanvasInner(props: CanvasProps) {
 
   const runFlow = useCallback(
     async (flowId: string, save: boolean) => {
-      const flowNodes = nodesRef.current
-        .filter((node) => node.type === 'model' && node.data.flowId === flowId)
-        .sort((a, b) => ROLE_RANK[a.data.role] - ROLE_RANK[b.data.role]);
+      let flowNodes: FlowNode[];
+      let input: Record<string, unknown>;
+      try {
+        const built = buildFlowRunInput(
+          nodesRef.current,
+          flowId,
+          fieldsRef.current,
+        );
+        flowNodes = built.flowNodes;
+        input = built.input;
+      } catch (error) {
+        toast.error(
+          error instanceof Error ? error.message : 'Check the model fields.',
+        );
+        return;
+      }
       const roles = new Set(flowNodes.map((node) => node.data.role));
 
       if (!roles.has('image') || !roles.has('video')) {
@@ -2628,42 +2833,6 @@ function CanvasInner(props: CanvasProps) {
           toast.error(`Add a prompt to the ${node.data.role}_model node.`);
           return;
         }
-      }
-
-      const input: Record<string, unknown> = {};
-      for (const node of flowNodes) {
-        let params: Record<string, unknown>;
-        try {
-          params = normalizeRunParams(
-            compact(node.data.values),
-            fieldsRef.current[node.data.modelId],
-          );
-        } catch (error) {
-          toast.error(
-            error instanceof Error
-              ? error.message
-              : `Check the ${node.data.role}_model fields.`,
-          );
-          return;
-        }
-        // The run API takes generation_input_file as an array of HTTPS URLs,
-        // and only on the first (image) step — later steps are chain-wired.
-        if (node.data.role === 'image') {
-          const inputFile = params.generation_input_file;
-          if (typeof inputFile === 'string') {
-            params.generation_input_file = [inputFile];
-          }
-          const inputImageFile = params.generation_input_image_file;
-          if (typeof inputImageFile === 'string') {
-            params.generation_input_image_file = [inputImageFile];
-          }
-        } else {
-          for (const key of CHAIN_WIRED_DOWNSTREAM_FIELDS) {
-            delete params[key];
-          }
-        }
-        input[`${node.data.role}_model`] = node.data.modelId;
-        input[`${node.data.role}_model_input`] = params;
       }
 
       // Mark running and clear this flow's previous statuses only.
@@ -2850,6 +3019,18 @@ function CanvasInner(props: CanvasProps) {
       removeNode,
       removeFlow,
       duplicateFlow,
+      createFlowCurl: (flowId: string) => {
+        try {
+          const { input } = buildFlowRunInput(
+            nodesRef.current,
+            flowId,
+            fieldsRef.current,
+          );
+          return createNodeCurl(input);
+        } catch {
+          return null;
+        }
+      },
       renameCanvas: (flowId: string, title: string) => {
         const targetCanvasId =
           canvasId ?? flowLibraryCanvasId(nodesRef.current, flowId);

@@ -1409,6 +1409,9 @@ const MODEL_SCHEMA_KEYS_HANDLED_BY_BABYCHAIN = new Set([
 const CHAIN_WIRED_IMAGE_INPUT_KEYS = new Set([
   'generation_input_file',
   'generation_input_file_last_content',
+  'generation_input_image_file',
+  'generation_input_image_file_last_content',
+  'generation_input_video_file',
   'character',
   'image',
   'image_prompt',
