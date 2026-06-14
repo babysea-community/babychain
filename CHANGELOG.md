@@ -8,6 +8,10 @@ All notable changes will be documented here. The format follows [Keep a Changelo
 
 - Updated the BYOK schema catalog to `semantic-lady@0.2.3`, consuming the raw-doc-locked 57-model schema matrix.
 - Hardened direct BYOK provider adapters to match the corrected raw schemas: Alibaba Cloud video requests now prune unsupported parameters per model, BFL size fields map to documented `width`/`height`, BytePlus video accepts normalized reference audio/video media, OpenAI maps `generation_mask_file` to multipart `mask`, and unsupported Google Veo `generateAudio` parameters are omitted for Fast/Lite variants.
+- Renaming a workspace flow that already has a Library card now updates that saved canvas title immediately by using the flow's persisted Library canvas id.
+- Added a Duplicate button to each workspace runner card so users can clone a flow's current models and inputs into a new unsaved flow without overwriting the original Library card.
+- Canvas node cards now expose the selected model's Semantic Lady fields more completely, preserve documented defaults, and render numeric enums or small bounded integer ranges as dropdowns instead of free number inputs.
+- Each canvas model node now includes a collapsible JSON Schema view for the effective node inputs, matching the schema inspection pattern used on the templates page.
 
 ## [0.1.1] - 2026-06-13
 

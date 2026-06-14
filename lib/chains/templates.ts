@@ -62,6 +62,21 @@ const StepModelInputSchema = z
       });
     }
 
+    const inputImageFile = modelInput.generation_input_image_file;
+
+    if (
+      inputImageFile !== undefined &&
+      (!Array.isArray(inputImageFile) ||
+        !inputImageFile.every(isSafeHttpsUrlValue))
+    ) {
+      context.addIssue({
+        code: 'custom',
+        message:
+          'generation_input_image_file must be an array of HTTPS public URLs.',
+        path: ['generation_input_image_file'],
+      });
+    }
+
     const lastContent = modelInput.generation_input_file_last_content;
 
     if (lastContent !== undefined && !isSafeHttpsUrlValue(lastContent)) {
@@ -71,6 +86,36 @@ const StepModelInputSchema = z
           'generation_input_file_last_content must be an HTTPS public URL.',
         path: ['generation_input_file_last_content'],
       });
+    }
+
+    const lastImageContent =
+      modelInput.generation_input_image_file_last_content;
+
+    if (
+      lastImageContent !== undefined &&
+      !isSafeHttpsUrlValue(lastImageContent)
+    ) {
+      context.addIssue({
+        code: 'custom',
+        message:
+          'generation_input_image_file_last_content must be an HTTPS public URL.',
+        path: ['generation_input_image_file_last_content'],
+      });
+    }
+
+    for (const key of [
+      'generation_input_video_file',
+      'generation_input_audio_file',
+    ]) {
+      const value = modelInput[key];
+
+      if (value !== undefined && !isSafeHttpsUrlValue(value)) {
+        context.addIssue({
+          code: 'custom',
+          message: `${key} must be an HTTPS public URL.`,
+          path: [key],
+        });
+      }
     }
   })
   .default({});
@@ -512,6 +557,12 @@ function hasInitialImageInput(
     return true;
   }
 
+  const inputImageFile = paramsRecord.generation_input_image_file;
+
+  if (Array.isArray(inputImageFile) && inputImageFile.length > 0) {
+    return true;
+  }
+
   return Boolean(options.byokMode && hasRawProviderImageInput(paramsRecord));
 }
 
@@ -933,6 +984,9 @@ function hasProvidedInputValue(value: unknown) {
 const PROVIDER_IMAGE_INPUT_PARAM_KEYS = new Set([
   'generation_input_file',
   'generation_input_file_last_content',
+  'generation_input_image_file',
+  'generation_input_image_file_last_content',
+  'generation_input_video_file',
   'character',
   'fileData',
   'image',

@@ -97,15 +97,6 @@ function listCanvasModels(): CanvasModel[] {
 // exactly what the run API validates. Both BYOK and BabySea modes speak the
 // same normalized generation_* contract.
 
-// File/object inputs are wired by the chain itself (each step receives the
-// previous step's output), so they never render as node-card fields.
-const SKIPPED_FIELD_TYPES = new Set([
-  'url',
-  'url-array',
-  'object',
-  'string-array',
-]);
-
 function semanticFieldSpec(field: {
   name: string;
   type: string;
@@ -115,40 +106,47 @@ function semanticFieldSpec(field: {
   default?: unknown;
   required?: boolean;
 }): FieldSpec | null {
-  if (SKIPPED_FIELD_TYPES.has(field.type)) {
-    return null;
-  }
-
   const required = field.required === true;
+  const enumOptions = selectOptions(field.enum ?? []);
 
-  if (field.type === 'enum') {
-    const options = (field.enum ?? []).map(String);
-    if (options.length === 0) return null;
-    // Pass through the model's own default verbatim. Only required enums
-    // without a documented default fall back to the first option — optional
-    // ones stay empty so the provider default applies.
-    const fallback =
-      typeof field.default === 'string' || typeof field.default === 'number'
-        ? String(field.default)
-        : required
-          ? options[0]
-          : undefined;
+  if (enumOptions.length > 0) {
     return {
       name: field.name,
       type: 'select',
-      options,
-      ...(fallback !== undefined ? { default: fallback } : {}),
+      options: enumOptions,
+      valueKind: enumOptions.every((option) => typeof option.value === 'number')
+        ? 'number'
+        : 'string',
+      ...defaultFieldValue(field.default),
       ...(required ? { required } : {}),
     };
+  }
+
+  const boundedIntegerOptions = integerRangeOptions(field);
+
+  if (boundedIntegerOptions.length > 0) {
+    return {
+      name: field.name,
+      type: 'select',
+      options: boundedIntegerOptions,
+      valueKind: 'number',
+      ...defaultFieldValue(field.default),
+      ...(required ? { required } : {}),
+    };
+  }
+
+  if (field.type === 'enum') {
+    return null;
   }
 
   if (field.type === 'integer' || field.type === 'number') {
     return {
       name: field.name,
       type: 'number',
+      valueKind: 'number',
       ...(typeof field.min === 'number' ? { min: field.min } : {}),
       ...(typeof field.max === 'number' ? { max: field.max } : {}),
-      ...(typeof field.default === 'number' ? { default: field.default } : {}),
+      ...defaultFieldValue(field.default),
       ...(required ? { required } : {}),
     };
   }
@@ -157,22 +155,93 @@ function semanticFieldSpec(field: {
     return {
       name: field.name,
       type: 'boolean',
-      ...(typeof field.default === 'boolean' ? { default: field.default } : {}),
+      valueKind: 'boolean',
+      ...defaultFieldValue(field.default),
     };
   }
 
-  if (field.type === 'string') {
+  if (field.type === 'url-array' || field.type === 'string-array') {
+    return {
+      name: field.name,
+      type: 'textarea',
+      rows: 2,
+      valueKind: 'string-array',
+      ...defaultFieldValue(field.default),
+      ...(required ? { required } : {}),
+    };
+  }
+
+  if (field.type === 'object') {
+    return {
+      name: field.name,
+      type: 'textarea',
+      rows: 4,
+      valueKind: 'json',
+      ...defaultFieldValue(field.default),
+      ...(required ? { required } : {}),
+    };
+  }
+
+  if (field.type === 'string' || field.type === 'url') {
     const isPrompt = field.name.endsWith('_prompt');
     return {
       name: field.name,
       type: isPrompt ? 'textarea' : 'text',
+      valueKind: 'string',
       ...(isPrompt ? { rows: 3 } : {}),
-      ...(typeof field.default === 'string' ? { default: field.default } : {}),
+      ...defaultFieldValue(field.default),
       ...(required ? { required } : {}),
     };
   }
 
   return null;
+}
+
+function selectOptions(values: readonly (string | number)[]) {
+  return values.map((value) => ({ label: String(value), value }));
+}
+
+function integerRangeOptions(field: {
+  type: string;
+  min?: number;
+  max?: number;
+}) {
+  if (
+    field.type !== 'integer' ||
+    typeof field.min !== 'number' ||
+    typeof field.max !== 'number' ||
+    !Number.isInteger(field.min) ||
+    !Number.isInteger(field.max) ||
+    field.max < field.min ||
+    field.max - field.min > 60
+  ) {
+    return [];
+  }
+
+  return Array.from({ length: field.max - field.min + 1 }, (_, index) => {
+    const value = field.min! + index;
+    return { label: String(value), value };
+  });
+}
+
+function defaultFieldValue(value: unknown): Pick<FieldSpec, 'default'> {
+  if (
+    typeof value === 'string' ||
+    typeof value === 'number' ||
+    typeof value === 'boolean'
+  ) {
+    return { default: value };
+  }
+
+  if (Array.isArray(value)) {
+    return { default: value.join('\n') };
+  }
+
+  if (value && typeof value === 'object') {
+    return { default: JSON.stringify(value, null, 2) };
+  }
+
+  return {};
 }
 
 function deriveSemanticFields(modelId: string): FieldGroup {
@@ -200,15 +269,6 @@ function deriveSemanticFields(modelId: string): FieldGroup {
     const spec = semanticFieldSpec(field);
     if (!spec) continue;
     (field.tier === 'advanced' ? advanced : core).push(spec);
-  }
-
-  // First-step image input: the run API accepts
-  // image_model_input.generation_input_file (array of HTTPS URLs) so an
-  // image-to-image-capable model can start the chain from an existing image.
-  // Rendered only on image_model cards — refine/video/modify inputs are
-  // chain-wired from the previous step and must not be user-supplied.
-  if (isImageInputCapableModel(modelId)) {
-    core.push({ name: 'generation_input_file', type: 'text' });
   }
 
   core.sort((a, b) =>

@@ -995,6 +995,22 @@ describe('chain templates', () => {
         template!,
         {
           image_model: TEXT_IMAGE_MODEL,
+          video_model: VIDEO_MODEL,
+          video_model_input: { generation_duration: 4 },
+          modify_model: 'happyhorse/1.0-video-edit',
+          modify_model_input: {
+            generation_input_video_file: 'https://cdn.example.com/source.mp4',
+          },
+        },
+        { byokMode: true },
+      ),
+    ).toThrow('Remove modify_model_input.generation_input_video_file');
+
+    expect(() =>
+      parseTemplateInput(
+        template!,
+        {
+          image_model: TEXT_IMAGE_MODEL,
           refine_model: 'google/nano-banana-2',
           refine_model_input: {
             contents: [
@@ -1263,6 +1279,18 @@ describe('chain templates', () => {
         video_model: VIDEO_MODEL,
       }),
     ).toThrow('generation_input_file must be an array of HTTPS public URLs.');
+    expect(() =>
+      parseTemplateInput(template!, {
+        image_model: REFINE_IMAGE_MODEL,
+        image_model_input: {
+          generation_input_file: ['http://localhost/image.png'],
+          generation_input_image_file: ['http://localhost/image.png'],
+        },
+        video_model: VIDEO_MODEL,
+      }),
+    ).toThrow(
+      'generation_input_image_file must be an array of HTTPS public URLs.',
+    );
   });
 
   it('rejects unsafe input file URLs inside model inputs', () => {
@@ -1302,6 +1330,18 @@ describe('chain templates', () => {
         withModelSelection({
           video_model_input: {
             generation_input_file_last_content: 'http://localhost/last.png',
+          },
+        }),
+      ),
+    ).toThrow();
+    expect(() =>
+      parseTemplateInput(
+        template!,
+        withModelSelection({
+          video_model_input: {
+            generation_input_file_last_content: 'http://localhost/last.png',
+            generation_input_image_file_last_content:
+              'http://localhost/last.png',
           },
         }),
       ),

@@ -283,13 +283,16 @@ function FieldSelectDropdown({
   disabled,
   onChange,
 }: {
-  options: string[];
-  value: string;
+  options: SelectOption[];
+  value: FieldValue | undefined;
   disabled: boolean;
-  onChange: (value: string) => void;
+  onChange: (value: FieldValue) => void;
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const selected = options.find(
+    (option) => String(option.value) === String(value ?? ''),
+  );
 
   useEffect(() => {
     if (!open) return;
@@ -311,7 +314,9 @@ function FieldSelectDropdown({
         onClick={() => setOpen((state) => !state)}
         className="flex h-8 w-full items-center gap-2 border border-border bg-input px-2.5 text-left text-xs text-foreground outline-none transition focus-visible:border-ring disabled:opacity-50"
       >
-        <span className="min-w-0 flex-1 truncate">{value || 'Select'}</span>
+        <span className="min-w-0 flex-1 truncate">
+          {selected?.label ?? 'Select'}
+        </span>
         <FontAwesomeIcon
           className="size-3.5 shrink-0 text-muted-foreground"
           icon="chevron-down"
@@ -325,14 +330,14 @@ function FieldSelectDropdown({
           onWheel={handleDropdownWheel}
         >
           {options.map((option) => {
-            const active = option === value;
+            const active = String(option.value) === String(value ?? '');
 
             return (
               <button
                 type="button"
-                key={option}
+                key={`${option.label}:${String(option.value)}`}
                 onClick={() => {
-                  onChange(option);
+                  onChange(option.value);
                   setOpen(false);
                 }}
                 className={cn(
@@ -340,7 +345,7 @@ function FieldSelectDropdown({
                   active ? 'bg-muted text-foreground' : 'text-muted-foreground',
                 )}
               >
-                <span className="min-w-0 flex-1 truncate">{option}</span>
+                <span className="min-w-0 flex-1 truncate">{option.label}</span>
               </button>
             );
           })}
@@ -361,7 +366,8 @@ export type FieldSpec = {
   type: 'text' | 'textarea' | 'number' | 'select' | 'boolean';
   required?: boolean;
   default?: string | number | boolean;
-  options?: string[];
+  options?: SelectOption[];
+  valueKind?: 'string' | 'number' | 'boolean' | 'string-array' | 'json';
   min?: number;
   max?: number;
   rows?: number;
@@ -379,6 +385,11 @@ export type CanvasModel = {
 };
 
 type FieldValue = string | number | boolean;
+
+type SelectOption = {
+  label: string;
+  value: FieldValue;
+};
 
 type RunStep = {
   step_key: string;
@@ -449,8 +460,7 @@ function kindForRole(role: StepRole): 'image' | 'video' {
 
 function defaultValue(field: FieldSpec): FieldValue {
   if (field.default !== undefined) return field.default;
-  if (field.type === 'boolean') return false;
-  // Optional numbers (e.g. generation_seed) stay empty so compact() drops
+  // Optional fields without documented defaults stay empty so compact() drops
   // them and the provider applies its own default.
   return '';
 }
@@ -526,9 +536,9 @@ function restoreNodes(
   entries: StoredCanvasNode[],
   initialTitle?: string | null,
 ): FlowNode[] {
-  // Canvases saved before multi-flow shipped have no flowId: treat them as
-  // one flow.
-  const legacyFlowId = genFlowId();
+  // Defensive fallback for malformed stored nodes: treat missing flowId as one
+  // flow instead of crashing the canvas.
+  const fallbackFlowId = genFlowId();
 
   return entries
     .filter((entry) => entry && entry.id && entry.role)
@@ -546,7 +556,7 @@ function restoreNodes(
           flowId:
             typeof entry.flowId === 'string' && entry.flowId
               ? entry.flowId
-              : legacyFlowId,
+              : fallbackFlowId,
           values:
             type === 'info' ? ensureInfoName(values, initialTitle) : values,
         },
@@ -656,6 +666,17 @@ function flowName(nodes: FlowNode[], flowId?: string): string {
     : createDefaultCanvasName();
 }
 
+function duplicateFlowName(name: string) {
+  const base = normalizeCanvasTitle(name) || createDefaultCanvasName();
+  const suffix = ' copy';
+
+  if (base.length + suffix.length <= MAX_CANVAS_TITLE_LENGTH) {
+    return `${base}${suffix}`;
+  }
+
+  return `${base.slice(0, MAX_CANVAS_TITLE_LENGTH - suffix.length)}${suffix}`;
+}
+
 function flowLibraryCanvasId(nodes: FlowNode[], flowId: string) {
   const infoNode = nodes.find(
     (node) => node.type === 'info' && node.data.flowId === flowId,
@@ -725,7 +746,8 @@ type CanvasContextValue = {
   updateValue: (id: string, name: string, value: FieldValue) => void;
   removeNode: (id: string) => void;
   removeFlow: (flowId: string) => void;
-  renameCanvas: (title: string) => void;
+  duplicateFlow: (flowId: string) => void;
+  renameCanvas: (flowId: string, title: string) => void;
   addNodeToFlow: (flowId: string, role: StepRole) => void;
   runFlow: (flowId: string, save: boolean) => void;
   stopFlow: (flowId: string) => void;
@@ -774,7 +796,7 @@ function FieldControl({
     return (
       <FieldSelectDropdown
         options={field.options ?? []}
-        value={String(value ?? '')}
+        value={value}
         disabled={disabled}
         onChange={onChange}
       />
@@ -854,6 +876,84 @@ function FieldRow({
       />
     </div>
   );
+}
+
+function NodeSchemaJsonBlock({ value }: { value: Record<string, unknown> }) {
+  return (
+    <pre className="max-h-80 overflow-auto border border-border bg-[#050505] p-3 font-mono text-[0.65rem] leading-5 text-[#f8fafc]">
+      <code>{JSON.stringify(value, null, 2)}</code>
+    </pre>
+  );
+}
+
+function createNodeSchemaJson({
+  fields,
+  modelId,
+  modelLabel,
+}: {
+  fields: FieldSpec[];
+  modelId: string;
+  modelLabel: string;
+}) {
+  const required = fields
+    .filter((field) => field.required)
+    .map((field) => field.name);
+
+  return {
+    model: modelLabel,
+    model_identifier: modelId,
+    schema: {
+      type: 'object',
+      ...(required.length > 0 ? { required } : {}),
+      properties: Object.fromEntries(
+        fields.map((field, index) => [
+          field.name,
+          createNodeSchemaProperty(field, index),
+        ]),
+      ),
+    },
+  };
+}
+
+function createNodeSchemaProperty(field: FieldSpec, order: number) {
+  const property: Record<string, unknown> = {
+    type: jsonSchemaTypeForField(field),
+    'x-order': order,
+  };
+
+  if (field.options?.length) {
+    property.enum = field.options.map((option) => option.value);
+  }
+
+  if (field.default !== undefined) {
+    property.default = field.default;
+  }
+
+  if (field.min !== undefined) {
+    property.minimum = field.min;
+  }
+
+  if (field.max !== undefined) {
+    property.maximum = field.max;
+  }
+
+  if (field.required) {
+    property.required = true;
+  }
+
+  if (field.valueKind === 'string-array') {
+    property.items = { type: 'string' };
+  }
+
+  return property;
+}
+
+function jsonSchemaTypeForField(field: FieldSpec) {
+  if (field.valueKind === 'json') return 'object';
+  if (field.valueKind === 'string-array') return 'array';
+  if (field.valueKind === 'number') return 'number';
+  if (field.valueKind === 'boolean') return 'boolean';
+  return 'string';
 }
 
 // ----------------------------------------------------------------------------
@@ -957,6 +1057,7 @@ function ModelNodeComponent({ id, data }: NodeProps) {
     addNodeToFlow,
   } = useCanvas();
   const [advancedOpen, setAdvancedOpen] = useState(false);
+  const [schemaOpen, setSchemaOpen] = useState(false);
 
   const kind = kindForRole(role);
   const color = ROLE_COLOR[role];
@@ -1102,11 +1203,38 @@ function ModelNodeComponent({ id, data }: NodeProps) {
                 <div className="h-full w-1/3 animate-pulse bg-primary" />
               </div>
             ) : null}
+            <div className="border border-border">
+              <button
+                type="button"
+                aria-expanded={schemaOpen}
+                onClick={() => setSchemaOpen((open) => !open)}
+                className="nodrag flex w-full items-center justify-between gap-3 px-2.5 py-1.5 text-left font-mono text-[0.7rem] font-medium uppercase tracking-wide text-muted-foreground transition hover:text-foreground"
+              >
+                <span>JSON Schema</span>
+                <FontAwesomeIcon
+                  className={cn(
+                    'size-3.5 transition-transform',
+                    schemaOpen && 'rotate-180',
+                  )}
+                  icon="chevron-down"
+                />
+              </button>
+              {schemaOpen ? (
+                <div className="border-t border-border p-2.5">
+                  <NodeSchemaJsonBlock
+                    value={createNodeSchemaJson({
+                      fields: [...group.core, ...group.advanced].filter(
+                        (field) => shouldRenderFieldForRole(field, role),
+                      ),
+                      modelId,
+                      modelLabel: model?.label ?? modelId,
+                    })}
+                  />
+                </div>
+              ) : null}
+            </div>
             {group.core
-              .filter(
-                (field) =>
-                  role === 'image' || field.name !== 'generation_input_file',
-              )
+              .filter((field) => shouldRenderFieldForRole(field, role))
               .map((field) => (
                 <FieldRow
                   key={field.name}
@@ -1135,15 +1263,19 @@ function ModelNodeComponent({ id, data }: NodeProps) {
                 </button>
                 {advancedOpen ? (
                   <div className="space-y-3 border-t border-border p-2.5">
-                    {group.advanced.map((field) => (
-                      <FieldRow
-                        key={field.name}
-                        field={field}
-                        value={values[field.name]}
-                        disabled={running}
-                        onChange={(value) => updateValue(id, field.name, value)}
-                      />
-                    ))}
+                    {group.advanced
+                      .filter((field) => shouldRenderFieldForRole(field, role))
+                      .map((field) => (
+                        <FieldRow
+                          key={field.name}
+                          field={field}
+                          value={values[field.name]}
+                          disabled={running}
+                          onChange={(value) =>
+                            updateValue(id, field.name, value)
+                          }
+                        />
+                      ))}
                   </div>
                 ) : null}
               </div>
@@ -1178,6 +1310,7 @@ function RunnerNodeComponent({ data }: NodeProps) {
     runFlow,
     stopFlow,
     removeFlow,
+    duplicateFlow,
     flowCount,
     isSavedCanvas,
   } = useCanvas();
@@ -1239,6 +1372,23 @@ function RunnerNodeComponent({ data }: NodeProps) {
           <FontAwesomeIcon icon="floppy-disk" />
           Run and save
         </Button>
+        <span className="group relative block">
+          <Button
+            className="nodrag w-full"
+            size="sm"
+            variant="outline"
+            disabled={running || isSavedCanvas}
+            onClick={() => duplicateFlow(flowId)}
+          >
+            <FontAwesomeIcon icon="copy" />
+            Duplicate
+          </Button>
+          {isSavedCanvas ? (
+            <span className="pointer-events-none absolute left-1/2 top-full z-20 mt-1.5 hidden w-60 -translate-x-1/2 border border-border bg-card px-2.5 py-1.5 text-center text-[0.65rem] leading-4 text-foreground shadow-xl group-hover:block">
+              Duplicate flows from the workspace canvas.
+            </span>
+          ) : null}
+        </span>
         {running ? (
           <Button
             className="nodrag w-full"
@@ -1278,8 +1428,7 @@ function RunnerNodeComponent({ data }: NodeProps) {
 function InfoNodeComponent({ id, data }: NodeProps) {
   const node = data as NodeData;
   const { flowId, values } = node;
-  const { flowMeta, updateValue, runningFlowIds, isSavedCanvas, renameCanvas } =
-    useCanvas();
+  const { flowMeta, updateValue, runningFlowIds, renameCanvas } = useCanvas();
   const running = runningFlowIds.has(flowId);
   const nameValue = typeof values.name === 'string' ? values.name : '';
   const autoName = flowMeta[flowId]?.autoName ?? 'Untitled canvas';
@@ -1293,11 +1442,10 @@ function InfoNodeComponent({ id, data }: NodeProps) {
     const title = trimmed || autoName;
     setDraft(title);
     updateValue(id, 'name', title);
-    // On a saved canvas page the name IS the Library title — rename it
-    // immediately. On the workspace the name only seeds the next publish.
-    if (isSavedCanvas) {
-      renameCanvas(title);
-    }
+    // Saved canvas pages use the route canvas id. Workspace flows that have
+    // already been published carry their Library id on the info card, so a
+    // later rename updates the Library card immediately too.
+    renameCanvas(flowId, title);
   };
 
   return (
@@ -1396,6 +1544,79 @@ function compact(values: Record<string, FieldValue>): Record<string, unknown> {
     }
   }
   return output;
+}
+
+function normalizeRunParams(
+  params: Record<string, unknown>,
+  group: FieldGroup | undefined,
+) {
+  if (!group) return params;
+
+  const next = { ...params };
+  const fields = [...group.core, ...group.advanced];
+
+  for (const field of fields) {
+    const value = next[field.name];
+
+    if (value === undefined) {
+      continue;
+    }
+
+    if (field.valueKind === 'number') {
+      if (typeof value === 'number') continue;
+      const numberValue = Number(value);
+      if (Number.isFinite(numberValue)) {
+        next[field.name] = numberValue;
+      }
+      continue;
+    }
+
+    if (field.valueKind === 'string-array') {
+      next[field.name] = normalizeStringArrayValue(value);
+      continue;
+    }
+
+    if (field.valueKind === 'json' && typeof value === 'string') {
+      try {
+        next[field.name] = JSON.parse(value);
+      } catch {
+        throw new Error(`${field.name} must be valid JSON.`);
+      }
+    }
+  }
+
+  return next;
+}
+
+function normalizeStringArrayValue(value: unknown) {
+  if (Array.isArray(value)) {
+    return value
+      .map((item) => (typeof item === 'string' ? item.trim() : ''))
+      .filter(Boolean);
+  }
+
+  if (typeof value !== 'string') {
+    return value;
+  }
+
+  return value
+    .split(/[\n,]/)
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+const CHAIN_WIRED_DOWNSTREAM_FIELDS = [
+  'generation_input_file',
+  'generation_input_file_last_content',
+  'generation_input_image_file',
+  'generation_input_image_file_last_content',
+  'generation_input_video_file',
+];
+
+function shouldRenderFieldForRole(field: FieldSpec, role: StepRole) {
+  return (
+    role === 'image' || !CHAIN_WIRED_DOWNSTREAM_FIELDS.includes(field.name)
+  );
 }
 
 function promptValue(values: Record<string, FieldValue>) {
@@ -1849,8 +2070,7 @@ function CanvasInner(props: CanvasProps) {
         if (!first || !last) continue;
 
         // Flow info card: persists the flow's Library identity (canvas id +
-        // editable name). Legacy flows saved before info cards shipped get
-        // one with a fresh id.
+        // editable name). If a malformed stored flow is missing one, create it.
         const infoId = `info_${flowId}`;
         const existingInfo = auxById.get(infoId);
         if (existingInfo) {
@@ -2015,6 +2235,65 @@ function CanvasInner(props: CanvasProps) {
       void ensureFields(model.id, kindForRole(role));
     },
     [models, setNodes, ensureFields],
+  );
+
+  const duplicateFlow = useCallback(
+    (flowId: string) => {
+      if (canvasId) return;
+
+      setNodes((current) => {
+        const sourceModels = current
+          .filter(
+            (node) => node.type === 'model' && node.data.flowId === flowId,
+          )
+          .sort((a, b) => ROLE_RANK[a.data.role] - ROLE_RANK[b.data.role]);
+
+        if (sourceModels.length === 0) {
+          return current;
+        }
+
+        const sourceInfo = current.find(
+          (node) => node.type === 'info' && node.data.flowId === flowId,
+        );
+        const newFlowId = genFlowId();
+        const rowY = nextFlowY(current);
+        const infoValues: Record<string, FieldValue> = {
+          ...(sourceInfo?.data.values ?? {}),
+          name: duplicateFlowName(flowName(current, flowId)),
+        };
+        delete infoValues[LIBRARY_CANVAS_ID_VALUE];
+
+        const copiedNodes: FlowNode[] = [
+          {
+            id: `info_${newFlowId}`,
+            type: 'info',
+            position: { x: FLOW_X, y: rowY },
+            data: {
+              role: 'image',
+              modelId: '',
+              flowId: newFlowId,
+              values: infoValues,
+            },
+          },
+          ...sourceModels.map((node, index) => ({
+            id: genId(node.data.role),
+            type: 'model' as const,
+            position: {
+              x: FLOW_X + INFO_COL_W + index * FLOW_COL_W,
+              y: rowY,
+            },
+            data: {
+              ...node.data,
+              flowId: newFlowId,
+              values: { ...node.data.values },
+            },
+          })),
+        ];
+
+        return [...current, ...copiedNodes];
+      });
+    },
+    [canvasId, setNodes],
   );
 
   const addFlow = useCallback(() => {
@@ -2228,7 +2507,20 @@ function CanvasInner(props: CanvasProps) {
 
       const input: Record<string, unknown> = {};
       for (const node of flowNodes) {
-        const params = compact(node.data.values);
+        let params: Record<string, unknown>;
+        try {
+          params = normalizeRunParams(
+            compact(node.data.values),
+            fieldsRef.current[node.data.modelId],
+          );
+        } catch (error) {
+          toast.error(
+            error instanceof Error
+              ? error.message
+              : `Check the ${node.data.role}_model fields.`,
+          );
+          return;
+        }
         // The run API takes generation_input_file as an array of HTTPS URLs,
         // and only on the first (image) step — later steps are chain-wired.
         if (node.data.role === 'image') {
@@ -2236,8 +2528,14 @@ function CanvasInner(props: CanvasProps) {
           if (typeof inputFile === 'string') {
             params.generation_input_file = [inputFile];
           }
+          const inputImageFile = params.generation_input_image_file;
+          if (typeof inputImageFile === 'string') {
+            params.generation_input_image_file = [inputImageFile];
+          }
         } else {
-          delete params.generation_input_file;
+          for (const key of CHAIN_WIRED_DOWNSTREAM_FIELDS) {
+            delete params[key];
+          }
         }
         input[`${node.data.role}_model`] = node.data.modelId;
         input[`${node.data.role}_model_input`] = params;
@@ -2426,9 +2724,12 @@ function CanvasInner(props: CanvasProps) {
       updateValue,
       removeNode,
       removeFlow,
-      renameCanvas: (title: string) => {
-        if (canvasId) {
-          void renameCanvasAction(canvasId, title).catch(() => undefined);
+      duplicateFlow,
+      renameCanvas: (flowId: string, title: string) => {
+        const targetCanvasId =
+          canvasId ?? flowLibraryCanvasId(nodesRef.current, flowId);
+        if (targetCanvasId) {
+          void renameCanvasAction(targetCanvasId, title).catch(() => undefined);
         }
       },
       addNodeToFlow,
@@ -2447,6 +2748,7 @@ function CanvasInner(props: CanvasProps) {
       updateValue,
       removeNode,
       removeFlow,
+      duplicateFlow,
       renameCanvasAction,
       addNodeToFlow,
       runFlow,
