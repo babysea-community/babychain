@@ -30,6 +30,7 @@ import {
 } from '@xyflow/react';
 import type {
   ComponentType,
+  ReactNode,
   SVGProps,
   WheelEvent as ReactWheelEvent,
 } from 'react';
@@ -172,7 +173,7 @@ function isInferenceIconKey(value: string): value is InferenceIconKey {
   return value in INFERENCE_ICONS;
 }
 
-function handleDropdownWheel(event: ReactWheelEvent<HTMLDivElement>) {
+function handleDropdownWheel(event: ReactWheelEvent<HTMLElement>) {
   event.preventDefault();
   event.stopPropagation();
 
@@ -182,8 +183,15 @@ function handleDropdownWheel(event: ReactWheelEvent<HTMLDivElement>) {
       : event.deltaMode === 2
         ? event.deltaY * event.currentTarget.clientHeight
         : event.deltaY;
+  const deltaX =
+    event.deltaMode === 1
+      ? event.deltaX * 16
+      : event.deltaMode === 2
+        ? event.deltaX * event.currentTarget.clientWidth
+        : event.deltaX;
 
   event.currentTarget.scrollTop += delta;
+  event.currentTarget.scrollLeft += deltaX;
 }
 
 // Custom model dropdown. A native <select> cannot render an SVG inside its
@@ -879,11 +887,98 @@ function FieldRow({
 }
 
 function NodeSchemaJsonBlock({ value }: { value: Record<string, unknown> }) {
+  const json = JSON.stringify(value, null, 2);
+
   return (
-    <pre className="max-h-80 overflow-auto border border-border bg-[#050505] p-3 font-mono text-[0.65rem] leading-5 text-[#f8fafc]">
-      <code>{JSON.stringify(value, null, 2)}</code>
+    <pre
+      className="nodrag nopan nowheel max-h-80 cursor-auto overflow-auto overscroll-contain border border-border bg-[#050505] p-3 font-mono text-[0.65rem] leading-5 text-[#f8fafc]"
+      onPointerDown={(event) => event.stopPropagation()}
+      onWheel={handleDropdownWheel}
+    >
+      <code>{highlightJsonCode(json, 'node-schema-json')}</code>
     </pre>
   );
+}
+
+type CodeTokenTone =
+  | 'command'
+  | 'jsonKey'
+  | 'literal'
+  | 'number'
+  | 'option'
+  | 'punctuation'
+  | 'string'
+  | 'text';
+
+const CODE_TOKEN_CLASSES: Record<CodeTokenTone, string> = {
+  command: 'text-[#38bdf8]',
+  jsonKey: 'text-[#60a5fa]',
+  literal: 'text-[#f472b6]',
+  number: 'text-[#fbbf24]',
+  option: 'text-[#a78bfa]',
+  punctuation: 'text-[#94a3b8]',
+  string: 'text-[#34d399]',
+  text: 'text-[#f8fafc]',
+};
+
+const JSON_LITERAL_TOKENS = new Set(['true', 'false', 'null']);
+
+function highlightJsonCode(source: string, keyPrefix: string) {
+  return tokenizeCode(
+    source,
+    /("(?:\\.|[^"\\])*"(?=\s*:)|"(?:\\.|[^"\\])*"|-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?|\b(?:true|false|null)\b|[{}[\]:,])/g,
+    (token, index) => {
+      if (token.startsWith('"') && token.endsWith('"')) {
+        return source.slice(index + token.length).match(/^\s*:/)
+          ? 'jsonKey'
+          : 'string';
+      }
+      if (/^-?\d/.test(token)) return 'number';
+      if (JSON_LITERAL_TOKENS.has(token)) return 'literal';
+      if ('{}[]:,'.includes(token)) return 'punctuation';
+      return 'text';
+    },
+    keyPrefix,
+  );
+}
+
+function tokenizeCode(
+  source: string,
+  pattern: RegExp,
+  toneForToken: (token: string, index: number) => CodeTokenTone,
+  keyPrefix: string,
+) {
+  const nodes: ReactNode[] = [];
+  let lastIndex = 0;
+  let tokenIndex = 0;
+
+  for (const match of source.matchAll(pattern)) {
+    const token = match[0];
+    const index = match.index ?? 0;
+
+    if (index > lastIndex) {
+      nodes.push(source.slice(lastIndex, index));
+    }
+
+    const tone = toneForToken(token, index);
+    nodes.push(
+      <span
+        className={CODE_TOKEN_CLASSES[tone]}
+        key={`${keyPrefix}-${tokenIndex}`}
+      >
+        {token}
+      </span>,
+    );
+
+    lastIndex = index + token.length;
+    tokenIndex += 1;
+  }
+
+  if (lastIndex < source.length) {
+    nodes.push(source.slice(lastIndex));
+  }
+
+  return nodes;
 }
 
 function createNodeSchemaJson({
@@ -1058,6 +1153,7 @@ function ModelNodeComponent({ id, data }: NodeProps) {
   } = useCanvas();
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [schemaOpen, setSchemaOpen] = useState(false);
+  const [schemaCopied, setSchemaCopied] = useState(false);
 
   const kind = kindForRole(role);
   const color = ROLE_COLOR[role];
@@ -1083,6 +1179,30 @@ function ModelNodeComponent({ id, data }: NodeProps) {
   }, [liveGroup]);
   const group = liveGroup ?? stickyGroup;
   const loading = !liveGroup;
+  const schemaFields = group
+    ? [...group.core, ...group.advanced].filter((field) =>
+        shouldRenderFieldForRole(field, role),
+      )
+    : [];
+  const schemaJson = group
+    ? createNodeSchemaJson({
+        fields: schemaFields,
+        modelId,
+        modelLabel: model?.label ?? modelId,
+      })
+    : null;
+
+  const copySchema = useCallback(async () => {
+    if (!schemaJson) return;
+
+    try {
+      await navigator.clipboard.writeText(JSON.stringify(schemaJson, null, 2));
+      setSchemaCopied(true);
+      window.setTimeout(() => setSchemaCopied(false), 1600);
+    } catch {
+      toast.error('Copying the JSON schema failed.');
+    }
+  }, [schemaJson]);
 
   return (
     <div className="group relative w-[400px] border border-border bg-card shadow-lg">
@@ -1203,36 +1323,6 @@ function ModelNodeComponent({ id, data }: NodeProps) {
                 <div className="h-full w-1/3 animate-pulse bg-primary" />
               </div>
             ) : null}
-            <div className="border border-border">
-              <button
-                type="button"
-                aria-expanded={schemaOpen}
-                onClick={() => setSchemaOpen((open) => !open)}
-                className="nodrag flex w-full items-center justify-between gap-3 px-2.5 py-1.5 text-left font-mono text-[0.7rem] font-medium uppercase tracking-wide text-muted-foreground transition hover:text-foreground"
-              >
-                <span>JSON Schema</span>
-                <FontAwesomeIcon
-                  className={cn(
-                    'size-3.5 transition-transform',
-                    schemaOpen && 'rotate-180',
-                  )}
-                  icon="chevron-down"
-                />
-              </button>
-              {schemaOpen ? (
-                <div className="border-t border-border p-2.5">
-                  <NodeSchemaJsonBlock
-                    value={createNodeSchemaJson({
-                      fields: [...group.core, ...group.advanced].filter(
-                        (field) => shouldRenderFieldForRole(field, role),
-                      ),
-                      modelId,
-                      modelLabel: model?.label ?? modelId,
-                    })}
-                  />
-                </div>
-              ) : null}
-            </div>
             {group.core
               .filter((field) => shouldRenderFieldForRole(field, role))
               .map((field) => (
@@ -1276,6 +1366,41 @@ function ModelNodeComponent({ id, data }: NodeProps) {
                           }
                         />
                       ))}
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
+            {schemaJson ? (
+              <div className="border border-border">
+                <div className="flex items-center justify-between gap-2 border-b border-border">
+                  <button
+                    type="button"
+                    aria-expanded={schemaOpen}
+                    onClick={() => setSchemaOpen((open) => !open)}
+                    className="nodrag flex min-w-0 flex-1 items-center justify-between gap-3 px-2.5 py-1.5 text-left font-mono text-[0.7rem] font-medium uppercase tracking-wide text-muted-foreground transition hover:text-foreground"
+                  >
+                    <span>JSON Schema</span>
+                    <FontAwesomeIcon
+                      className={cn(
+                        'size-3.5 transition-transform',
+                        schemaOpen && 'rotate-180',
+                      )}
+                      icon="chevron-down"
+                    />
+                  </button>
+                  <Button
+                    className="nodrag mr-1 h-7 px-2 text-[0.65rem]"
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => void copySchema()}
+                  >
+                    <FontAwesomeIcon icon={schemaCopied ? 'check' : 'copy'} />
+                    {schemaCopied ? 'Copied' : 'Copy'}
+                  </Button>
+                </div>
+                {schemaOpen ? (
+                  <div className="p-2.5">
+                    <NodeSchemaJsonBlock value={schemaJson} />
                   </div>
                 ) : null}
               </div>

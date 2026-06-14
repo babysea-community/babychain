@@ -43,6 +43,7 @@ Canvas studio and durable chain API for image and video model workflows with one
 [![Semantic Lady](https://custom-icon-badges.demolab.com/badge/semantic_lady-EC4899?style=for-the-badge&logo=semantic-lady)](https://github.com/babysea-community/semantic-lady)
 [![AWS Aurora](https://custom-icon-badges.demolab.com/badge/aws_aurora-3B46CA?style=for-the-badge&logo=aws-aurora&logoColor=white)](https://aws.amazon.com/rds/aurora)
 [![Vercel](https://custom-icon-badges.demolab.com/badge/vercel-000000?style=for-the-badge&logo=vercel&logoColor=white)](https://vercel.com)
+[![Inference Providers](https://custom-icon-badges.demolab.com/badge/inference_providers-33AAFF?style=for-the-badge&logo=cpu&logoColor=white)](SUPPORTED_MODELS.md)
 [![Sentry](https://img.shields.io/badge/sentry-181225?style=for-the-badge&logo=sentry&logoColor=white)](https://sentry.io)
 
 <br/>
