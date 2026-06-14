@@ -1494,7 +1494,7 @@ function createSchemaExample(
   }
 
   if (context.key && isPromptLikeKey(context.key)) {
-    return context.preferredPrompt || undefined;
+    return context.preferredPrompt;
   }
 
   if (type === 'object' || isJsonObject(schema.properties)) {
