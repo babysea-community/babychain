@@ -70,7 +70,8 @@ describe('semantic-lady BYOK schema core', () => {
     expect(
       findByokGenerationFieldIssue('bfl/flux-2-pro', {
         generation_prompt: 'A glass lighthouse at sunrise',
-        generation_ratio: '16:9',
+        generation_width: 1024,
+        generation_height: 768,
         generation_seed: 42,
         generation_output_format: 'png',
       }),
@@ -183,7 +184,7 @@ describe('semantic-lady BYOK schema core', () => {
     ).toMatchObject({ path: ['generation_guidance_scale'] });
   });
 
-  it('accepts provider-native ratio and resolution escape values', () => {
+  it('accepts provider-native ratio and size values', () => {
     expect(
       findByokGenerationFieldIssue('runway/gen-4-turbo', {
         generation_prompt: 'A slow dolly forward',
@@ -195,7 +196,7 @@ describe('semantic-lady BYOK schema core', () => {
     expect(
       findByokGenerationFieldIssue('qwen/image-2-pro', {
         generation_prompt: 'A poster',
-        generation_resolution: '2K',
+        generation_size: '1664*928',
       }),
     ).toBeNull();
   });

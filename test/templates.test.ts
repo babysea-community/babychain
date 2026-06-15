@@ -208,7 +208,8 @@ describe('chain templates', () => {
         template!,
         buildInput({
           generation_prompt: 'A photo',
-          generation_ratio: '16:9',
+          generation_width: 1024,
+          generation_height: 768,
           safety_tolerance: 4,
         }),
         { byokMode: true },
