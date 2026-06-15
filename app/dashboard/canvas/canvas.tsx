@@ -1922,7 +1922,10 @@ function buildFlowRunInput(
   const flowNodes = nodes
     .filter((node) => node.type === 'model' && node.data.flowId === flowId)
     .sort((a, b) => ROLE_RANK[a.data.role] - ROLE_RANK[b.data.role]);
-  const input: Record<string, unknown> = {};
+  const chainModels: Record<string, string> = {};
+  const input: Record<string, unknown> = {
+    chain_models: chainModels,
+  };
 
   for (const node of flowNodes) {
     const group = fieldsByModel[node.data.modelId];
@@ -1941,7 +1944,7 @@ function buildFlowRunInput(
       }
     }
 
-    input[`${node.data.role}_model`] = node.data.modelId;
+    chainModels[`${node.data.role}_model`] = node.data.modelId;
     input[`${node.data.role}_model_input`] = createSchemaCurlParams(
       schemaFields,
       params,
