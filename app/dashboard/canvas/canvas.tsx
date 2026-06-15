@@ -1925,10 +1925,13 @@ function buildFlowRunInput(
   const input: Record<string, unknown> = {};
 
   for (const node of flowNodes) {
-    const params = normalizeRunParams(
-      compact(node.data.values),
-      fieldsByModel[node.data.modelId],
-    );
+    const group = fieldsByModel[node.data.modelId];
+    const schemaFields = group
+      ? [...group.core, ...group.advanced].filter((field) =>
+          shouldRenderFieldForRole(field, node.data.role),
+        )
+      : [];
+    const params = normalizeRunParams(compact(node.data.values), group);
 
     if (node.data.role === 'image') {
       normalizeInitialImageInputArrays(params);
@@ -1939,7 +1942,11 @@ function buildFlowRunInput(
     }
 
     input[`${node.data.role}_model`] = node.data.modelId;
-    input[`${node.data.role}_model_input`] = params;
+    input[`${node.data.role}_model_input`] = createSchemaCurlParams(
+      schemaFields,
+      params,
+      promptValue(node.data.values) ?? '',
+    );
   }
 
   return { flowNodes, input };
@@ -1950,38 +1957,7 @@ function buildFlowCurlInput(
   flowId: string,
   fieldsByModel: Record<string, FieldGroup | undefined>,
 ) {
-  const flowNodes = nodes
-    .filter((node) => node.type === 'model' && node.data.flowId === flowId)
-    .sort((a, b) => ROLE_RANK[a.data.role] - ROLE_RANK[b.data.role]);
-  const chainModels: Record<string, unknown> = {};
-  const input: Record<string, unknown> = { chain_models: chainModels };
-
-  for (const node of flowNodes) {
-    const group = fieldsByModel[node.data.modelId];
-    const schemaFields = group
-      ? [...group.core, ...group.advanced].filter((field) =>
-          shouldRenderFieldForRole(field, node.data.role),
-        )
-      : [];
-    const liveParams = normalizeRunParams(compact(node.data.values), group);
-
-    if (node.data.role === 'image') {
-      normalizeInitialImageInputArrays(liveParams);
-    } else {
-      for (const key of CHAIN_WIRED_DOWNSTREAM_FIELDS) {
-        delete liveParams[key];
-      }
-    }
-
-    chainModels[`${node.data.role}_model`] = node.data.modelId;
-    input[`${node.data.role}_model_input`] = createSchemaCurlParams(
-      schemaFields,
-      liveParams,
-      promptValue(node.data.values) ?? '',
-    );
-  }
-
-  return input;
+  return buildFlowRunInput(nodes, flowId, fieldsByModel).input;
 }
 
 function createSchemaCurlParams(
@@ -2059,7 +2035,7 @@ function createSchemaExample(
   if (type === 'array') {
     const item = createSchemaExample(schema.items, context);
 
-    return item === undefined ? undefined : [item];
+    return item === undefined ? [] : [item];
   }
 
   if (type === 'object' || isJsonObject(schema.properties)) {
@@ -2081,7 +2057,67 @@ function createSchemaExample(
     return 'https://example.com/source-image.png';
   }
 
+  return fallbackSchemaExample(schema, type, context.key);
+}
+
+function fallbackSchemaExample(
+  schema: Record<string, unknown>,
+  type: string,
+  key?: string,
+): unknown {
+  if (Array.isArray(schema.enum) && schema.enum.length > 0) {
+    return schema.enum[0];
+  }
+
+  if (type === 'integer' || type === 'number') {
+    return numericSchemaExample(schema, type === 'integer');
+  }
+
+  if (type === 'boolean') {
+    return false;
+  }
+
+  if (type === 'string') {
+    return stringSchemaExample(schema, key);
+  }
+
+  if (type === 'array') {
+    return [];
+  }
+
+  if (type === 'object') {
+    return {};
+  }
+
   return undefined;
+}
+
+function numericSchemaExample(
+  schema: Record<string, unknown>,
+  integer: boolean,
+) {
+  const minimum = typeof schema.minimum === 'number' ? schema.minimum : 0;
+  const maximum =
+    typeof schema.maximum === 'number' ? schema.maximum : undefined;
+  const value = maximum !== undefined && minimum > maximum ? maximum : minimum;
+
+  return integer ? Math.trunc(value) : value;
+}
+
+function stringSchemaExample(schema: Record<string, unknown>, key?: string) {
+  if (
+    schema.format === 'uri' ||
+    key?.includes('url') ||
+    key?.endsWith('_file')
+  ) {
+    return 'https://example.com/value';
+  }
+
+  if (key === 'generation_size') {
+    return '1024*1024';
+  }
+
+  return '';
 }
 
 function getPreferredSchemaType(type: unknown) {

@@ -538,16 +538,16 @@ function SchemaSection({
   modelRequestSchemas: ModelRequestSchemas;
 }) {
   const schemas = createModelSchemaViews(entry, modelRequestSchemas);
-  const [openModel, setOpenModel] = useState<string | null>(null);
-  const [copiedModel, setCopiedModel] = useState<string | null>(null);
+  const [openSchema, setOpenSchema] = useState<string | null>(null);
+  const [copiedSchema, setCopiedSchema] = useState<string | null>(null);
 
   async function handleCopy(schema: ModelSchemaView) {
     try {
       await navigator.clipboard.writeText(createSchemaCopyText(schema));
-      setCopiedModel(schema.modelIdentifier);
-      window.setTimeout(() => setCopiedModel(null), 1400);
+      setCopiedSchema(schema.id);
+      window.setTimeout(() => setCopiedSchema(null), 1400);
     } catch {
-      setCopiedModel(null);
+      setCopiedSchema(null);
     }
   }
 
@@ -555,17 +555,15 @@ function SchemaSection({
     <DetailSection title="SCHEMA">
       <div className="divide-y divide-border">
         {schemas.map((schema) => {
-          const isOpen = openModel === schema.modelIdentifier;
+          const isOpen = openSchema === schema.id;
 
           return (
-            <div key={`schema-${schema.modelIdentifier}`}>
+            <div key={`schema-${schema.id}`}>
               <div className="flex items-stretch gap-2 p-3">
                 <button
                   aria-expanded={isOpen}
                   className="flex min-h-11 flex-1 items-center justify-between gap-3 border border-border bg-background px-3 text-left font-mono text-xs uppercase tracking-[0.12em] text-foreground transition hover:border-primary"
-                  onClick={() =>
-                    setOpenModel(isOpen ? null : schema.modelIdentifier)
-                  }
+                  onClick={() => setOpenSchema(isOpen ? null : schema.id)}
                   type="button"
                 >
                   <span className="min-w-0 truncate">{schema.label}</span>
@@ -584,12 +582,12 @@ function SchemaSection({
                   type="button"
                   variant="outline"
                 >
-                  {copiedModel === schema.modelIdentifier ? (
+                  {copiedSchema === schema.id ? (
                     <FontAwesomeIcon className="size-4" icon="check" />
                   ) : (
                     <FontAwesomeIcon className="size-4" icon="copy" />
                   )}
-                  {copiedModel === schema.modelIdentifier ? 'Copied' : 'Copy'}
+                  {copiedSchema === schema.id ? 'Copied' : 'Copy'}
                 </Button>
               </div>
               {isOpen ? <SchemaJsonBlock value={schema.schema} /> : null}
@@ -971,6 +969,7 @@ type EnvironmentRow = {
 };
 
 type ModelSchemaView = {
+  id: string;
   label: string;
   modelIdentifier: string;
   schema: JsonObject;
@@ -1037,31 +1036,53 @@ function createModelSchemaViews(
   entry: TemplatePageEntry,
   modelRequestSchemas: ModelRequestSchemas,
 ): ModelSchemaView[] {
-  const seen = new Set<string>();
-  const views: ModelSchemaView[] = [];
+  const steps = [
+    {
+      excludeChainWiredImageInputs: false,
+      id: 'image_model',
+      modelIdentifier: stringInputValue(entry.defaultInput.image_model),
+    },
+    {
+      excludeChainWiredImageInputs: true,
+      id: 'refine_model',
+      modelIdentifier: stringInputValue(entry.defaultInput.refine_model),
+    },
+    {
+      excludeChainWiredImageInputs: true,
+      id: 'video_model',
+      modelIdentifier: stringInputValue(entry.defaultInput.video_model),
+    },
+    {
+      excludeChainWiredImageInputs: true,
+      id: 'modify_model',
+      modelIdentifier: stringInputValue(entry.defaultInput.modify_model),
+    },
+  ];
 
-  // Models are ordered image -> refine -> video -> modify. Only the first
-  // image model takes a user-supplied image; every downstream model is wired
-  // the previous step's output, so its chain-wired image/video input fields
-  // are hidden from the published schema.
-  entry.modelIdentifiers.forEach((modelIdentifier, index) => {
-    if (seen.has(modelIdentifier)) {
-      return;
+  return steps.flatMap((step) => {
+    const { excludeChainWiredImageInputs, id, modelIdentifier } = step;
+
+    if (!modelIdentifier) {
+      return [];
     }
-
-    seen.add(modelIdentifier);
 
     const schema = modelRequestSchemas[modelIdentifier] ?? {};
     const label = formatPublicModelName(modelIdentifier);
 
-    views.push({
-      label,
-      modelIdentifier,
-      schema: createSchemaJson(label, modelIdentifier, schema, index > 0),
-    });
+    return [
+      {
+        id,
+        label,
+        modelIdentifier,
+        schema: createSchemaJson(
+          label,
+          modelIdentifier,
+          schema,
+          excludeChainWiredImageInputs,
+        ),
+      },
+    ];
   });
-
-  return views;
 }
 
 function createSchemaCopyText(schema: ModelSchemaView) {
@@ -1550,14 +1571,71 @@ function createSchemaExample(
   if (type === 'array') {
     const item = createSchemaExample(schema.items, context);
 
-    return item === undefined ? undefined : [item];
+    return item === undefined ? [] : [item];
   }
 
   if (type === 'string' && context.key && isSourceImageInputKey(context.key)) {
     return 'https://example.com/source-image.png';
   }
 
+  return fallbackSchemaExample(schema, type, context.key);
+}
+
+function fallbackSchemaExample(
+  schema: JsonObject,
+  type: string,
+  key?: string,
+): unknown {
+  if (Array.isArray(schema.enum) && schema.enum.length > 0) {
+    return schema.enum[0];
+  }
+
+  if (type === 'integer' || type === 'number') {
+    return numericSchemaExample(schema, type === 'integer');
+  }
+
+  if (type === 'boolean') {
+    return false;
+  }
+
+  if (type === 'string') {
+    return stringSchemaExample(schema, key);
+  }
+
+  if (type === 'array') {
+    return [];
+  }
+
+  if (type === 'object') {
+    return {};
+  }
+
   return undefined;
+}
+
+function numericSchemaExample(schema: JsonObject, integer: boolean) {
+  const minimum = typeof schema.minimum === 'number' ? schema.minimum : 0;
+  const maximum =
+    typeof schema.maximum === 'number' ? schema.maximum : undefined;
+  const value = maximum !== undefined && minimum > maximum ? maximum : minimum;
+
+  return integer ? Math.trunc(value) : value;
+}
+
+function stringSchemaExample(schema: JsonObject, key?: string) {
+  if (
+    schema.format === 'uri' ||
+    key?.includes('url') ||
+    key?.endsWith('_file')
+  ) {
+    return 'https://example.com/value';
+  }
+
+  if (key === 'generation_size') {
+    return '1024*1024';
+  }
+
+  return '';
 }
 
 function isExcludedSchemaExampleKey(key: string, excludedKeys: Set<string>) {

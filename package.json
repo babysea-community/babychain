@@ -59,7 +59,7 @@
     "pg": "catalog:",
     "react": "catalog:",
     "react-dom": "catalog:",
-    "semantic-lady": "catalog:",
+    "semantic-lady": "0.3.0",
     "server-only": "catalog:",
     "sonner": "catalog:",
     "tailwind-merge": "catalog:",
