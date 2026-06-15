@@ -1510,7 +1510,7 @@ function createSchemaExample(
   },
 ): unknown {
   if (!isJsonObject(schema)) {
-    return null;
+    return undefined;
   }
 
   const type = getPreferredSchemaType(schema.type);
@@ -1546,106 +1546,36 @@ function createSchemaExample(
   }
 
   if (context.key && isPromptLikeKey(context.key)) {
-    return context.preferredPrompt;
+    return context.preferredPrompt.trim() ? context.preferredPrompt : undefined;
   }
 
   if (type === 'object' || isJsonObject(schema.properties)) {
     const properties = isJsonObject(schema.properties) ? schema.properties : {};
+    const entries = Object.entries(properties)
+      .filter(([key]) => !isExcludedSchemaExampleKey(key, context.excludedKeys))
+      .flatMap(([key, propertySchema]) => {
+        const value = createSchemaExample(propertySchema, {
+          ...context,
+          key,
+        });
 
-    return Object.fromEntries(
-      Object.entries(properties)
-        .filter(
-          ([key]) => !isExcludedSchemaExampleKey(key, context.excludedKeys),
-        )
-        .flatMap(([key, propertySchema]) => {
-          const value = createSchemaExample(propertySchema, {
-            ...context,
-            key,
-          });
+        return value === undefined ? [] : [[key, value]];
+      });
 
-          return value === undefined ? [] : [[key, value]];
-        }),
-    );
+    return entries.length > 0 ? Object.fromEntries(entries) : undefined;
   }
 
   if (type === 'array') {
     const item = createSchemaExample(schema.items, context);
 
-    return item === undefined ? [] : [item];
-  }
-
-  if (type === 'string' && context.key && isSourceImageInputKey(context.key)) {
-    return 'https://example.com/source-image.png';
-  }
-
-  return fallbackSchemaExample(schema, type, context.key);
-}
-
-function fallbackSchemaExample(
-  schema: JsonObject,
-  type: string,
-  key?: string,
-): unknown {
-  if (Array.isArray(schema.enum) && schema.enum.length > 0) {
-    return schema.enum[0];
-  }
-
-  if (type === 'integer' || type === 'number') {
-    return numericSchemaExample(schema, type === 'integer');
-  }
-
-  if (type === 'boolean') {
-    return false;
-  }
-
-  if (type === 'string') {
-    return stringSchemaExample(schema, key);
-  }
-
-  if (type === 'array') {
-    return [];
-  }
-
-  if (type === 'object') {
-    return {};
+    return item === undefined ? undefined : [item];
   }
 
   return undefined;
 }
 
-function numericSchemaExample(schema: JsonObject, integer: boolean) {
-  const minimum = typeof schema.minimum === 'number' ? schema.minimum : 0;
-  const maximum =
-    typeof schema.maximum === 'number' ? schema.maximum : undefined;
-  const value = maximum !== undefined && minimum > maximum ? maximum : minimum;
-
-  return integer ? Math.trunc(value) : value;
-}
-
-function stringSchemaExample(schema: JsonObject, key?: string) {
-  if (
-    schema.format === 'uri' ||
-    key?.includes('url') ||
-    key?.endsWith('_file')
-  ) {
-    return 'https://example.com/value';
-  }
-
-  if (key === 'generation_size') {
-    return '1024*1024';
-  }
-
-  return '';
-}
-
 function isExcludedSchemaExampleKey(key: string, excludedKeys: Set<string>) {
   return excludedKeys.has(key);
-}
-
-function isSourceImageInputKey(key: string) {
-  return (
-    key === 'generation_input_file' || key === 'generation_input_image_file'
-  );
 }
 
 function getPreferredSchemaType(type: unknown) {
