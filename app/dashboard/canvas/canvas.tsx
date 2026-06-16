@@ -36,6 +36,7 @@ import type {
 } from 'react';
 
 import { FontAwesomeIcon } from '@/components/icons/font-awesome-icon';
+import { InlineStamp as InlineBabySea } from '@/components/icons/inline-babysea';
 import {
   InlineAlibabaCloud as InlineInferenceAlibabaCloud,
   InlineBlackForestLabsLight as InlineInferenceBlackForestLabsLight,
@@ -98,6 +99,16 @@ type InferenceIconKey =
   | 'google'
   | 'openai'
   | 'runway';
+
+type ByokProviderKey =
+  | 'alibabacloud'
+  | 'bfl'
+  | 'byteplus'
+  | 'google'
+  | 'openai'
+  | 'runway';
+
+type ProviderMode = 'babysea' | 'byok';
 
 const MODEL_ICONS: Record<
   ModelIconKey,
@@ -180,6 +191,24 @@ function inferenceIcon(provider: string | undefined) {
   if (!provider || !isInferenceIconKey(provider)) return undefined;
 
   return INFERENCE_ICONS[provider];
+}
+
+function inferenceIconForByokProvider(provider: ByokProviderKey) {
+  return INFERENCE_ICONS[byokProviderInferenceKey(provider)];
+}
+
+function byokProviderInferenceKey(provider: ByokProviderKey): InferenceIconKey {
+  switch (provider) {
+    case 'alibabacloud':
+      return 'alibaba-cloud';
+    case 'bfl':
+      return 'black-forest-labs';
+    case 'byteplus':
+    case 'google':
+    case 'openai':
+    case 'runway':
+      return provider;
+  }
 }
 
 function isInferenceIconKey(value: string): value is InferenceIconKey {
@@ -267,17 +296,25 @@ function ModelDropdown({
           {options.map((option) => {
             const OptionIcon = modelIcon(option.id);
             const active = option.id === value;
+            const unavailable = !option.available;
+            const optionDisabled = disabled || unavailable;
             return (
               <button
                 type="button"
                 key={option.id}
+                aria-disabled={optionDisabled}
+                disabled={disabled}
+                title={option.unavailableReason ?? undefined}
                 onClick={() => {
+                  if (optionDisabled) return;
                   onChange(option.id);
                   setOpen(false);
                 }}
                 className={cn(
                   'flex w-full items-center gap-2 px-2.5 py-1.5 text-left text-xs transition hover:bg-muted',
                   active ? 'bg-muted text-foreground' : 'text-muted-foreground',
+                  optionDisabled &&
+                    'cursor-not-allowed opacity-45 hover:bg-transparent',
                 )}
               >
                 {OptionIcon ? (
@@ -289,6 +326,11 @@ function ModelDropdown({
                 <span className="shrink-0 text-[0.6rem] uppercase tracking-wide text-muted-foreground/70">
                   {option.providerLabel}
                 </span>
+                {unavailable ? (
+                  <span className="shrink-0 border border-border px-1 py-0.5 text-[0.55rem] uppercase tracking-wide text-muted-foreground">
+                    {unavailableModelBadge(option)}
+                  </span>
+                ) : null}
               </button>
             );
           })}
@@ -296,6 +338,15 @@ function ModelDropdown({
       ) : null}
     </div>
   );
+}
+
+function unavailableModelBadge(model: CanvasModel) {
+  const reason = model.unavailableReason ?? '';
+
+  if (reason.includes('BYOK')) return 'BYOK only';
+  if (reason.includes('API key')) return 'Key missing';
+
+  return 'Unavailable';
 }
 
 function FieldSelectDropdown({
@@ -398,12 +449,14 @@ export type FieldSpec = {
 export type FieldGroup = { core: FieldSpec[]; advanced: FieldSpec[] };
 
 export type CanvasModel = {
+  available: boolean;
   id: string;
   label: string;
   provider: string;
   providerLabel: string;
   kind: 'image' | 'video';
   roles: StepRole[];
+  unavailableReason: string | null;
 };
 
 type FieldValue = string | number | boolean;
@@ -427,12 +480,14 @@ type RunJson = {
 };
 
 type CanvasProps = {
+  byokProviders: ByokProviderKey[];
   canvasId?: string;
   initialTitle?: string | null;
   initialNodes?: StoredCanvasNode[] | null;
   initialRunId?: string | null;
   initialFlowRuns?: Record<string, string> | null;
   models: CanvasModel[];
+  providerMode: ProviderMode;
   getModelFieldsAction: (
     modelId: string,
     role: StepRole,
@@ -772,6 +827,7 @@ type FlowMeta = {
 };
 
 type CanvasContextValue = {
+  byokProviders: ByokProviderKey[];
   models: CanvasModel[];
   fieldsByModel: Record<string, FieldGroup | undefined>;
   statusByNode: Record<string, NodeStatus | undefined>;
@@ -780,6 +836,7 @@ type CanvasContextValue = {
   flowMeta: Record<string, FlowMeta | undefined>;
   flowCount: number;
   isSavedCanvas: boolean;
+  providerMode: ProviderMode;
   updateModel: (id: string, modelId: string) => void;
   updateValue: (id: string, name: string, value: FieldValue) => void;
   removeNode: (id: string) => void;
@@ -1677,9 +1734,21 @@ function RunnerNodeComponent({ data }: NodeProps) {
 
       <div className="space-y-2 p-3">
         <p className="text-[0.65rem] leading-4 text-muted-foreground">
-          {isSavedCanvas
-            ? 'Run only tests this flow without changing what is saved. Run and save overwrites this canvas with the new results.'
-            : 'Run only keeps results here. Run and save publishes this flow to the Library, then updates the same card on later runs.'}
+          {isSavedCanvas ? (
+            <>
+              <RunnerActionLabel>Run only</RunnerActionLabel> tests this flow
+              without changing what is saved.{' '}
+              <RunnerActionLabel>Run and save</RunnerActionLabel> overwrites
+              this canvas with the new results.
+            </>
+          ) : (
+            <>
+              <RunnerActionLabel>Run only</RunnerActionLabel> keeps results
+              here. <RunnerActionLabel>Run and save</RunnerActionLabel>{' '}
+              publishes this flow to the Library, then updates the same card on
+              later runs.
+            </>
+          )}
         </p>
         <Button
           className="nodrag w-full"
@@ -1750,13 +1819,28 @@ function RunnerNodeComponent({ data }: NodeProps) {
   );
 }
 
+function RunnerActionLabel({ children }: { children: ReactNode }) {
+  return (
+    <code className="border border-border bg-muted/40 px-1 py-0.5 font-mono text-[0.62rem] text-foreground">
+      {children}
+    </code>
+  );
+}
+
 // Flow info card: the first card of every flow. It carries the flow's Library
 // identity after publish, and the name (pencil to edit) becomes the Library
 // title on "Run and save".
 function InfoNodeComponent({ id, data }: NodeProps) {
   const node = data as NodeData;
   const { flowId, values } = node;
-  const { flowMeta, updateValue, runningFlowIds, renameCanvas } = useCanvas();
+  const {
+    byokProviders,
+    flowMeta,
+    providerMode,
+    updateValue,
+    runningFlowIds,
+    renameCanvas,
+  } = useCanvas();
   const running = runningFlowIds.has(flowId);
   const nameValue = typeof values.name === 'string' ? values.name : '';
   const autoName = flowMeta[flowId]?.autoName ?? 'Untitled canvas';
@@ -1839,6 +1923,41 @@ function InfoNodeComponent({ id, data }: NodeProps) {
             </div>
           )}
         </div>
+        <CanvasModeBadge mode={providerMode} byokProviders={byokProviders} />
+      </div>
+    </div>
+  );
+}
+
+function CanvasModeBadge({
+  byokProviders,
+  mode,
+}: {
+  byokProviders: readonly ByokProviderKey[];
+  mode: ProviderMode;
+}) {
+  return (
+    <div className="grid gap-1">
+      <span className="font-mono text-[0.7rem] text-muted-foreground">
+        provider_mode
+      </span>
+      <div className="flex items-center justify-between gap-2 border border-border bg-muted/30 px-2.5 py-2">
+        <span className="font-mono text-[0.65rem] text-foreground">
+          {mode === 'byok' ? 'byok_mode' : 'babysea_mode'}
+        </span>
+        <span className="flex min-w-0 shrink-0 items-center gap-1.5">
+          {mode === 'babysea' ? (
+            <InlineBabySea className="size-4" aria-hidden="true" />
+          ) : (
+            byokProviders.map((provider) => {
+              const Icon = inferenceIconForByokProvider(provider);
+
+              return (
+                <Icon className="size-4" aria-hidden="true" key={provider} />
+              );
+            })
+          )}
+        </span>
       </div>
     </div>
   );
@@ -2034,14 +2153,47 @@ function createNodeCurl(input: Record<string, unknown>) {
   return createChainRunCurl(input);
 }
 
+function firstAvailableModelForRole(models: CanvasModel[], role: StepRole) {
+  return (
+    models.find((model) => model.available && model.roles.includes(role)) ??
+    models.find((model) => model.roles.includes(role))
+  );
+}
+
+function unavailableModelForFlow(flowNodes: FlowNode[], models: CanvasModel[]) {
+  for (const node of flowNodes) {
+    const model = models.find((entry) => entry.id === node.data.modelId);
+
+    if (!model) {
+      return {
+        label: node.data.modelId || `${node.data.role}_model`,
+        reason: 'This model is no longer in the catalog.',
+      };
+    }
+
+    if (!model.available) {
+      return {
+        label: model.label,
+        reason:
+          model.unavailableReason ??
+          'This model is not available for the configured inference mode/API keys.',
+      };
+    }
+  }
+
+  return null;
+}
+
 function CanvasInner(props: CanvasProps) {
   const {
+    byokProviders,
     canvasId,
     initialTitle,
     initialNodes,
     initialRunId,
     initialFlowRuns,
     models,
+    providerMode,
     getModelFieldsAction,
     runChainAction,
     getRunAction,
@@ -2053,8 +2205,8 @@ function CanvasInner(props: CanvasProps) {
   } = props;
   const saveToastIdRef = useRef<string | number | null>(null);
 
-  const firstImage = models.find((model) => model.roles.includes('image'));
-  const firstVideo = models.find((model) => model.roles.includes('video'));
+  const firstImage = firstAvailableModelForRole(models, 'image');
+  const firstVideo = firstAvailableModelForRole(models, 'video');
 
   const buildDefaultFlow = useCallback(
     (y: number): FlowNode[] => {
@@ -2566,6 +2718,9 @@ function CanvasInner(props: CanvasProps) {
 
   const updateModel = useCallback(
     (id: string, modelId: string) => {
+      const nextModel = models.find((candidate) => candidate.id === modelId);
+      if (!nextModel?.available) return;
+
       setNodes((current) =>
         current.map((node) => {
           if (node.id !== id) return node;
@@ -2585,7 +2740,7 @@ function CanvasInner(props: CanvasProps) {
       const node = nodes.find((candidate) => candidate.id === id);
       void ensureFields(modelId, node?.data.role ?? 'image');
     },
-    [nodes, setNodes, ensureFields],
+    [models, nodes, setNodes, ensureFields],
   );
 
   const updateValue = useCallback(
@@ -2656,7 +2811,7 @@ function CanvasInner(props: CanvasProps) {
 
   const addNodeToFlow = useCallback(
     (flowId: string, role: StepRole) => {
-      const model = models.find((entry) => entry.roles.includes(role));
+      const model = firstAvailableModelForRole(models, role);
       if (!model) return;
       setNodes((current) => {
         const flowNodes = current.filter(
@@ -2956,6 +3111,15 @@ function CanvasInner(props: CanvasProps) {
         );
         return;
       }
+      const unavailableModel = unavailableModelForFlow(flowNodes, models);
+
+      if (unavailableModel) {
+        toast.error(
+          `${unavailableModel.label} is unavailable. ${unavailableModel.reason}`,
+        );
+        return;
+      }
+
       const roles = new Set(flowNodes.map((node) => node.data.role));
 
       if (!roles.has('image') || !roles.has('video')) {
@@ -3142,6 +3306,7 @@ function CanvasInner(props: CanvasProps) {
 
   const contextValue = useMemo<CanvasContextValue>(
     () => ({
+      byokProviders,
       models,
       fieldsByModel,
       statusByNode,
@@ -3150,6 +3315,7 @@ function CanvasInner(props: CanvasProps) {
       flowMeta,
       flowCount: flows.size,
       isSavedCanvas: Boolean(canvasId),
+      providerMode,
       updateModel,
       updateValue,
       removeNode,
@@ -3179,6 +3345,7 @@ function CanvasInner(props: CanvasProps) {
       stopFlow,
     }),
     [
+      byokProviders,
       models,
       fieldsByModel,
       statusByNode,
@@ -3187,6 +3354,7 @@ function CanvasInner(props: CanvasProps) {
       flowMeta,
       flows,
       canvasId,
+      providerMode,
       updateModel,
       updateValue,
       removeNode,

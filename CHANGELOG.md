@@ -16,6 +16,7 @@ All notable changes will be documented here. The format follows [Keep a Changelo
 - Library canvas cards now show the real `run_id` above the Canvas ID and Created metadata; canvas API and runner cards stay focused on requests and controls.
 - Canvas API and runner cards now keep their dragged position like model cards, and the API card exposes List chains, Create chain, Get run, and Cancel run cURL snippets for debugging.
 - Library canvas metadata now uses one foreground monospace style for Run ID, Canvas ID, and Created; canvas info-card names wrap within the card; the canvas API card is model-card width and fills Get/Cancel cURLs with the latest run id.
+- Runner card copy now renders `Run only` and `Run and save` as inline code labels, and canvas flow cards show the active `byok_mode` or `babysea_mode` with provider icons while model dropdowns keep unavailable models visible with disabled-reason badges; restored flows with unavailable models are blocked before starting a run.
 - Canvas media previews now use dashboard-session output links for inline provider media, keeping API responses clean while preserving browser image/video rendering.
 - The templates page curl examples and schema section now use the same Semantic Lady `generation_*` request contract as the run API and canvas node cards.
 - Canvas API requests and template curl examples now share one request-shape builder, use schema defaults exactly as published by Semantic Lady, and show every user-sendable schema field by filling no-default fields with typed placeholders such as `<string>`.

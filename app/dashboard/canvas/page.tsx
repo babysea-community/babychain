@@ -19,6 +19,7 @@ import {
 import type { StoredCanvasNode } from '@/lib/canvas/canvas-library';
 import { formatPublicModelName } from '@/lib/models/display';
 import { chainFieldModeForRole } from '@/lib/models/chain-schema';
+import type { ModelProvider } from '@/lib/models/model-catalog';
 import { listModelCatalog } from '@/lib/models/model-library';
 import {
   getSemanticModelSchemaFields,
@@ -28,7 +29,12 @@ import {
   semanticFieldJsonSchema,
 } from '@/lib/models/semantic-schema';
 import { BabyChainError } from '@/lib/utils/errors';
-import { getBabyChainApiKeys } from '@/lib/utils/env';
+import {
+  getBabyChainApiKeys,
+  getEnv,
+  type BabyChainEnv,
+} from '@/lib/utils/env';
+import type { ByokProviderName } from '@/lib/providers';
 
 import { Canvas } from './canvas';
 import type { FieldGroup, FieldSpec, CanvasModel, StepRole } from './canvas';
@@ -73,23 +79,67 @@ function rolesForModel(
   return roles;
 }
 
-function listCanvasModels(): CanvasModel[] {
+type CanvasRuntimeConfig = {
+  byokProviders: ByokProviderName[];
+  providerMode: 'babysea' | 'byok';
+};
+
+function listCanvasModels(runtime: CanvasRuntimeConfig): CanvasModel[] {
   const models: CanvasModel[] = [];
   for (const entry of listModelCatalog()) {
     const roles = rolesForModel(entry.modelIdentifier, entry.kind);
     if (roles.length === 0) {
       continue;
     }
+    const providerName = byokProviderName(entry.provider);
+    const available =
+      runtime.providerMode === 'babysea'
+        ? entry.babyseaCompatible !== false
+        : runtime.byokProviders.includes(providerName);
+
     models.push({
+      available,
       id: entry.modelIdentifier,
       label: formatPublicModelName(entry.modelIdentifier),
       provider: entry.provider,
       providerLabel: PROVIDER_LABELS[entry.provider] ?? entry.provider,
       kind: entry.kind,
       roles,
+      unavailableReason: available
+        ? null
+        : runtime.providerMode === 'babysea'
+          ? 'This model requires BYOK mode.'
+          : `${PROVIDER_LABELS[entry.provider] ?? entry.provider} API key is not configured.`,
     });
   }
   return models.sort((a, b) => a.label.localeCompare(b.label));
+}
+
+function byokProviderName(provider: ModelProvider): ByokProviderName {
+  switch (provider) {
+    case 'alibaba-cloud':
+      return 'alibabacloud';
+    case 'black-forest-labs':
+      return 'bfl';
+    case 'byteplus':
+    case 'google':
+    case 'openai':
+    case 'runway':
+      return provider;
+  }
+}
+
+function configuredByokProvidersForCanvas(env: BabyChainEnv) {
+  const providers: ByokProviderName[] = [];
+
+  if (env.DASHSCOPE_API_KEY) providers.push('alibabacloud');
+  if (env.BFL_API_KEY) providers.push('bfl');
+  if (env.ARK_API_KEY) providers.push('byteplus');
+  if (env.GOOGLE_API_KEY || env.GEMINI_API_KEY) providers.push('google');
+  if (env.OPENAI_API_KEY) providers.push('openai');
+  if (env.RUNWAYML_API_SECRET) providers.push('runway');
+
+  return providers;
 }
 
 // ----------------------------------------------------------------------------
@@ -502,6 +552,14 @@ function formatCanvasActionError(error: unknown): string {
 
 export async function CanvasPageView({ canvasId }: { canvasId?: string } = {}) {
   const session = await requireOwnerSession();
+  const env = getEnv();
+  const runtime: CanvasRuntimeConfig = {
+    byokProviders:
+      env.BABYCHAIN_PROVIDER_MODE === 'byok'
+        ? configuredByokProvidersForCanvas(env)
+        : [],
+    providerMode: env.BABYCHAIN_PROVIDER_MODE === 'byok' ? 'byok' : 'babysea',
+  };
   const storedCanvas = canvasId
     ? await getCanvas(session.email, canvasId)
     : null;
@@ -524,7 +582,9 @@ export async function CanvasPageView({ canvasId }: { canvasId?: string } = {}) {
         initialNodes={storedCanvas?.nodes ?? workspace?.nodes ?? null}
         initialRunId={storedCanvas?.lastRunId ?? null}
         initialFlowRuns={workspace?.flowRuns ?? null}
-        models={listCanvasModels()}
+        models={listCanvasModels(runtime)}
+        providerMode={runtime.providerMode}
+        byokProviders={runtime.byokProviders}
         getModelFieldsAction={getModelFieldsAction}
         runChainAction={runChainAction}
         getRunAction={getRunAction}
