@@ -414,15 +414,22 @@ describe('provider adapters', () => {
     const alibabaCloudModels = listModelCatalog().filter(
       (model) => model.provider === 'alibaba-cloud',
     );
+    const alibabaCloudModelIds = alibabaCloudModels.map(
+      (model) => model.modelIdentifier,
+    );
 
     expect(
       alibabaCloudModels.some((model) =>
         model.modelIdentifier.startsWith('alibabacloud/'),
       ),
     ).toBe(false);
-    expect(alibabaCloudModels.map((model) => model.modelIdentifier)).toEqual(
+    expect(alibabaCloudModelIds).toHaveLength(25);
+    expect(alibabaCloudModelIds).toContain('qwen/image');
+    expect(alibabaCloudModelIds).toContain('qwen/image-plus');
+    expect(alibabaCloudModelIds).toEqual(
       expect.arrayContaining([
         'qwen/image',
+        'qwen/image-plus',
         'qwen/image-2-pro',
         'qwen/image-edit-plus',
         'z/image-turbo',
@@ -443,9 +450,23 @@ describe('provider adapters', () => {
       'wan/2.1-t2v-turbo',
       'wan/2.1-t2v-plus',
     ]) {
+      expect(alibabaCloudModelIds).not.toContain(oldProtocolModel);
+    }
+
+    for (const model of alibabaCloudModels) {
       expect(
-        alibabaCloudModels.map((model) => model.modelIdentifier),
-      ).not.toContain(oldProtocolModel);
+        resolveProvider(model.modelIdentifier, { byokMode: true }),
+      ).toEqual({
+        modelIdentifier: `alibabacloud/${model.rawId}`,
+        provider: 'alibabacloud',
+      });
+
+      expect(
+        resolveProvider(`alibaba-cloud/${model.rawId}`, { byokMode: true }),
+      ).toEqual({
+        modelIdentifier: `alibabacloud/${model.rawId}`,
+        provider: 'alibabacloud',
+      });
     }
 
     for (const modelIdentifier of [
@@ -456,6 +477,49 @@ describe('provider adapters', () => {
         modelIdentifier: `alibabacloud/${modelIdentifier.replace('wan/', 'wan')}`,
         provider: 'alibabacloud',
       });
+    }
+  });
+
+  it('supports provider routes for every Alibaba Cloud catalog model', async () => {
+    const alibabaCloudModels = listModelCatalog().filter(
+      (model) => model.provider === 'alibaba-cloud',
+    );
+    const fetchImpl = vi.fn(async () => {
+      return new Response(
+        JSON.stringify({
+          request_id: 'dashscope_request_123',
+          output: {
+            task_id: 'dashscope_task_123',
+            choices: [
+              {
+                message: {
+                  content: [
+                    { image: 'https://cdn.example.com/qwen-output.png' },
+                  ],
+                },
+              },
+            ],
+          },
+        }),
+        { status: 200 },
+      );
+    }) as typeof fetch;
+    const provider = createAlibabaCloudProvider({
+      apiKey: 'dashscope_test_key',
+      fetchImpl,
+    });
+
+    for (const model of alibabaCloudModels) {
+      await expect(
+        provider.submit({
+          idempotencyKey: `idem_${model.key}`,
+          modelIdentifier: `alibabacloud/${model.rawId}`,
+          params: { generation_prompt: 'A catalog route smoke test' },
+          stepKind: model.kind,
+        }),
+      ).resolves.toEqual(
+        expect.objectContaining({ providerOrder: ['alibabacloud'] }),
+      );
     }
   });
 

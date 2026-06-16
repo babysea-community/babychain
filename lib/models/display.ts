@@ -20,10 +20,10 @@ const PUBLIC_MODEL_NAME_OVERRIDES: Record<string, string> = {
   'runway/gen-4-image-turbo': 'Runway Gen-4 Image Turbo',
   'runway/gen-4-turbo': 'Runway Gen-4 Turbo',
   'runway/gen-4.5': 'Runway Gen-4.5',
-  'qwen/image': 'Qwen Image Plus',
+  'qwen/image': 'Qwen Image',
+  'qwen/image-plus': 'Qwen Image Plus',
   'qwen/image-2': 'Qwen Image 2.0',
   'qwen/image-2-pro': 'Qwen Image 2.0 Pro',
-  'qwen/image-base': 'Qwen Image',
   'qwen/image-edit': 'Qwen Image Edit',
   'qwen/image-edit-max': 'Qwen Image Edit Max',
   'qwen/image-edit-plus': 'Qwen Image Edit Plus',
@@ -76,6 +76,10 @@ export function formatPublicModelName(modelIdentifier: string) {
   const prefix = MODEL_FAMILY_PREFIXES[provider];
 
   return prefix ? `${prefix} ${modelName}` : modelName;
+}
+
+export function formatModelSelectLabel(modelIdentifier: string) {
+  return `${formatPublicModelName(modelIdentifier)} (${modelIdentifier})`;
 }
 
 function humanizeModelName(model: string) {

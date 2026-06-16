@@ -1,10 +1,14 @@
 import { describe, expect, it } from 'vitest';
 
-import { formatPublicModelName } from '@/lib/models/display';
+import {
+  formatModelSelectLabel,
+  formatPublicModelName,
+} from '@/lib/models/display';
 
 describe('public model names', () => {
   it('keeps API identifiers out of public Alibaba model labels', () => {
-    expect(formatPublicModelName('qwen/image')).toBe('Qwen Image Plus');
+    expect(formatPublicModelName('qwen/image')).toBe('Qwen Image');
+    expect(formatPublicModelName('qwen/image-plus')).toBe('Qwen Image Plus');
     expect(formatPublicModelName('qwen/image-2')).toBe('Qwen Image 2.0');
     expect(formatPublicModelName('qwen/image-2-pro')).toBe(
       'Qwen Image 2.0 Pro',
@@ -34,6 +38,15 @@ describe('public model names', () => {
     expect(formatPublicModelName('gpt/image-2')).toBe('GPT Image 2');
     expect(formatPublicModelName('runway/gen-4-turbo')).toBe(
       'Runway Gen-4 Turbo',
+    );
+  });
+
+  it('shows canonical identifiers in selector labels', () => {
+    expect(formatModelSelectLabel('qwen/image')).toBe(
+      'Qwen Image (qwen/image)',
+    );
+    expect(formatModelSelectLabel('qwen/image-plus')).toBe(
+      'Qwen Image Plus (qwen/image-plus)',
     );
   });
 });

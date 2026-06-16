@@ -26,11 +26,11 @@ The catalog can include provider models that are exposed for direct routing even
 | 1   | Alibaba Cloud      | `qwen/image`                    | Image | BYOK / BabySea |
 | 2   | Alibaba Cloud      | `qwen/image-2`                  | Image | BYOK           |
 | 3   | Alibaba Cloud      | `qwen/image-2-pro`              | Image | BYOK           |
-| 4   | Alibaba Cloud      | `qwen/image-base`               | Image | BYOK           |
-| 5   | Alibaba Cloud      | `qwen/image-edit`               | Image | BYOK           |
-| 6   | Alibaba Cloud      | `qwen/image-edit-max`           | Image | BYOK           |
-| 7   | Alibaba Cloud      | `qwen/image-edit-plus`          | Image | BYOK           |
-| 8   | Alibaba Cloud      | `qwen/image-max`                | Image | BYOK           |
+| 4   | Alibaba Cloud      | `qwen/image-edit`               | Image | BYOK           |
+| 5   | Alibaba Cloud      | `qwen/image-edit-max`           | Image | BYOK           |
+| 6   | Alibaba Cloud      | `qwen/image-edit-plus`          | Image | BYOK           |
+| 7   | Alibaba Cloud      | `qwen/image-max`                | Image | BYOK           |
+| 8   | Alibaba Cloud      | `qwen/image-plus`               | Image | BYOK           |
 | 9   | Alibaba Cloud      | `wan/2.1-imageedit`             | Image | BYOK           |
 | 10  | Alibaba Cloud      | `wan/2.5-i2i-preview`           | Image | BYOK           |
 | 11  | Alibaba Cloud      | `wan/2.6-image`                 | Image | BYOK           |

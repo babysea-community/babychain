@@ -122,6 +122,45 @@ describe('schema example generation', () => {
 
     expect(example).toBeUndefined();
   });
+
+  it('includes required generation_prompt from the supplied prompt', () => {
+    const example = createSchemaExample(
+      {
+        type: 'object',
+        required: ['generation_prompt'],
+        properties: {
+          generation_prompt: { type: 'string' },
+          generation_seed: { type: 'integer', minimum: 0, maximum: 100 },
+        },
+      },
+      {
+        imageInputFileUrl: IMAGE_INPUT_FILE_URL,
+        preferredPrompt: 'A real user prompt',
+      },
+    );
+
+    expect(example).toEqual({
+      generation_prompt: 'A real user prompt',
+    });
+  });
+
+  it('does not invent required generation_prompt when no prompt exists', () => {
+    const example = createSchemaExample(
+      {
+        type: 'object',
+        required: ['generation_prompt'],
+        properties: {
+          generation_prompt: { type: 'string' },
+        },
+      },
+      {
+        imageInputFileUrl: IMAGE_INPUT_FILE_URL,
+        preferredPrompt: '',
+      },
+    );
+
+    expect(example).toBeUndefined();
+  });
 });
 
 function shouldHaveGeneratedExample(key: string, schema: unknown) {

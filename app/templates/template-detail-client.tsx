@@ -37,7 +37,10 @@ import {
   synthesizeTemplateEntry,
   type TemplatePageEntry,
 } from './synthesize-entry';
-import { formatPublicModelName } from '@/lib/models/display';
+import {
+  formatModelSelectLabel,
+  formatPublicModelName,
+} from '@/lib/models/display';
 
 import { SectionHeading } from '../_components/section-heading';
 import { StepGrid } from '../_components/step-grid';
@@ -691,7 +694,7 @@ function ModelSelect({
           ) : null}
           {options.map((model) => (
             <option key={`${label}-${model}`} value={model}>
-              {formatPublicModelName(model)}
+              {formatModelSelectLabel(model)}
             </option>
           ))}
         </select>
@@ -1467,6 +1470,7 @@ function createSchemaExample(
     excludedKeys: Set<string>;
     key?: string;
     preferredPrompt: string;
+    required?: boolean;
   },
 ): unknown {
   if (!isJsonObject(schema)) {
@@ -1481,6 +1485,12 @@ function createSchemaExample(
 
   if ('const' in schema) {
     return schema.const;
+  }
+
+  if (shouldUsePreferredPrompt(schema, context, type)) {
+    const prompt = context.preferredPrompt.trim();
+
+    return prompt ? prompt : undefined;
   }
 
   const variants = [schema.oneOf, schema.anyOf].flatMap((value) =>
@@ -1503,12 +1513,20 @@ function createSchemaExample(
 
   if (type === 'object' || isJsonObject(schema.properties)) {
     const properties = isJsonObject(schema.properties) ? schema.properties : {};
+    const requiredKeys = new Set(
+      Array.isArray(schema.required)
+        ? schema.required.filter(
+            (key): key is string => typeof key === 'string',
+          )
+        : [],
+    );
     const entries = Object.entries(properties)
       .filter(([key]) => !isExcludedSchemaExampleKey(key, context.excludedKeys))
       .flatMap(([key, propertySchema]) => {
         const value = createSchemaExample(propertySchema, {
           ...context,
           key,
+          required: requiredKeys.has(key),
         });
 
         return value === undefined ? [] : [[key, value]];
@@ -1518,6 +1536,18 @@ function createSchemaExample(
   }
 
   return undefined;
+}
+
+function shouldUsePreferredPrompt(
+  schema: JsonObject,
+  context: { key?: string; preferredPrompt: string; required?: boolean },
+  type: string,
+) {
+  return (
+    type === 'string' &&
+    context.key === 'generation_prompt' &&
+    (context.required === true || schema.required === true)
+  );
 }
 
 function isFileInputKey(key: string) {

@@ -1988,7 +1988,7 @@ function createSchemaCurlParams(
 
 function createSchemaExample(
   schema: unknown,
-  context: { key?: string; preferredPrompt: string },
+  context: { key?: string; preferredPrompt: string; required?: boolean },
 ): unknown {
   if (!isJsonObject(schema)) {
     return undefined;
@@ -2002,6 +2002,12 @@ function createSchemaExample(
 
   if ('const' in schema) {
     return schema.const;
+  }
+
+  if (shouldUsePreferredPrompt(schema, context, type)) {
+    const prompt = context.preferredPrompt.trim();
+
+    return prompt ? prompt : undefined;
   }
 
   const variants = [schema.oneOf, schema.anyOf].flatMap((value) =>
@@ -2024,11 +2030,19 @@ function createSchemaExample(
 
   if (type === 'object' || isJsonObject(schema.properties)) {
     const properties = isJsonObject(schema.properties) ? schema.properties : {};
+    const requiredKeys = new Set(
+      Array.isArray(schema.required)
+        ? schema.required.filter(
+            (key): key is string => typeof key === 'string',
+          )
+        : [],
+    );
     const entries = Object.entries(properties).flatMap(
       ([key, propertySchema]) => {
         const value = createSchemaExample(propertySchema, {
           ...context,
           key,
+          required: requiredKeys.has(key),
         });
 
         return value === undefined ? [] : [[key, value]];
@@ -2039,6 +2053,18 @@ function createSchemaExample(
   }
 
   return undefined;
+}
+
+function shouldUsePreferredPrompt(
+  schema: Record<string, unknown>,
+  context: { key?: string; preferredPrompt: string; required?: boolean },
+  type: string,
+) {
+  return (
+    type === 'string' &&
+    context.key === 'generation_prompt' &&
+    (context.required === true || schema.required === true)
+  );
 }
 
 function getPreferredSchemaType(type: unknown) {

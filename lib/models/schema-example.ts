@@ -6,6 +6,7 @@ type SchemaExampleContext = {
   imageInputFileUrl: string;
   key?: string;
   preferredPrompt: string;
+  required?: boolean;
   videoInputFileUrl?: string;
 };
 
@@ -25,6 +26,12 @@ export function createSchemaExample(
 
   if ('const' in schema) {
     return schema.const;
+  }
+
+  if (shouldUsePreferredPrompt(schema, context, type)) {
+    const prompt = context.preferredPrompt.trim();
+
+    return prompt ? prompt : undefined;
   }
 
   const variants = [schema.oneOf, schema.anyOf].flatMap((value) =>
@@ -49,12 +56,20 @@ export function createSchemaExample(
 
   if (type === 'object' || isJsonObject(schema.properties)) {
     const properties = isJsonObject(schema.properties) ? schema.properties : {};
+    const requiredKeys = new Set(
+      Array.isArray(schema.required)
+        ? schema.required.filter(
+            (key): key is string => typeof key === 'string',
+          )
+        : [],
+    );
     const entries = Object.entries(properties)
       .filter(([key]) => !context.excludedKeys?.has(key))
       .flatMap(([key, propertySchema]) => {
         const value = createSchemaExample(propertySchema, {
           ...context,
           key,
+          required: requiredKeys.has(key),
         });
 
         return value === undefined ? [] : [[key, value]];
@@ -64,6 +79,18 @@ export function createSchemaExample(
   }
 
   return undefined;
+}
+
+function shouldUsePreferredPrompt(
+  schema: JsonObject,
+  context: SchemaExampleContext,
+  type: string,
+) {
+  return (
+    type === 'string' &&
+    context.key === 'generation_prompt' &&
+    (context.required === true || schema.required === true)
+  );
 }
 
 function getPreferredSchemaType(type: unknown) {

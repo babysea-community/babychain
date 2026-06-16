@@ -40,7 +40,7 @@ variables:
   PNPM_CONFIG_MINIMUM_RELEASE_AGE: '0'
   DAST_WEBSITE: https://babychain.babysea.live
   NEXT_PUBLIC_SITE_URL: https://your-app.example.com
-  DATABASE_URL: postgresql://postgres:postgres@localhost:5432/postgres
+  DATABASE_URL: postgresql://USER:PASSWORD@CLUSTER.cluster-xxxxxxxxxxxx.REGION.rds.amazonaws.com:5432/postgres?sslmode=require
   OWNER_EMAIL: ci_owner_email
   OWNER_PASSWORD: ci_owner_password
   OWNER_SESSION_SECRET: ci_owner_session_secret
