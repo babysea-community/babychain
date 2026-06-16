@@ -951,7 +951,7 @@ describe('chain templates', () => {
           generation_input_image_file: [],
           generation_moderation: false,
           generation_output_format: 'jpeg',
-          generation_prompt: 'A product frame',
+          generation_prompt: '',
           generation_prompt_extend: false,
           generation_seed: 42,
           generation_width: 1024,
@@ -980,6 +980,7 @@ describe('chain templates', () => {
     });
 
     expect(imageParams).not.toHaveProperty('generation_input_image_file');
+    expect(imageParams.generation_prompt).toBe('');
     expect(videoParams).not.toHaveProperty('generation_prompt');
     expect(videoParams).not.toHaveProperty('generation_seed');
     expect(videoParams.generation_duration).toBe(5);

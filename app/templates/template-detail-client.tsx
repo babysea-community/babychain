@@ -1002,6 +1002,21 @@ function createEnvironmentRows(entry: TemplatePageEntry): EnvironmentRow[] {
       value: '',
     },
     {
+      description: 'API key clients use in the Authorization bearer header.',
+      name: 'BABYCHAIN_API_KEY',
+      value: '',
+    },
+    {
+      description: 'Secret used to authorize the queued-run recovery cron.',
+      name: 'BABYCHAIN_CRON_SECRET',
+      value: '',
+    },
+    {
+      description: 'Secret used to sign callback and idempotency metadata.',
+      name: 'BABYCHAIN_CALLBACK_SECRET',
+      value: '',
+    },
+    {
       description: 'Provider execution mode.',
       name: 'BABYCHAIN_PROVIDER_MODE',
       value: 'byok',

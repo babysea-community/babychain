@@ -10,10 +10,12 @@ import {
 import { createSemanticRequestSchema } from '@/lib/models/semantic-schema';
 
 describe('UI request shape builders', () => {
-  it('serializes every schema field using user values, defaults, or empty placeholders', () => {
+  it('serializes user values, defaults, and normalized file arrays', () => {
     const fields = [
       { name: 'generation_prompt', valueKind: 'string' as const },
       { name: 'generation_width', valueKind: 'number' as const },
+      { name: 'generation_seed', valueKind: 'number' as const },
+      { name: 'generation_optional_file', valueKind: 'string-array' as const },
       { name: 'generation_height', default: 768, valueKind: 'number' as const },
       {
         name: 'generation_moderation',
@@ -44,7 +46,48 @@ describe('UI request shape builders', () => {
     });
   });
 
-  it('uses schema defaults and empty placeholders for missing no-default fields', () => {
+  it('preserves null defaults but does not invent null for nullable fields', () => {
+    expect(
+      createStepInputFromRequestSchema({
+        schema: {
+          type: 'object',
+          properties: {
+            generation_model_default: {
+              type: ['integer', 'null'],
+              default: null,
+            },
+            generation_nullable_without_default: {
+              type: ['integer', 'null'],
+            },
+          },
+        },
+      }),
+    ).toEqual({
+      generation_model_default: null,
+    });
+  });
+
+  it('uses manual arrays only for normalized Babychain input file fields', () => {
+    expect(
+      createStepInputFromRequestSchema({
+        schema: {
+          type: 'object',
+          properties: {
+            generation_input_audio_file: { type: 'array' },
+            generation_input_image_file: { type: 'array' },
+            generation_input_video_file: { type: 'array' },
+            generation_optional_file: { type: 'array' },
+          },
+        },
+      }),
+    ).toEqual({
+      generation_input_audio_file: [],
+      generation_input_image_file: [],
+      generation_input_video_file: [],
+    });
+  });
+
+  it('omits missing no-default fields instead of inventing empty values', () => {
     const schema = createSemanticRequestSchema('runway/gen-4-turbo', {
       chainFieldMode: 'downstream',
     });
@@ -55,15 +98,11 @@ describe('UI request shape builders', () => {
         values: { generation_moderation: false },
       }),
     ).toEqual({
-      generation_aspect_ratio: '',
-      generation_duration: null,
       generation_moderation: false,
-      generation_prompt: '',
-      generation_seed: null,
     });
   });
 
-  it('builds template cURL inputs from all schema fields without fake media URLs', () => {
+  it('builds template cURL inputs from model defaults and file arrays', () => {
     const schema = createSemanticRequestSchema('bfl/flux-1.1-pro');
 
     expect(createStepInputFromRequestSchema({ schema })).toEqual({
@@ -78,7 +117,7 @@ describe('UI request shape builders', () => {
     });
   });
 
-  it('keeps cURL model input field counts aligned with displayed schemas', () => {
+  it('keeps cURL model input fields limited to defaults and file arrays', () => {
     const fluxInput = createStepInputFromRequestSchema({
       schema: createSemanticRequestSchema('bfl/flux-1.1-pro'),
     });
@@ -105,10 +144,8 @@ describe('UI request shape builders', () => {
       'generation_seed',
     ]);
     expect(Object.keys(happyHorseInput)).toEqual([
-      'generation_prompt',
       'generation_resolution',
       'generation_duration',
-      'generation_seed',
       'generation_watermark',
     ]);
     expect(
@@ -116,7 +153,7 @@ describe('UI request shape builders', () => {
     ).toHaveLength(8);
     expect(
       Object.keys(input.video_model_input as Record<string, unknown>),
-    ).toHaveLength(5);
+    ).toHaveLength(3);
   });
 
   it('builds cURL from the same request body sent to the backend', () => {

@@ -1,5 +1,5 @@
 export type UiFieldSpec = {
-  default?: string | number | boolean;
+  default?: unknown;
   name: string;
   required?: boolean;
   schema?: Record<string, unknown>;
@@ -23,6 +23,11 @@ export type ChainRunRequestBody = {
 
 const IDEMPOTENCY_KEY_PLACEHOLDER = 'your-unique-idempotency-key';
 const EMPTY_KEYS = new Set<string>();
+const NORMALIZED_INPUT_FILE_FIELDS = new Set([
+  'generation_input_audio_file',
+  'generation_input_image_file',
+  'generation_input_video_file',
+]);
 
 export function createModelSchemaJsonFromFields({
   fields,
@@ -130,12 +135,21 @@ export function createStepInputFromRequestSchema({
 }) {
   const properties = isJsonObject(schema.properties) ? schema.properties : {};
   const fields: UiFieldSpec[] = Object.entries(properties).map(
-    ([name, propertySchema]) => ({
-      default: readSchemaDefault(propertySchema),
-      name,
-      schema: isJsonObject(propertySchema) ? propertySchema : undefined,
-      valueKind: valueKindForSchema(propertySchema),
-    }),
+    ([name, propertySchema]) => {
+      const schemaObject = isJsonObject(propertySchema)
+        ? propertySchema
+        : undefined;
+      const defaultEntry = hasSchemaDefault(schemaObject)
+        ? { default: schemaObject.default }
+        : {};
+
+      return {
+        ...defaultEntry,
+        name,
+        schema: schemaObject,
+        valueKind: valueKindForSchema(propertySchema),
+      };
+    },
   );
 
   return createStepInputFromValues({
@@ -315,39 +329,32 @@ function requestValueForField(field: UiFieldSpec, value: unknown) {
     return value;
   }
 
-  if (field.default !== undefined) {
+  if (hasFieldDefault(field)) {
     return field.default;
   }
 
-  return emptyRequestValueForField(field);
-}
-
-function emptyRequestValueForField(field: UiFieldSpec) {
-  switch (field.valueKind) {
-    case 'number':
-    case 'boolean':
-    case 'json':
-      return null;
-    case 'string-array':
-      return [];
-    case 'string':
-    default:
-      return '';
-  }
-}
-
-function readSchemaDefault(schema: unknown): UiFieldSpec['default'] {
-  if (!isJsonObject(schema)) {
-    return undefined;
+  if (isFileArrayField(field)) {
+    return [];
   }
 
-  const value = schema.default;
+  return undefined;
+}
 
-  return typeof value === 'string' ||
-    typeof value === 'number' ||
-    typeof value === 'boolean'
-    ? value
-    : undefined;
+function hasFieldDefault(field: UiFieldSpec) {
+  return hasOwn(field, 'default');
+}
+
+function hasSchemaDefault(
+  schema: Record<string, unknown> | undefined,
+): schema is Record<string, unknown> {
+  return schema !== undefined && hasOwn(schema, 'default');
+}
+
+function isFileArrayField(field: UiFieldSpec) {
+  return (
+    field.valueKind === 'string-array' &&
+    NORMALIZED_INPUT_FILE_FIELDS.has(field.name)
+  );
 }
 
 function valueKindForSchema(schema: unknown): UiFieldSpec['valueKind'] {
@@ -374,6 +381,10 @@ function readStringArray(value: unknown) {
 
 function isJsonObject(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+}
+
+function hasOwn(value: object, key: string) {
+  return Object.prototype.hasOwnProperty.call(value, key);
 }
 
 function lineContinuation() {
