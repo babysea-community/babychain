@@ -236,10 +236,10 @@ export function createChainRunCurl(
     '  --header "Authorization: Bearer $BABYCHAIN_API_KEY"',
     '  --header "Content-Type: application/json"',
     `  --header "Idempotency-Key: ${IDEMPOTENCY_KEY_PLACEHOLDER}"`,
-    `  --data @- <<'JSON'`,
+    `  --data '${shellSingleQuotedPayload(`\n${body}\n`)}'`,
   ];
 
-  return `${lines.join(lineContinuation())}\n${body}\nJSON`;
+  return lines.join(lineContinuation());
 }
 
 export function createGetRunCurl(options: ChainCurlOptions = {}) {
@@ -484,6 +484,10 @@ function curlRunId(runId: string | null | undefined) {
   const normalized = runId?.trim();
 
   return normalized || RUN_ID_PLACEHOLDER;
+}
+
+function shellSingleQuotedPayload(value: string) {
+  return value.replace(/'/g, `'\\''`);
 }
 
 const JSON_SCHEMA_COPY_KEYS = [

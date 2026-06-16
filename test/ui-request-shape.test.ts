@@ -240,10 +240,11 @@ describe('UI request shape builders', () => {
     expect(curl).toContain(
       '--url "https://babychain.example/api/v1/chains/runs"',
     );
-    expect(curl).toContain("--data @- <<'JSON'\n{");
-    expect(curl).toContain('\n}\nJSON');
-    expect(curl).toContain(JSON.stringify({ input }, null, 2));
-    expect(curl).toContain(`"generation_prompt": "A cat's product frame"`);
+    expect(curl).toContain("--data '\n{");
+    expect(curl).toContain("\n}\n'");
+    expect(curl).not.toContain("<<'JSON'");
+    expect(curl).not.toContain('\nJSON');
+    expect(curl).toContain(`"generation_prompt": "A cat'\\''s product frame"`);
     expect(curl).not.toContain('https://example.com/image.png');
     expect(curl).not.toContain('client_reference_id');
     expect(curl).not.toContain('webhook_url');

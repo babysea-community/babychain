@@ -22,6 +22,7 @@ import {
   Position,
   ReactFlow,
   ReactFlowProvider,
+  useReactFlow,
   useNodesState,
   type Edge,
   type Node,
@@ -2204,6 +2205,7 @@ function CanvasInner(props: CanvasProps) {
     renameCanvasAction,
   } = props;
   const saveToastIdRef = useRef<string | number | null>(null);
+  const { fitView } = useReactFlow();
 
   const firstImage = firstAvailableModelForRole(models, 'image');
   const firstVideo = firstAvailableModelForRole(models, 'video');
@@ -2257,6 +2259,29 @@ function CanvasInner(props: CanvasProps) {
   const [hydrated, setHydrated] = useState(false);
   const nodesRef = useRef<FlowNode[]>([]);
   nodesRef.current = nodes;
+  const pendingFitFlowIdsRef = useRef<Set<string> | null>(null);
+
+  const queueFitViewForFlows = useCallback((flowIds: string[]) => {
+    pendingFitFlowIdsRef.current = new Set(flowIds.filter(Boolean));
+  }, []);
+
+  useEffect(() => {
+    const flowIds = pendingFitFlowIdsRef.current;
+    if (!hydrated || !flowIds || flowIds.size === 0) return;
+
+    const targetNodes = nodes.filter((node) => flowIds.has(node.data.flowId));
+    if (targetNodes.length === 0) return;
+
+    pendingFitFlowIdsRef.current = null;
+    window.requestAnimationFrame(() => {
+      void fitView({
+        duration: 500,
+        maxZoom: 0.95,
+        nodes: targetNodes,
+        padding: 0.24,
+      });
+    });
+  }, [fitView, hydrated, nodes]);
 
   useEffect(() => {
     if (!saveToastIdRef.current) return;
@@ -2802,11 +2827,15 @@ function CanvasInner(props: CanvasProps) {
       });
       // The runner card carries the same flowId, so it is removed with the
       // flow's model cards.
-      setNodes((current) =>
-        current.filter((node) => node.data.flowId !== flowId),
-      );
+      setNodes((current) => {
+        const next = current.filter((node) => node.data.flowId !== flowId);
+        queueFitViewForFlows([
+          ...new Set(next.map((node) => node.data.flowId)),
+        ]);
+        return next;
+      });
     },
-    [setNodes],
+    [setNodes, queueFitViewForFlows],
   );
 
   const addNodeToFlow = useCallback(
@@ -2832,12 +2861,13 @@ function CanvasInner(props: CanvasProps) {
             data: { role, modelId: model.id, flowId, values: {} },
           },
         ];
+        queueFitViewForFlows([flowId]);
         // Slot the new card into its step position within this flow only.
         return relayoutFlow(next, flowId);
       });
       void ensureFields(model.id, role);
     },
-    [models, setNodes, ensureFields],
+    [models, setNodes, ensureFields, queueFitViewForFlows],
   );
 
   const duplicateFlow = useCallback(
@@ -2893,18 +2923,22 @@ function CanvasInner(props: CanvasProps) {
           })),
         ];
 
+        queueFitViewForFlows([newFlowId]);
+
         return [...current, ...copiedNodes];
       });
     },
-    [canvasId, setNodes],
+    [canvasId, setNodes, queueFitViewForFlows],
   );
 
   const addFlow = useCallback(() => {
-    setNodes((current) => [
-      ...current,
-      ...buildDefaultFlow(nextFlowY(current)),
-    ]);
-  }, [setNodes, buildDefaultFlow]);
+    setNodes((current) => {
+      const nextFlow = buildDefaultFlow(nextFlowY(current));
+      const flowId = nextFlow[0]?.data.flowId;
+      if (flowId) queueFitViewForFlows([flowId]);
+      return [...current, ...nextFlow];
+    });
+  }, [setNodes, buildDefaultFlow, queueFitViewForFlows]);
 
   const resetCanvas = useCallback(() => {
     if (
@@ -2925,6 +2959,8 @@ function CanvasInner(props: CanvasProps) {
     setStatusByNode({});
 
     const fresh = buildDefaultFlow(120);
+    const freshFlowId = fresh[0]?.data.flowId;
+    if (freshFlowId) queueFitViewForFlows([freshFlowId]);
     setNodes(fresh);
     // Invalidate any in-flight autosave so a stale pre-reset snapshot can
     // never land after this save and resurrect the old flows.
@@ -2955,7 +2991,13 @@ function CanvasInner(props: CanvasProps) {
       }
     };
     void persistReset();
-  }, [buildDefaultFlow, setNodes, saveWorkspaceAction, nextSaveVersion]);
+  }, [
+    buildDefaultFlow,
+    setNodes,
+    saveWorkspaceAction,
+    nextSaveVersion,
+    queueFitViewForFlows,
+  ]);
 
   const applyRunToFlow = useCallback((flowId: string, run: RunJson) => {
     // Map run steps (keyed by role) onto this flow's MODEL nodes. Info and
