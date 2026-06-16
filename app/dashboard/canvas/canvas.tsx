@@ -534,7 +534,7 @@ function genFlowId(): string {
 const FLOW_X = 40;
 const FLOW_COL_W = 520;
 const FLOW_ROW_H = 980;
-const FLOW_UTILITY_STACK_Y = 300;
+const FLOW_UTILITY_STACK_Y = 420;
 
 function snapshotNodes(nodes: FlowNode[]): StoredCanvasNode[] {
   // Utility cards are derived UI; info cards persist the flow's Library id
@@ -694,7 +694,8 @@ function relayoutFlow(nodes: FlowNode[], flowId: string): FlowNode[] {
       { x: FLOW_X + INFO_COL_W + index * FLOW_COL_W, y: rowY },
     ]),
   );
-  // Info card leads the flow; API and runner share the final utility column.
+  // Info card leads the flow; runner and API sit separately in the final
+  // utility column.
   positions.set(`info_${flowId}`, { x: FLOW_X, y: rowY });
   positions.set(`runner_${flowId}`, {
     x: FLOW_X + INFO_COL_W + flowNodes.length * FLOW_COL_W,
@@ -800,7 +801,6 @@ type CanvasContextValue = {
   fieldsByModel: Record<string, FieldGroup | undefined>;
   statusByNode: Record<string, NodeStatus | undefined>;
   runningFlowIds: ReadonlySet<string>;
-  runIdsByFlow: ReadonlyMap<string, string>;
   flowMeta: Record<string, FlowMeta | undefined>;
   flowCount: number;
   isSavedCanvas: boolean;
@@ -1492,11 +1492,10 @@ function ModelNodeComponent({ id, data }: NodeProps) {
 
 function CurlNodeComponent({ data }: NodeProps) {
   const { flowId } = data as NodeData;
-  const { createFlowCurl, runIdsByFlow } = useCanvas();
+  const { createFlowCurl } = useCanvas();
   const [open, setOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const curlText = createFlowCurl(flowId);
-  const runId = runIdsByFlow.get(flowId);
 
   const copyApiRequest = useCallback(async () => {
     if (!curlText) return;
@@ -1534,16 +1533,6 @@ function CurlNodeComponent({ data }: NodeProps) {
           Copy this schema and run it in a terminal or integrate it with your
           app. This schema runs the same canvas flow.
         </p>
-        {runId ? (
-          <div className="border border-border bg-muted/30 px-2.5 py-2">
-            <span className="block font-mono text-[0.6rem] uppercase tracking-wide text-muted-foreground">
-              run_id
-            </span>
-            <span className="block break-all font-mono text-[0.65rem] text-foreground">
-              {runId}
-            </span>
-          </div>
-        ) : null}
         <div className="border border-border">
           <button
             type="button"
@@ -1598,7 +1587,6 @@ function RunnerNodeComponent({ data }: NodeProps) {
   const { flowId } = data as NodeData;
   const {
     runningFlowIds,
-    runIdsByFlow,
     runFlow,
     stopFlow,
     removeFlow,
@@ -1607,7 +1595,6 @@ function RunnerNodeComponent({ data }: NodeProps) {
     isSavedCanvas,
   } = useCanvas();
   const running = runningFlowIds.has(flowId);
-  const runId = runIdsByFlow.get(flowId);
   // The last flow on the workspace cannot be removed (Reset canvas is the
   // explicit wipe), and saved canvases are deleted from the Library instead.
   const removeDisabledReason = isSavedCanvas
@@ -1646,16 +1633,6 @@ function RunnerNodeComponent({ data }: NodeProps) {
             ? 'Run only tests this flow without changing what is saved. Run and save overwrites this canvas with the new results.'
             : 'Run only keeps results here. Run and save publishes this flow to the Library, then updates the same card on later runs.'}
         </p>
-        {runId ? (
-          <div className="border border-border bg-muted/30 px-2.5 py-2">
-            <span className="block font-mono text-[0.6rem] uppercase tracking-wide text-muted-foreground">
-              run_id
-            </span>
-            <span className="block break-all font-mono text-[0.65rem] text-foreground">
-              {runId}
-            </span>
-          </div>
-        ) : null}
         <Button
           className="nodrag w-full"
           size="sm"
@@ -2226,9 +2203,6 @@ function CanvasInner(props: CanvasProps) {
   const [runningFlows, setRunningFlows] = useState<ReadonlySet<string>>(
     new Set(),
   );
-  const [runIdsByFlow, setRunIdsByFlow] = useState<ReadonlyMap<string, string>>(
-    new Map(),
-  );
   const fieldsRef = useRef<Record<string, FieldGroup>>({});
   // Active run per flow; poll callbacks check it to drop stale responses.
   const flowRunIdRef = useRef(new Map<string, string>());
@@ -2424,7 +2398,7 @@ function CanvasInner(props: CanvasProps) {
   // draggable cards (ReactFlow disables pointer-events on fully
   // non-interactive nodes, which made the run buttons unclickable) — they
   // just cannot be deleted, so every flow always ends with API + runner. New
-  // aux cards spawn in the final utility column; existing ones keep
+  // aux cards spawn separated in the final utility column; existing ones keep
   // whatever position the user dragged them to.
   useEffect(() => {
     if (!needsFlowAuxReconcile(nodes)) return;
@@ -2591,12 +2565,6 @@ function CanvasInner(props: CanvasProps) {
       if (timer) clearTimeout(timer);
       pollTimersRef.current.delete(flowId);
       flowRunIdRef.current.delete(flowId);
-      setRunIdsByFlow((prev) => {
-        if (!prev.has(flowId)) return prev;
-        const next = new Map(prev);
-        next.delete(flowId);
-        return next;
-      });
       setRunningFlows((prev) => {
         if (!prev.has(flowId)) return prev;
         const next = new Set(prev);
@@ -2723,7 +2691,6 @@ function CanvasInner(props: CanvasProps) {
     }
     pollTimersRef.current.clear();
     flowRunIdRef.current.clear();
-    setRunIdsByFlow(new Map());
     setRunningFlows(new Set());
     setStatusByNode({});
 
@@ -2874,7 +2841,6 @@ function CanvasInner(props: CanvasProps) {
       const firstFlowId = nodesRef.current[0]?.data.flowId;
       if (!firstFlowId) return;
       flowRunIdRef.current.set(firstFlowId, initialRunId);
-      setRunIdsByFlow((prev) => new Map(prev).set(firstFlowId, initialRunId));
       setRunningFlows((prev) => new Set(prev).add(firstFlowId));
       // notifyFailure=false: repainting an old failed run on page load should
       // not re-toast an error the user already saw.
@@ -2889,7 +2855,6 @@ function CanvasInner(props: CanvasProps) {
       for (const [flowId, runId] of Object.entries(initialFlowRuns)) {
         if (!liveFlowIds.has(flowId)) continue;
         flowRunIdRef.current.set(flowId, runId);
-        setRunIdsByFlow((prev) => new Map(prev).set(flowId, runId));
         setRunningFlows((prev) => new Set(prev).add(flowId));
         void pollFlow(flowId, runId, 0, false);
       }
@@ -3033,7 +2998,6 @@ function CanvasInner(props: CanvasProps) {
       }
       const run = result.run as RunJson;
       flowRunIdRef.current.set(flowId, run.id);
-      setRunIdsByFlow((prev) => new Map(prev).set(flowId, run.id));
       // Record the run on the workspace so a reload resumes tracking it.
       if (!canvasId) {
         const recorded = await recordFlowRunAction(flowId, run.id).catch(
@@ -3104,7 +3068,6 @@ function CanvasInner(props: CanvasProps) {
       fieldsByModel,
       statusByNode,
       runningFlowIds: runningFlows,
-      runIdsByFlow,
       flowMeta,
       flowCount: flows.size,
       isSavedCanvas: Boolean(canvasId),
@@ -3141,7 +3104,6 @@ function CanvasInner(props: CanvasProps) {
       fieldsByModel,
       statusByNode,
       runningFlows,
-      runIdsByFlow,
       flowMeta,
       flows,
       canvasId,

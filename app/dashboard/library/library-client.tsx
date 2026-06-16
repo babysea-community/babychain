@@ -307,8 +307,15 @@ function CanvasCard({
           </div>
         )}
 
-        {/* 2. Single meta badge: Canvas ID / Created */}
+        {/* 2. Single meta badge: Run ID / Canvas ID / Created */}
         <div className="space-y-1 border border-border bg-muted/30 px-2.5 py-2">
+          <MetaRow label="Run ID">
+            {canvas.lastRunId ? (
+              <span className="break-all font-mono">{canvas.lastRunId}</span>
+            ) : (
+              <span className="text-muted-foreground">No run yet</span>
+            )}
+          </MetaRow>
           <MetaRow label="Canvas ID">
             <span className="break-all font-mono">{canvas.id}</span>
           </MetaRow>

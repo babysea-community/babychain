@@ -13,7 +13,7 @@ All notable changes will be documented here. The format follows [Keep a Changelo
 - Canvas node cards now expose the selected model's Semantic Lady fields more completely, preserve documented defaults, and render numeric enums or small bounded integer ranges as dropdowns instead of free number inputs.
 - Each canvas model node now includes a collapsible JSON Schema view for the effective node inputs, matching the schema inspection pattern used on the templates page.
 - Each canvas flow now includes a separate API card in the final utility column beside the runner controls, using the current flow input and the same scroll-safe highlighted request styling.
-- Canvas API and runner cards now show the real `run_id` after a flow starts or resumes so users can inspect and debug the exact chain run; saved Library canvas ids remain internal persistence ids.
+- Library canvas cards now show the real `run_id` above the Canvas ID and Created metadata; canvas API and runner cards stay focused on requests and controls.
 - Canvas media previews now use dashboard-session output links for inline provider media, keeping API responses clean while preserving browser image/video rendering.
 - The templates page curl examples and schema section now use the same Semantic Lady `generation_*` request contract as the run API and canvas node cards.
 - Canvas API requests and template curl examples now share one request-shape builder, use schema defaults exactly as published by Semantic Lady, omit no-default fields instead of inventing `null` or empty strings, and only use empty arrays for BabyChain's normalized input file fields.
