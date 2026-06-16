@@ -69,6 +69,7 @@ import {
   isChainWiredSemanticFieldName,
   modelSchemaCacheKey,
 } from '@/lib/models/chain-schema';
+import { createSchemaExample } from '@/lib/models/schema-example';
 import { cn } from '@/lib/utils';
 
 type ModelIconKey =
@@ -1974,6 +1975,7 @@ function createSchemaCurlParams(
     }
 
     const schemaValue = createSchemaExample(field.schema, {
+      imageInputFileUrl: 'https://example.com/input-image.png',
       key: field.name,
       preferredPrompt,
     });
@@ -1986,199 +1988,12 @@ function createSchemaCurlParams(
   return params;
 }
 
-function createSchemaExample(
-  schema: unknown,
-  context: { key?: string; preferredPrompt: string },
-): unknown {
-  if (!isJsonObject(schema)) {
-    return undefined;
-  }
-
-  const type = getPreferredSchemaType(schema.type);
-
-  if ('default' in schema) {
-    if (isValidSchemaExample(schema.default, schema, type)) {
-      return schema.default;
-    }
-  }
-
-  if ('const' in schema) {
-    return schema.const;
-  }
-
-  const examples = Array.isArray(schema.examples) ? schema.examples : [];
-
-  if (examples.length > 0) {
-    const example = examples.find((value) =>
-      isValidSchemaExample(value, schema, type),
-    );
-
-    if (example !== undefined) {
-      return example;
-    }
-  }
-
-  const variants = [schema.oneOf, schema.anyOf].flatMap((value) =>
-    Array.isArray(value) ? value : [],
-  );
-
-  if (variants.length > 0) {
-    return createSchemaExample(variants[0], context);
-  }
-
-  if (context.key && isPromptLikeKey(context.key)) {
-    return context.preferredPrompt.trim()
-      ? context.preferredPrompt
-      : 'Describe the generation.';
-  }
-
-  if (type === 'array') {
-    if (context.key && isFileInputKey(context.key)) {
-      return [exampleFileUrlForKey(context.key)];
-    }
-
-    const item = createSchemaExample(schema.items, context);
-
-    return item === undefined ? undefined : [item];
-  }
-
-  if (type === 'object' || isJsonObject(schema.properties)) {
-    const properties = isJsonObject(schema.properties) ? schema.properties : {};
-    const entries = Object.entries(properties).flatMap(
-      ([key, propertySchema]) => {
-        const value = createSchemaExample(propertySchema, {
-          ...context,
-          key,
-        });
-
-        return value === undefined ? [] : [[key, value]];
-      },
-    );
-
-    return entries.length > 0 ? Object.fromEntries(entries) : undefined;
-  }
-
-  return undefined;
-}
-
-function getPreferredSchemaType(type: unknown) {
-  const types = Array.isArray(type) ? type : [type];
-
-  return (
-    types.find((value) => value !== 'null' && typeof value === 'string') ??
-    'object'
-  );
-}
-
-function isValidSchemaExample(
-  value: unknown,
-  schema: Record<string, unknown>,
-  type: string,
-) {
-  if (value === null || value === undefined) {
-    return false;
-  }
-
-  if ('const' in schema) {
-    return value === schema.const;
-  }
-
-  if (Array.isArray(schema.enum)) {
-    return schema.enum.includes(value);
-  }
-
-  const variants = [schema.oneOf, schema.anyOf].flatMap((variant) =>
-    Array.isArray(variant) ? variant : [],
-  );
-
-  if (variants.length > 0) {
-    return variants.some((variant): boolean => {
-      if (!isJsonObject(variant)) {
-        return false;
-      }
-
-      return isValidSchemaExample(
-        value,
-        variant,
-        getPreferredSchemaType(variant.type),
-      );
-    });
-  }
-
-  if (type === 'integer' || type === 'number') {
-    if (typeof value !== 'number' || !Number.isFinite(value)) {
-      return false;
-    }
-
-    if (type === 'integer' && !Number.isInteger(value)) {
-      return false;
-    }
-
-    if (typeof schema.minimum === 'number' && value < schema.minimum) {
-      return false;
-    }
-
-    if (typeof schema.maximum === 'number' && value > schema.maximum) {
-      return false;
-    }
-
-    return true;
-  }
-
-  if (type === 'string') {
-    return typeof value === 'string';
-  }
-
-  if (type === 'boolean') {
-    return typeof value === 'boolean';
-  }
-
-  if (type === 'array') {
-    return Array.isArray(value);
-  }
-
-  return true;
-}
-
-function isFileInputKey(key: string) {
-  return /^generation_input_[a-z]+_file$/.test(key);
-}
-
-function exampleFileUrlForKey(key: string) {
-  if (key.includes('_audio_')) {
-    return 'https://cdn.example.com/reference-audio.wav';
-  }
-
-  if (key.includes('_video_')) {
-    return 'https://cdn.example.com/reference-video.mp4';
-  }
-
-  return 'https://cdn.example.com/source-image.png';
-}
-
-function isPromptLikeKey(key: string) {
-  const normalized = key.toLowerCase();
-
-  return (
-    normalized !== 'image_prompt' &&
-    (normalized === 'prompt' ||
-      normalized === 'prompttext' ||
-      normalized === 'prompt_text' ||
-      normalized === 'text' ||
-      normalized.endsWith('_prompt'))
-  );
-}
-
 function isMeaningfulCurlValue(value: unknown) {
   if (value === undefined || value === null || value === '') {
     return false;
   }
 
   return !(Array.isArray(value) && value.length === 0);
-}
-
-function isJsonObject(value: unknown): value is Record<string, unknown> {
-  return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 }
 
 function createNodeCurl(input: Record<string, unknown>) {
