@@ -1,6 +1,7 @@
 import { getErrorGuidance } from '@/lib/utils/error-guidance';
 
 import type { ChainRunWithSteps, JsonObject } from './types';
+import { serializeOutputFileReferences } from './output-files';
 
 /**
  * Discriminator describing how the run was executed.
@@ -22,6 +23,7 @@ export type RunResponseMode = 'babysea' | 'byok';
  */
 
 type Step = ChainRunWithSteps['steps'][number];
+type OutputReferenceMap = Map<string, Map<string, string>>;
 
 export function getRunResponseMode(record: ChainRunWithSteps): RunResponseMode {
   const configMode = record.run.byokCredentials?.mode;
@@ -29,7 +31,12 @@ export function getRunResponseMode(record: ChainRunWithSteps): RunResponseMode {
   return configMode === 'server_env' ? 'byok' : 'babysea';
 }
 
-function serializeStepGeneral(step: Step, mode: RunResponseMode) {
+function serializeStepGeneral(
+  step: Step,
+  mode: RunResponseMode,
+  runId: string,
+  outputReferenceMap: OutputReferenceMap,
+) {
   const serialized: JsonObject = {
     id: step.id,
     step_index: step.stepIndex,
@@ -44,14 +51,23 @@ function serializeStepGeneral(step: Step, mode: RunResponseMode) {
     completed_at: step.completedAt,
   };
 
-  const generationInputFile = getGenerationInputFile(step, mode);
+  const generationInputFile = getGenerationInputFile(
+    step,
+    mode,
+    runId,
+    outputReferenceMap,
+  );
 
   if (generationInputFile) {
     serialized.generation_input_file = generationInputFile;
   }
 
   if (step.outputFiles.length > 0) {
-    serialized.generation_output_file = step.outputFiles;
+    serialized.generation_output_file = serializeOutputFileReferences({
+      files: step.outputFiles,
+      runId,
+      stepKey: step.stepKey,
+    });
   }
 
   if (step.errorCode) {
@@ -125,8 +141,13 @@ function serializeSafeByokProviderMetadata(metadata: JsonObject | null) {
   return Object.keys(safeMetadata).length > 0 ? safeMetadata : null;
 }
 
-function serializeStep(step: Step, mode: RunResponseMode) {
-  const general = serializeStepGeneral(step, mode);
+function serializeStep(
+  step: Step,
+  mode: RunResponseMode,
+  runId: string,
+  outputReferenceMap: OutputReferenceMap,
+) {
+  const general = serializeStepGeneral(step, mode, runId, outputReferenceMap);
   if (mode === 'byok') {
     return { ...general, ...serializeStepByokOnly(step) };
   }
@@ -208,29 +229,110 @@ export function serializeCompletedRunOutput(
     output.final_step_key = finalStep.stepKey;
 
     if (finalStep.outputFiles.length > 0) {
-      output.output_files = finalStep.outputFiles;
+      output.output_files = serializeOutputFileReferences({
+        files: finalStep.outputFiles,
+        runId: record.run.id,
+        stepKey: finalStep.stepKey,
+      });
     }
   }
 
   return output;
 }
 
-function serializeRequestParams(step: Step, mode: RunResponseMode) {
+function serializeRequestParams(
+  step: Step,
+  mode: RunResponseMode,
+  runId: string,
+  outputReferenceMap: OutputReferenceMap,
+) {
   if (!step.requestParams) {
     return null;
   }
 
   if (mode === 'babysea') {
-    return step.requestParams;
+    return sanitizeRequestParams(
+      step.requestParams,
+      step,
+      runId,
+      outputReferenceMap,
+    );
   }
 
-  const sanitized = Object.fromEntries(
+  const filtered = Object.fromEntries(
     Object.entries(step.requestParams).filter(
       ([key]) => !isProviderRoutingRequestParam(key),
     ),
   ) as JsonObject;
+  const sanitized = sanitizeRequestParams(
+    filtered,
+    step,
+    runId,
+    outputReferenceMap,
+  );
 
   return Object.keys(sanitized).length > 0 ? sanitized : null;
+}
+
+function sanitizeRequestParams(
+  params: JsonObject,
+  step: Step,
+  runId: string,
+  outputReferenceMap: OutputReferenceMap,
+): JsonObject {
+  const inputFile = params.generation_input_file;
+
+  if (!Array.isArray(inputFile)) {
+    return params;
+  }
+
+  return {
+    ...params,
+    generation_input_file: inputFile.map((value) =>
+      typeof value === 'string'
+        ? outputReferenceForHandoff(value, step, runId, outputReferenceMap)
+        : value,
+    ),
+  };
+}
+
+function outputReferenceForHandoff(
+  value: string,
+  step: Step,
+  runId: string,
+  outputReferenceMap: OutputReferenceMap,
+) {
+  for (const sourceStepKey of step.dependsOn) {
+    const reference = outputReferenceMap.get(sourceStepKey)?.get(value);
+
+    if (reference !== undefined) {
+      return reference;
+    }
+  }
+
+  return value;
+}
+
+function createOutputReferenceMap(
+  steps: readonly Step[],
+  runId: string,
+): OutputReferenceMap {
+  return new Map(
+    steps.map((step) => {
+      const references = serializeOutputFileReferences({
+        files: step.outputFiles,
+        runId,
+        stepKey: step.stepKey,
+      });
+
+      return [
+        step.stepKey,
+        new Map(
+          step.outputFiles.map((file, index) => [file, references[index]!]),
+        ),
+      ];
+    }),
+  );
 }
 
 function isProviderRoutingRequestParam(key: string) {
@@ -253,12 +355,22 @@ function isHiddenByokGenerationParam(key: string) {
   );
 }
 
-function getGenerationInputFile(step: Step, mode: RunResponseMode) {
+function getGenerationInputFile(
+  step: Step,
+  mode: RunResponseMode,
+  runId: string,
+  outputReferenceMap: OutputReferenceMap,
+) {
   if (step.dependsOn.length === 0) {
     return null;
   }
 
-  const requestParams = serializeRequestParams(step, mode);
+  const requestParams = serializeRequestParams(
+    step,
+    mode,
+    runId,
+    outputReferenceMap,
+  );
   const inputFile = requestParams?.generation_input_file;
 
   return Array.isArray(inputFile) ? inputFile : null;
@@ -304,6 +416,10 @@ function serializeCurrentStepKey(record: ChainRunWithSteps) {
 
 export function serializeRunWithSteps(record: ChainRunWithSteps) {
   const mode = getRunResponseMode(record);
+  const outputReferenceMap = createOutputReferenceMap(
+    record.steps,
+    record.run.id,
+  );
 
   const response: Record<string, unknown> = {
     id: record.run.id,
@@ -333,7 +449,9 @@ export function serializeRunWithSteps(record: ChainRunWithSteps) {
     response.client_request_id = record.run.clientRequestId;
   }
 
-  response.steps = record.steps.map((step) => serializeStep(step, mode));
+  response.steps = record.steps.map((step) =>
+    serializeStep(step, mode, record.run.id, outputReferenceMap),
+  );
   response.timeline = serializeRunTimeline(record);
 
   return response;

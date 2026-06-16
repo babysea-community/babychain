@@ -534,10 +534,11 @@ function genFlowId(): string {
 const FLOW_X = 40;
 const FLOW_COL_W = 520;
 const FLOW_ROW_H = 980;
+const FLOW_UTILITY_STACK_Y = 300;
 
 function snapshotNodes(nodes: FlowNode[]): StoredCanvasNode[] {
-  // Runner cards are derived UI; info cards persist (they carry the flow's
-  // canvas id + name).
+  // Utility cards are derived UI; info cards persist the flow's Library id
+  // and name. Run ids are transient UI state and never stored in canvas nodes.
   return nodes
     .filter((node) => node.type !== 'curl' && node.type !== 'runner')
     .map((node) => ({
@@ -641,7 +642,44 @@ function needsFlowAuxReconcile(nodes: FlowNode[]) {
     if (auxById.get(id)?.type !== type) return true;
   }
 
+  for (const [flowId, flowNodes] of flowsFrom(modelNodes)) {
+    const last = flowNodes[flowNodes.length - 1];
+    if (!last) continue;
+
+    const curl = auxById.get(`curl_${flowId}`);
+    const runner = auxById.get(`runner_${flowId}`);
+
+    if (
+      curl &&
+      !samePosition(curl.position, utilityCardPosition(last, 'api'))
+    ) {
+      return true;
+    }
+
+    if (
+      runner &&
+      !samePosition(runner.position, utilityCardPosition(last, 'runner'))
+    ) {
+      return true;
+    }
+  }
+
   return false;
+}
+
+function utilityCardPosition(last: FlowNode, kind: 'api' | 'runner') {
+  return {
+    x: last.position.x + FLOW_COL_W,
+    y:
+      kind === 'api' ? last.position.y + FLOW_UTILITY_STACK_Y : last.position.y,
+  };
+}
+
+function samePosition(
+  left: { x: number; y: number },
+  right: { x: number; y: number },
+) {
+  return left.x === right.x && left.y === right.y;
 }
 
 /** Re-place one flow's cards in rank order along its own row. */
@@ -656,15 +694,15 @@ function relayoutFlow(nodes: FlowNode[], flowId: string): FlowNode[] {
       { x: FLOW_X + INFO_COL_W + index * FLOW_COL_W, y: rowY },
     ]),
   );
-  // Info card leads the flow; curl and runner follow the last model card.
+  // Info card leads the flow; API and runner share the final utility column.
   positions.set(`info_${flowId}`, { x: FLOW_X, y: rowY });
-  positions.set(`curl_${flowId}`, {
+  positions.set(`runner_${flowId}`, {
     x: FLOW_X + INFO_COL_W + flowNodes.length * FLOW_COL_W,
     y: rowY,
   });
-  positions.set(`runner_${flowId}`, {
-    x: FLOW_X + INFO_COL_W + (flowNodes.length + 1) * FLOW_COL_W,
-    y: rowY,
+  positions.set(`curl_${flowId}`, {
+    x: FLOW_X + INFO_COL_W + flowNodes.length * FLOW_COL_W,
+    y: rowY + FLOW_UTILITY_STACK_Y,
   });
 
   return nodes.map((node) =>
@@ -762,6 +800,7 @@ type CanvasContextValue = {
   fieldsByModel: Record<string, FieldGroup | undefined>;
   statusByNode: Record<string, NodeStatus | undefined>;
   runningFlowIds: ReadonlySet<string>;
+  runIdsByFlow: ReadonlyMap<string, string>;
   flowMeta: Record<string, FlowMeta | undefined>;
   flowCount: number;
   isSavedCanvas: boolean;
@@ -1267,11 +1306,11 @@ function ModelNodeComponent({ id, data }: NodeProps) {
               className={cn(
                 'border px-1.5 py-0.5 text-[0.6rem] font-medium uppercase tracking-wide',
                 nodeStatus.status === 'succeeded' &&
-                  'border-chart-3 text-chart-3',
+                  'border-emerald-300 text-emerald-300',
                 nodeStatus.status === 'failed' &&
-                  'border-destructive text-destructive',
+                  'border-rose-300 text-rose-300',
                 nodeStatus.status === 'running' &&
-                  'border-primary text-primary animate-pulse',
+                  'border-sky-300 text-sky-300 animate-pulse',
                 (nodeStatus.status === 'queued' ||
                   nodeStatus.status === 'skipped' ||
                   nodeStatus.status === 'canceled') &&
@@ -1453,13 +1492,13 @@ function ModelNodeComponent({ id, data }: NodeProps) {
 
 function CurlNodeComponent({ data }: NodeProps) {
   const { flowId } = data as NodeData;
-  const { createFlowCurl, runningFlowIds } = useCanvas();
+  const { createFlowCurl, runIdsByFlow } = useCanvas();
   const [open, setOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const curlText = createFlowCurl(flowId);
-  const running = runningFlowIds.has(flowId);
+  const runId = runIdsByFlow.get(flowId);
 
-  const copyCurl = useCallback(async () => {
+  const copyApiRequest = useCallback(async () => {
     if (!curlText) return;
 
     try {
@@ -1467,7 +1506,7 @@ function CurlNodeComponent({ data }: NodeProps) {
       setCopied(true);
       window.setTimeout(() => setCopied(false), 1600);
     } catch {
-      toast.error('Copying the cURL request failed.');
+      toast.error('Copying the API request failed.');
     }
   }, [curlText]);
 
@@ -1480,31 +1519,31 @@ function CurlNodeComponent({ data }: NodeProps) {
         className="!size-3 !border-2 !border-background"
         style={{ backgroundColor: RUNNER_COLOR }}
       />
-      <Handle
-        type="source"
-        position={Position.Right}
-        className="!size-3 !border-2 !border-background"
-        style={{ backgroundColor: RUNNER_COLOR }}
-      />
 
       <div className="flex items-center justify-between gap-2 border-b border-border px-3 py-2.5">
         <div
           className="font-mono text-xs font-semibold"
           style={{ color: RUNNER_COLOR }}
         >
-          curl
+          api
         </div>
-        {running ? (
-          <span className="border border-primary px-1.5 py-0.5 text-[0.6rem] font-medium uppercase tracking-wide text-primary animate-pulse">
-            Running
-          </span>
-        ) : null}
       </div>
 
       <div className="space-y-2 p-3">
         <p className="text-[0.65rem] leading-4 text-muted-foreground">
-          Copy a request for this flow using the current model inputs.
+          Copy this schema and run it in a terminal or integrate it with your
+          app. This schema runs the same canvas flow.
         </p>
+        {runId ? (
+          <div className="border border-border bg-muted/30 px-2.5 py-2">
+            <span className="block font-mono text-[0.6rem] uppercase tracking-wide text-muted-foreground">
+              run_id
+            </span>
+            <span className="block break-all font-mono text-[0.65rem] text-foreground">
+              {runId}
+            </span>
+          </div>
+        ) : null}
         <div className="border border-border">
           <button
             type="button"
@@ -1516,7 +1555,7 @@ function CurlNodeComponent({ data }: NodeProps) {
               open && 'border-b border-border',
             )}
           >
-            <span>cURL</span>
+            <span>API request</span>
             <FontAwesomeIcon
               className={cn(
                 'size-3.5 transition-transform',
@@ -1529,12 +1568,14 @@ function CurlNodeComponent({ data }: NodeProps) {
             <div className="p-2.5">
               <div className="mb-2 flex justify-end">
                 <Button
-                  aria-label={copied ? 'cURL copied' : 'Copy cURL'}
+                  aria-label={
+                    copied ? 'API request copied' : 'Copy API request'
+                  }
                   className="nodrag h-7 px-2 text-[0.65rem]"
                   size="sm"
                   title={copied ? 'Copied' : 'Copy'}
                   variant="ghost"
-                  onClick={() => void copyCurl()}
+                  onClick={() => void copyApiRequest()}
                 >
                   <FontAwesomeIcon icon={copied ? 'check' : 'copy'} />
                   {copied ? 'Copied' : 'Copy'}
@@ -1557,6 +1598,7 @@ function RunnerNodeComponent({ data }: NodeProps) {
   const { flowId } = data as NodeData;
   const {
     runningFlowIds,
+    runIdsByFlow,
     runFlow,
     stopFlow,
     removeFlow,
@@ -1565,6 +1607,7 @@ function RunnerNodeComponent({ data }: NodeProps) {
     isSavedCanvas,
   } = useCanvas();
   const running = runningFlowIds.has(flowId);
+  const runId = runIdsByFlow.get(flowId);
   // The last flow on the workspace cannot be removed (Reset canvas is the
   // explicit wipe), and saved canvases are deleted from the Library instead.
   const removeDisabledReason = isSavedCanvas
@@ -1603,6 +1646,16 @@ function RunnerNodeComponent({ data }: NodeProps) {
             ? 'Run only tests this flow without changing what is saved. Run and save overwrites this canvas with the new results.'
             : 'Run only keeps results here. Run and save publishes this flow to the Library, then updates the same card on later runs.'}
         </p>
+        {runId ? (
+          <div className="border border-border bg-muted/30 px-2.5 py-2">
+            <span className="block font-mono text-[0.6rem] uppercase tracking-wide text-muted-foreground">
+              run_id
+            </span>
+            <span className="block break-all font-mono text-[0.65rem] text-foreground">
+              {runId}
+            </span>
+          </div>
+        ) : null}
         <Button
           className="nodrag w-full"
           size="sm"
@@ -1692,7 +1745,7 @@ function InfoNodeComponent({ id, data }: NodeProps) {
     const title = trimmed || autoName;
     setDraft(title);
     updateValue(id, 'name', title);
-    // Saved canvas pages use the route canvas id. Workspace flows that have
+    // Saved canvas pages use the route Library id. Workspace flows that have
     // already been published carry their Library id on the info card, so a
     // later rename updates the Library card immediately too.
     renameCanvas(flowId, title);
@@ -2173,6 +2226,9 @@ function CanvasInner(props: CanvasProps) {
   const [runningFlows, setRunningFlows] = useState<ReadonlySet<string>>(
     new Set(),
   );
+  const [runIdsByFlow, setRunIdsByFlow] = useState<ReadonlyMap<string, string>>(
+    new Map(),
+  );
   const fieldsRef = useRef<Record<string, FieldGroup>>({});
   // Active run per flow; poll callbacks check it to drop stale responses.
   const flowRunIdRef = useRef(new Map<string, string>());
@@ -2339,7 +2395,7 @@ function CanvasInner(props: CanvasProps) {
           });
         }
       }
-      // Last model card connects into the flow's cURL card, then runner card.
+      // Last model card connects to both final utility cards.
       const last = flowNodes[flowNodes.length - 1];
       if (last && auxIds.has(`curl_${flowId}`)) {
         result.push({
@@ -2349,14 +2405,7 @@ function CanvasInner(props: CanvasProps) {
           animated,
         });
       }
-      if (auxIds.has(`curl_${flowId}`) && auxIds.has(`runner_${flowId}`)) {
-        result.push({
-          id: `curl_${flowId}->runner_${flowId}`,
-          source: `curl_${flowId}`,
-          target: `runner_${flowId}`,
-          animated,
-        });
-      } else if (last && auxIds.has(`runner_${flowId}`)) {
+      if (last && auxIds.has(`runner_${flowId}`)) {
         result.push({
           id: `${last.id}->runner_${flowId}`,
           source: last.id,
@@ -2371,11 +2420,11 @@ function CanvasInner(props: CanvasProps) {
   // Aux cards must be REAL state nodes: ReactFlow v12 delivers measured
   // node dimensions through onNodesChange, and nodes absent from the managed
   // state never receive them — they can stay hidden in production builds.
-  // Reconcile one cURL and one runner per flow into the state. They are normal,
+  // Reconcile one API and one runner per flow into the state. They are normal,
   // draggable cards (ReactFlow disables pointer-events on fully
   // non-interactive nodes, which made the run buttons unclickable) — they
-  // just cannot be deleted, so every flow always ends in cURL → runner. New
-  // aux cards spawn after the flow's last model card; existing ones keep
+  // just cannot be deleted, so every flow always ends with API + runner. New
+  // aux cards spawn in the final utility column; existing ones keep
   // whatever position the user dragged them to.
   useEffect(() => {
     if (!needsFlowAuxReconcile(nodes)) return;
@@ -2397,7 +2446,7 @@ function CanvasInner(props: CanvasProps) {
         const last = flowNodes[flowNodes.length - 1];
         if (!first || !last) continue;
 
-        // Flow info card: persists the flow's Library identity (canvas id +
+        // Flow info card: persists the flow's Library identity (id +
         // editable name). If a malformed stored flow is missing one, create it.
         const infoId = `info_${flowId}`;
         const existingInfo = auxById.get(infoId);
@@ -2431,16 +2480,17 @@ function CanvasInner(props: CanvasProps) {
         const existingCurl = auxById.get(curlId);
         if (existingCurl) {
           matched += 1;
-          next.push(existingCurl);
+          const position = utilityCardPosition(last, 'api');
+          if (!samePosition(existingCurl.position, position)) {
+            changed = true;
+          }
+          next.push({ ...existingCurl, position });
         } else {
           changed = true;
           next.push({
             id: curlId,
             type: 'curl',
-            position: {
-              x: last.position.x + FLOW_COL_W,
-              y: last.position.y,
-            },
+            position: utilityCardPosition(last, 'api'),
             data: { role: 'image', modelId: '', flowId, values: {} },
           });
         }
@@ -2449,16 +2499,17 @@ function CanvasInner(props: CanvasProps) {
         const existingRunner = auxById.get(runnerId);
         if (existingRunner) {
           matched += 1;
-          next.push(existingRunner);
+          const position = utilityCardPosition(last, 'runner');
+          if (!samePosition(existingRunner.position, position)) {
+            changed = true;
+          }
+          next.push({ ...existingRunner, position });
         } else {
           changed = true;
           next.push({
             id: runnerId,
             type: 'runner',
-            position: {
-              x: last.position.x + FLOW_COL_W * 2,
-              y: last.position.y,
-            },
+            position: utilityCardPosition(last, 'runner'),
             data: { role: 'image', modelId: '', flowId, values: {} },
           });
         }
@@ -2540,6 +2591,12 @@ function CanvasInner(props: CanvasProps) {
       if (timer) clearTimeout(timer);
       pollTimersRef.current.delete(flowId);
       flowRunIdRef.current.delete(flowId);
+      setRunIdsByFlow((prev) => {
+        if (!prev.has(flowId)) return prev;
+        const next = new Map(prev);
+        next.delete(flowId);
+        return next;
+      });
       setRunningFlows((prev) => {
         if (!prev.has(flowId)) return prev;
         const next = new Set(prev);
@@ -2666,6 +2723,7 @@ function CanvasInner(props: CanvasProps) {
     }
     pollTimersRef.current.clear();
     flowRunIdRef.current.clear();
+    setRunIdsByFlow(new Map());
     setRunningFlows(new Set());
     setStatusByNode({});
 
@@ -2816,6 +2874,7 @@ function CanvasInner(props: CanvasProps) {
       const firstFlowId = nodesRef.current[0]?.data.flowId;
       if (!firstFlowId) return;
       flowRunIdRef.current.set(firstFlowId, initialRunId);
+      setRunIdsByFlow((prev) => new Map(prev).set(firstFlowId, initialRunId));
       setRunningFlows((prev) => new Set(prev).add(firstFlowId));
       // notifyFailure=false: repainting an old failed run on page load should
       // not re-toast an error the user already saw.
@@ -2830,6 +2889,7 @@ function CanvasInner(props: CanvasProps) {
       for (const [flowId, runId] of Object.entries(initialFlowRuns)) {
         if (!liveFlowIds.has(flowId)) continue;
         flowRunIdRef.current.set(flowId, runId);
+        setRunIdsByFlow((prev) => new Map(prev).set(flowId, runId));
         setRunningFlows((prev) => new Set(prev).add(flowId));
         void pollFlow(flowId, runId, 0, false);
       }
@@ -2973,6 +3033,7 @@ function CanvasInner(props: CanvasProps) {
       }
       const run = result.run as RunJson;
       flowRunIdRef.current.set(flowId, run.id);
+      setRunIdsByFlow((prev) => new Map(prev).set(flowId, run.id));
       // Record the run on the workspace so a reload resumes tracking it.
       if (!canvasId) {
         const recorded = await recordFlowRunAction(flowId, run.id).catch(
@@ -3043,6 +3104,7 @@ function CanvasInner(props: CanvasProps) {
       fieldsByModel,
       statusByNode,
       runningFlowIds: runningFlows,
+      runIdsByFlow,
       flowMeta,
       flowCount: flows.size,
       isSavedCanvas: Boolean(canvasId),
@@ -3079,6 +3141,7 @@ function CanvasInner(props: CanvasProps) {
       fieldsByModel,
       statusByNode,
       runningFlows,
+      runIdsByFlow,
       flowMeta,
       flows,
       canvasId,

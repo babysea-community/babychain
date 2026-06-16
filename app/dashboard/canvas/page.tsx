@@ -48,6 +48,8 @@ const PROVIDER_LABELS: Record<string, string> = {
 
 const INTERNAL_ROUTE_ORIGIN = 'https://babychain.internal';
 type InternalRequestInit = ConstructorParameters<typeof NextRequest>[1];
+const PUBLIC_OUTPUT_ROUTE_PREFIX = '/api/v1/chains/get/';
+const DASHBOARD_OUTPUT_ROUTE_PREFIX = '/api/dashboard/chains/get/';
 
 function rolesForModel(
   modelIdentifier: string,
@@ -319,6 +321,29 @@ function internalRequest(path: string, init?: InternalRequestInit) {
   return new NextRequest(new URL(path, INTERNAL_ROUTE_ORIGIN), init);
 }
 
+function withDashboardOutputUrls(value: unknown): unknown {
+  if (typeof value === 'string') {
+    return value.startsWith(PUBLIC_OUTPUT_ROUTE_PREFIX)
+      ? `${DASHBOARD_OUTPUT_ROUTE_PREFIX}${value.slice(PUBLIC_OUTPUT_ROUTE_PREFIX.length)}`
+      : value;
+  }
+
+  if (Array.isArray(value)) {
+    return value.map((item) => withDashboardOutputUrls(item));
+  }
+
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(
+      Object.entries(value).map(([key, entryValue]) => [
+        key,
+        withDashboardOutputUrls(entryValue),
+      ]),
+    );
+  }
+
+  return value;
+}
+
 async function runChainAction(
   input: Record<string, unknown>,
   canvasId?: string,
@@ -349,7 +374,7 @@ async function runChainAction(
         () => undefined,
       );
     }
-    return { ok: true, run: json };
+    return { ok: true, run: withDashboardOutputUrls(json) };
   } catch (error) {
     return {
       ok: false,
@@ -372,7 +397,7 @@ async function getRunAction(runId: string): Promise<unknown | null> {
     if (!response.ok) {
       return null;
     }
-    return (await response.json()) as unknown;
+    return withDashboardOutputUrls(await response.json());
   } catch {
     return null;
   }

@@ -6,7 +6,11 @@ import {
   prepareStepParamsForProvider,
   processRun,
 } from '@/lib/chains/runner';
-import { serializeRunWithSteps } from '@/lib/chains/presenters';
+import {
+  serializeCompletedRunOutput,
+  serializeRunWithSteps,
+} from '@/lib/chains/presenters';
+import { createDataUrlOutputResponse } from '@/lib/chains/output-files';
 import type { ChainRunWithSteps } from '@/lib/chains/types';
 import { BabyChainError } from '@/lib/utils/errors';
 
@@ -895,6 +899,104 @@ describe('runner response presentation', () => {
     });
   });
 
+  it('serializes inline output media as authenticated output URLs', () => {
+    const record = createRunWithSteps({
+      step: {
+        outputFiles: [
+          'data:image/jpeg;base64,aW1hZ2U=',
+          'https://cdn.example.com/output.png',
+          'data:image/png;charset=utf-8;base64,cGFyYW1ldGVycw==',
+        ],
+        status: 'succeeded',
+      },
+    });
+
+    const response = serializeRunWithSteps(record) as SerializedRunResponse;
+    const step = response.steps[0]!;
+
+    expect(step.generation_output_file).toEqual([
+      '/api/v1/chains/get/af252a34-977d-4fc5-81ac-502d2fb94421/outputs/image/0',
+      'https://cdn.example.com/output.png',
+      '/api/v1/chains/get/af252a34-977d-4fc5-81ac-502d2fb94421/outputs/image/2',
+    ]);
+    expect(JSON.stringify(response)).not.toContain('data:image/jpeg;base64');
+    expect(JSON.stringify(response)).not.toContain('data:image/png');
+  });
+
+  it('serves parameterized inline output media with the original content type', async () => {
+    const response = createDataUrlOutputResponse(
+      'data:image/png;charset=utf-8;base64,cGFyYW1ldGVycw==',
+    );
+
+    expect(response).not.toBeNull();
+    expect(response?.headers.get('content-type')).toBe(
+      'image/png;charset=utf-8',
+    );
+    expect(response?.headers.get('x-content-type-options')).toBe('nosniff');
+    expect(await response?.text()).toBe('parameters');
+  });
+
+  it('serializes completed run output summaries without inline media', () => {
+    const output = serializeCompletedRunOutput(
+      createRunWithSteps({
+        run: {
+          status: 'succeeded',
+        },
+        step: {
+          outputFiles: ['data:image/jpeg;base64,aW1hZ2U='],
+          status: 'succeeded',
+        },
+      }),
+    );
+
+    expect(output).toEqual({
+      final_step_key: 'image',
+      output_files: [
+        '/api/v1/chains/get/af252a34-977d-4fc5-81ac-502d2fb94421/outputs/image/0',
+      ],
+    });
+    expect(JSON.stringify(output)).not.toContain('data:image/jpeg;base64');
+  });
+
+  it('serializes downstream handoff inputs without inline media', () => {
+    const inlineOutput = 'data:image/jpeg;base64,aW1hZ2U=';
+    const secondInlineOutput = 'data:image/png;base64,c2Vjb25k';
+    const record = createRunWithSteps();
+    const imageStep = record.steps[0]!;
+    const videoStep = {
+      ...imageStep,
+      dependsOn: ['image'],
+      id: 'b0c978db-71e9-4558-b042-05e5deae83bd',
+      modelIdentifier: 'google/veo-3.1-fast',
+      outputFiles: [],
+      requestParams: {
+        generation_input_file: [secondInlineOutput],
+      },
+      stepIndex: 1,
+      stepKey: 'video',
+      stepKind: 'video' as const,
+    };
+
+    const response = serializeRunWithSteps({
+      ...record,
+      steps: [
+        {
+          ...imageStep,
+          outputFiles: [inlineOutput, secondInlineOutput],
+          status: 'succeeded',
+        },
+        videoStep,
+      ],
+    }) as SerializedRunResponse;
+    const video = response.steps.find((step) => step.step_key === 'video');
+
+    expect(video?.generation_input_file).toEqual([
+      '/api/v1/chains/get/af252a34-977d-4fc5-81ac-502d2fb94421/outputs/image/1',
+    ]);
+    expect(JSON.stringify(response)).not.toContain('data:image/jpeg;base64');
+    expect(JSON.stringify(response)).not.toContain('data:image/png;base64');
+  });
+
   it('does not duplicate caller-provided initial image inputs at step level', () => {
     const record = createRunWithSteps({
       run: {
@@ -1106,6 +1208,7 @@ function createRunWithSteps(
   overrides: {
     run?: Partial<ChainRunWithSteps['run']>;
     step?: Partial<ChainRunWithSteps['steps'][number]>;
+    steps?: ChainRunWithSteps['steps'];
   } = {},
 ): ChainRunWithSteps {
   const now = new Date().toISOString();
@@ -1144,7 +1247,7 @@ function createRunWithSteps(
       byokCredentials: null,
       ...overrides.run,
     },
-    steps: [
+    steps: overrides.steps ?? [
       {
         babyseaGenerationId: null,
         babyseaIdempotencyReplayed: null,

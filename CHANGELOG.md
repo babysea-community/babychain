@@ -12,9 +12,21 @@ All notable changes will be documented here. The format follows [Keep a Changelo
 - Added a Duplicate button to each workspace runner card so users can clone a flow's current models and inputs into a new unsaved flow without overwriting the original Library card.
 - Canvas node cards now expose the selected model's Semantic Lady fields more completely, preserve documented defaults, and render numeric enums or small bounded integer ranges as dropdowns instead of free number inputs.
 - Each canvas model node now includes a collapsible JSON Schema view for the effective node inputs, matching the schema inspection pattern used on the templates page.
-- Each canvas flow now includes a separate cURL card after the model cards, using the current flow input and the same scroll-safe highlighted code styling.
+- Each canvas flow now includes a separate API card in the final utility column beside the runner controls, using the current flow input and the same scroll-safe highlighted request styling.
+- Canvas API and runner cards now show the real `run_id` after a flow starts or resumes so users can inspect and debug the exact chain run; saved Library canvas ids remain internal persistence ids.
+- Canvas media previews now use dashboard-session output links for inline provider media, keeping API responses clean while preserving browser image/video rendering.
 - The templates page curl examples and schema section now use the same Semantic Lady `generation_*` request contract as the run API and canvas node cards.
-- Canvas and template curl examples now use schema defaults exactly as published by Semantic Lady and only fabricate media file URLs for media input fields.
+- Canvas API requests and template curl examples now share one request-shape builder, use schema defaults exactly as published by Semantic Lady, omit no-default fields instead of inventing `null` or empty strings, and only use empty arrays for BabyChain's normalized input file fields.
+
+### Added
+
+- Added authenticated run-output URLs under `GET /api/v1/chains/get/:runId/outputs/:stepKey/:outputIndex` and dashboard preview URLs under `/api/dashboard/chains/get/:runId/outputs/:stepKey/:outputIndex` so inline provider media can be fetched separately without embedding base64 payloads inside run JSON.
+
+### Fixed
+
+- `GET /api/v1/chains/get/:runId`, create-run responses, and terminal callbacks no longer serialize provider `data:*;base64,...` outputs directly in `generation_output_file`; inline media is returned as clean authenticated output URLs while normal provider URLs stay unchanged.
+- Removed duplicated local schema-example builders from the canvas and templates page so JSON Schema display, cURL examples, and run payloads all use the same Semantic Lady-backed request shape.
+- Backend run creation now strips legacy empty full-shape cURL placeholders from no-default model inputs before provider submission while preserving real model defaults such as `""`, `null`, `false`, and numeric defaults.
 
 ## [0.1.1] - 2026-06-13
 
