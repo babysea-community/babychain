@@ -96,7 +96,7 @@ describe('model chain catalog', () => {
       ),
     ).toBe(true);
     expect(catalogChains.has('bfl/flux-1.1-pro → wan/2.7-videoedit')).toBe(
-      false,
+      true,
     );
     expect(catalogChains.has('bfl/flux-1.1-pro → wan/2.7-t2v')).toBe(false);
     expect(catalogChains.has('bfl/flux-1.1-pro → happyhorse/1.0-t2v')).toBe(

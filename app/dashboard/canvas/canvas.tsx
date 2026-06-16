@@ -65,6 +65,10 @@ import {
   MAX_CANVAS_TITLE_LENGTH,
   normalizeCanvasTitle,
 } from '@/lib/canvas/names';
+import {
+  isChainWiredSemanticFieldName,
+  modelSchemaCacheKey,
+} from '@/lib/models/chain-schema';
 import { cn } from '@/lib/utils';
 
 type ModelIconKey =
@@ -422,7 +426,7 @@ type CanvasProps = {
   models: CanvasModel[];
   getModelFieldsAction: (
     modelId: string,
-    kind: 'image' | 'video',
+    role: StepRole,
   ) => Promise<FieldGroup>;
   runChainAction: (
     input: Record<string, unknown>,
@@ -1203,7 +1207,7 @@ function ModelNodeComponent({ id, data }: NodeProps) {
   const color = ROLE_COLOR[role];
   const options = models.filter((model) => model.roles.includes(role));
   const model = models.find((entry) => entry.id === modelId);
-  const liveGroup = fieldsByModel[modelId];
+  const liveGroup = fieldsByModel[modelSchemaCacheKey(role, modelId)];
   const nodeStatus = statusByNode[id];
   const HeaderIcon = inferenceIcon(model?.provider);
   const meta = flowMeta[flowId];
@@ -1884,29 +1888,14 @@ function normalizeStringArrayValue(value: unknown) {
 }
 
 function normalizeInitialImageInputArrays(params: Record<string, unknown>) {
-  const inputFile = params.generation_input_file;
-  if (typeof inputFile === 'string') {
-    params.generation_input_file = [inputFile];
-  }
-
   const inputImageFile = params.generation_input_image_file;
   if (typeof inputImageFile === 'string') {
     params.generation_input_image_file = [inputImageFile];
   }
 }
 
-const CHAIN_WIRED_DOWNSTREAM_FIELDS = [
-  'generation_input_file',
-  'generation_input_file_last_content',
-  'generation_input_image_file',
-  'generation_input_image_file_last_content',
-  'generation_input_video_file',
-];
-
 function shouldRenderFieldForRole(field: FieldSpec, role: StepRole) {
-  return (
-    role === 'image' || !CHAIN_WIRED_DOWNSTREAM_FIELDS.includes(field.name)
-  );
+  return role === 'image' || !isChainWiredSemanticFieldName(field.name);
 }
 
 function promptValue(values: Record<string, FieldValue>) {
@@ -1928,7 +1917,8 @@ function buildFlowRunInput(
   };
 
   for (const node of flowNodes) {
-    const group = fieldsByModel[node.data.modelId];
+    const group =
+      fieldsByModel[modelSchemaCacheKey(node.data.role, node.data.modelId)];
     const schemaFields = group
       ? [...group.core, ...group.advanced].filter((field) =>
           shouldRenderFieldForRole(field, node.data.role),
@@ -1939,8 +1929,13 @@ function buildFlowRunInput(
     if (node.data.role === 'image') {
       normalizeInitialImageInputArrays(params);
     } else {
-      for (const key of CHAIN_WIRED_DOWNSTREAM_FIELDS) {
-        delete params[key];
+      for (const key of Object.keys(params)) {
+        if (
+          key === 'generation_input_file' ||
+          isChainWiredSemanticFieldName(key)
+        ) {
+          delete params[key];
+        }
       }
     }
 
@@ -2487,19 +2482,20 @@ function CanvasInner(props: CanvasProps) {
   }, []);
 
   const ensureFields = useCallback(
-    async (modelId: string, kind: 'image' | 'video') => {
-      if (!modelId || fieldsRef.current[modelId]) return;
-      const group = await getModelFieldsAction(modelId, kind).catch(() => null);
+    async (modelId: string, role: StepRole) => {
+      const key = modelSchemaCacheKey(role, modelId);
+      if (!modelId || fieldsRef.current[key]) return;
+      const group = await getModelFieldsAction(modelId, role).catch(() => null);
       if (!group) return;
-      fieldsRef.current[modelId] = group;
-      setFieldsByModel((prev) => ({ ...prev, [modelId]: group }));
+      fieldsRef.current[key] = group;
+      setFieldsByModel((prev) => ({ ...prev, [key]: group }));
     },
     [getModelFieldsAction],
   );
 
   useEffect(() => {
     for (const node of nodes) {
-      void ensureFields(node.data.modelId, kindForRole(node.data.role));
+      void ensureFields(node.data.modelId, node.data.role);
     }
   }, [nodes, ensureFields]);
 
@@ -2514,7 +2510,9 @@ function CanvasInner(props: CanvasProps) {
       !nodes.some((node) =>
         nodeNeedsSchemaNormalization(
           node,
-          fieldsRef.current[node.data.modelId],
+          fieldsRef.current[
+            modelSchemaCacheKey(node.data.role, node.data.modelId)
+          ],
         ),
       )
     ) {
@@ -2524,7 +2522,10 @@ function CanvasInner(props: CanvasProps) {
     setNodes((current) => {
       let changed = false;
       const next = current.map((node) => {
-        const group = fieldsRef.current[node.data.modelId];
+        const group =
+          fieldsRef.current[
+            modelSchemaCacheKey(node.data.role, node.data.modelId)
+          ];
         if (!group) return node;
 
         if (!nodeNeedsSchemaNormalization(node, group)) return node;
@@ -2728,7 +2729,10 @@ function CanvasInner(props: CanvasProps) {
         current.map((node) => {
           if (node.id !== id) return node;
           const carried: Record<string, FieldValue> = {};
-          for (const key of ['generation_prompt', 'generation_input_file']) {
+          for (const key of [
+            'generation_prompt',
+            'generation_input_image_file',
+          ]) {
             const value = node.data.values[key];
             if (typeof value === 'string' && value) {
               carried[key] = value;
@@ -2737,10 +2741,10 @@ function CanvasInner(props: CanvasProps) {
           return { ...node, data: { ...node.data, modelId, values: carried } };
         }),
       );
-      const kind = modelForId(models, modelId)?.kind ?? 'image';
-      void ensureFields(modelId, kind);
+      const node = nodes.find((candidate) => candidate.id === id);
+      void ensureFields(modelId, node?.data.role ?? 'image');
     },
-    [models, setNodes, ensureFields],
+    [nodes, setNodes, ensureFields],
   );
 
   const updateValue = useCallback(
@@ -2829,7 +2833,7 @@ function CanvasInner(props: CanvasProps) {
         // Slot the new card into its step position within this flow only.
         return relayoutFlow(next, flowId);
       });
-      void ensureFields(model.id, kindForRole(role));
+      void ensureFields(model.id, role);
     },
     [models, setNodes, ensureFields],
   );

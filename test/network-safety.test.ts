@@ -86,18 +86,13 @@ describe('network safety', () => {
     ).resolves.toBeUndefined();
   });
 
-  it('validates raw provider URL params with unreachable DNS targets', async () => {
+  it('validates canonical model URL params with unreachable DNS targets', async () => {
     await expect(
       assertSafeGenerationParamsTargets({
-        content: [
-          {
-            image_url: {
-              url: 'https://unresolvable.babychain.invalid/source.png',
-            },
-            type: 'image_url',
-          },
+        generation_input_image_file: [
+          'https://unresolvable.babychain.invalid/source.png',
         ],
-        prompt: 'Animate the source image.',
+        generation_prompt: 'Animate the source image.',
       }),
     ).rejects.toThrow('URL host must resolve to a public address.');
   });

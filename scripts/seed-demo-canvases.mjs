@@ -8,8 +8,7 @@ if (!OWNER || !process.env.DATABASE_URL) {
   process.exit(1);
 }
 
-// Raw provider field names (BYOK canvas surfaces raw schema fields):
-//   BFL & DashScope models -> prompt; Runway -> promptText/ratio/duration.
+// Canvas node values use the Semantic Lady generation_* contract.
 const CANVASES = [
   {
     id: 'a1b2c3d4-0001-4a00-9a00-000000000001',
@@ -20,7 +19,7 @@ const CANVASES = [
         role: 'image',
         modelId: 'bfl/flux-1.1-pro',
         values: {
-          prompt:
+          generation_prompt:
             'Glass bottle of sparkling aurora-blue soda on wet black slate, studio product photography, soft rim light',
         },
         position: { x: 40, y: 120 },
@@ -30,7 +29,8 @@ const CANVASES = [
         role: 'video',
         modelId: 'wan/2.7-i2v-2026-04-25',
         values: {
-          prompt:
+          generation_duration: 5,
+          generation_prompt:
             'Slow cinematic dolly-in on the bottle, tiny bubbles rising, soft mist drifting',
         },
         position: { x: 620, y: 120 },
@@ -46,7 +46,7 @@ const CANVASES = [
         role: 'image',
         modelId: 'z/image-turbo',
         values: {
-          prompt:
+          generation_prompt:
             'Cozy ramen shop exterior at night in the rain, warm lantern light, puddle reflections',
         },
         position: { x: 40, y: 120 },
@@ -56,7 +56,7 @@ const CANVASES = [
         role: 'refine',
         modelId: 'qwen/image-edit',
         values: {
-          prompt:
+          generation_prompt:
             'Add a glowing neon sign above the door and enhance the puddle reflections',
         },
         position: { x: 620, y: 120 },
@@ -66,10 +66,10 @@ const CANVASES = [
         role: 'video',
         modelId: 'runway/gen-4-turbo',
         values: {
-          promptText:
+          generation_aspect_ratio: '1280:720',
+          generation_duration: 5,
+          generation_prompt:
             'Gentle camera pan to the right while rain keeps falling, lanterns flicker softly',
-          ratio: '1280:720',
-          duration: 5,
         },
         position: { x: 1200, y: 120 },
       },
@@ -84,9 +84,9 @@ const CANVASES = [
         role: 'image',
         modelId: 'runway/gen-4-image',
         values: {
-          promptText:
+          generation_aspect_ratio: '1920:1080',
+          generation_prompt:
             'A tiny friendly robot barista pouring latte art in a warm sunlit cafe',
-          ratio: '1920:1080',
         },
         position: { x: 40, y: 120 },
       },
@@ -95,7 +95,7 @@ const CANVASES = [
         role: 'refine',
         modelId: 'bfl/flux-2-flex',
         values: {
-          prompt:
+          generation_prompt:
             'Keep the composition but add warm window light and soft steam in the air',
         },
         position: { x: 620, y: 120 },
@@ -105,10 +105,10 @@ const CANVASES = [
         role: 'video',
         modelId: 'runway/gen-4-turbo',
         values: {
-          promptText:
+          generation_aspect_ratio: '1280:720',
+          generation_duration: 5,
+          generation_prompt:
             'The robot pours steamed milk forming a heart shape, gentle steam rising',
-          ratio: '1280:720',
-          duration: 5,
         },
         position: { x: 1200, y: 120 },
       },
@@ -117,7 +117,7 @@ const CANVASES = [
         role: 'modify',
         modelId: 'runway/gen-4-aleph',
         values: {
-          promptText:
+          generation_prompt:
             'Regrade the video with cinematic teal and orange tones, add soft window light',
         },
         position: { x: 1780, y: 120 },

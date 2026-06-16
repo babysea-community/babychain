@@ -17,9 +17,14 @@ const key = process.env.BABYCHAIN_API_KEY;
 
 const input = {
   image_model: 'bfl/flux-1.1-pro',
-  image_model_input: { prompt: 'A baby seal on Arctic ice, cinematic' },
+  image_model_input: {
+    generation_prompt: 'A baby seal on Arctic ice, cinematic',
+  },
   video_model: 'bytedance/seedance-1-pro',
-  video_model_input: { prompt: 'Slow cinematic dolly-in', duration: 5 },
+  video_model_input: {
+    generation_duration: 5,
+    generation_prompt: 'Slow cinematic dolly-in',
+  },
 };
 
 console.log('POST /api/v1/chains/runs ...');

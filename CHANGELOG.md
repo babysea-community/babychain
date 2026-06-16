@@ -6,14 +6,14 @@ All notable changes will be documented here. The format follows [Keep a Changelo
 
 ### Changed
 
-- Updated the BYOK schema catalog to `semantic-lady@0.2.3`, consuming the raw-doc-locked 57-model schema matrix.
-- Hardened direct BYOK provider adapters to match the corrected raw schemas: Alibaba Cloud video requests now prune unsupported parameters per model, BFL size fields map to documented `width`/`height`, BytePlus video accepts normalized reference audio/video media, OpenAI maps `generation_mask_file` to multipart `mask`, and unsupported Google Veo `generateAudio` parameters are omitted for Fast/Lite variants.
+- Updated the BYOK schema source to `semantic-lady@0.4.0`, including published provider model ids for direct BYOK routing.
+- Removed BabyChain's hand-maintained model schema catalog and provider-side size/ratio conversion tables; model fields, defaults, enums, and provider model ids now come from Semantic Lady.
 - Renaming a workspace flow that already has a Library card now updates that saved canvas title immediately by using the flow's persisted Library canvas id.
 - Added a Duplicate button to each workspace runner card so users can clone a flow's current models and inputs into a new unsaved flow without overwriting the original Library card.
 - Canvas node cards now expose the selected model's Semantic Lady fields more completely, preserve documented defaults, and render numeric enums or small bounded integer ranges as dropdowns instead of free number inputs.
 - Each canvas model node now includes a collapsible JSON Schema view for the effective node inputs, matching the schema inspection pattern used on the templates page.
 - Each canvas flow now includes a separate cURL card after the model cards, using the current flow input and the same scroll-safe highlighted code styling.
-- The templates page curl examples and schema section now use the same Semantic Lady `generation_*` request contract as the run API and canvas node cards instead of raw provider field names.
+- The templates page curl examples and schema section now use the same Semantic Lady `generation_*` request contract as the run API and canvas node cards.
 
 ## [0.1.1] - 2026-06-13
 
@@ -53,7 +53,7 @@ All notable changes will be documented here. The format follows [Keep a Changelo
 - New `babychain_private.canvas` table (owner-scoped, jsonb node graph, touch trigger, recency index) with per-owner limits: 200 canvases, 24 nodes, and 64 KB of node JSON per canvas.
 - Adopted the `semantic-lady` SDK as the `generation_*` schema core for BYOK mode across all 57 supported models.
 - BYOK run creation now validates `generation_*` fields in step model inputs against the Semantic Lady model schema (unknown fields, enum values, numeric ranges, and types fail fast with a `400` and a field path).
-- `GET /api/v1/models/{model}` now returns a `byok_schema` block (source, workflows, and unified `generation_*` fields) alongside the raw provider schema, and model summaries advertise `has_byok_schema`.
+- `GET /api/v1/models/{model}` now returns the Semantic Lady `byok_schema` block (source, provider model id, workflows, and unified `generation_*` fields), and model summaries advertise `has_byok_schema`.
 - Chain step roles (`image_model`, `refine_model`, `video_model`, `modify_model`) are now gated by Semantic Lady model kinds and workflows: image steps require image models, refine steps require `image-to-image` models, video steps require prompt-driven `image-to-video` models, and modify steps require prompt-driven `video-to-video` models. Wrong-role selections fail fast with a `400` and the offending field path.
 - The first image step now also requires a `text-to-image` capable model when no starting image is provided; edit-only models (for example `runway/gen-4-image-turbo`) are rejected up front instead of failing at the provider after credits are spent.
 - `pnpm aurora:seed-demo` seeds three demo canvases (owner-scoped) for product demos and judging.
@@ -67,7 +67,7 @@ All notable changes will be documented here. The format follows [Keep a Changelo
 - Node-card accent colors use a pastel palette (`#67e8f9` image, `#f9a8d4` refine, `#fdba74` video, `#c4b5fd` modify); destructive actions (Reset canvas, Remove this flow) use a proper destructive button variant.
 - Canvas persistence moved from localStorage to Aurora; the canvas page loads saved canvases on the server and unknown canvas ids redirect back to a fresh canvas. Canvases saved before this change are not migrated.
 - Removed the unused `app/dashboard/studio` canvas duplicate.
-- BYOK mode no longer forwards arbitrary `generation_<name>` keys to providers as `<name>`. Prefixed keys must exist in the model's Semantic Lady schema; provider-specific parameters keep working when passed with their raw provider field names (for example `safety_tolerance` instead of `generation_safety_tolerance`). `generation_provider_order` and the Google `generation_config` raw-config escape remain accepted.
+- BYOK mode no longer forwards arbitrary model input keys to providers. Model input objects accept Semantic Lady `generation_*` fields only, with `generation_provider_order` kept as the BabySea provider-order control.
 - Removed the hand-maintained `chainRole` catalog field and the raw-schema image-input walker; step-role and image-input capability now derive from the Semantic Lady catalog so the model catalog cannot contradict the published schema.
 - `bytedance/seedance-2.0` and `bytedance/seedance-2.0-fast` are now selectable as `modify_model` (Seedance 2.0 accepts reference video input); video URL handoffs map to BytePlus `video_url` reference content items.
 - The Google data-video handoff guard now also covers BytePlus modify models (public video URLs required).
@@ -77,8 +77,7 @@ All notable changes will be documented here. The format follows [Keep a Changelo
 - Workspace autosave is now loss-proof: edits mark the canvas dirty and a steady 1.5-second flush persists them to Aurora, with a `sendBeacon` final flush on tab close, reload, navigation, and tab-hide (new owner-authenticated `POST /api/workspace` route). The previous debounce-based autosave silently dropped the last burst of edits — added flows and prompts typed just before a refresh were lost. Hydration also now runs exactly once per mount so router refreshes can never reset live canvas state.
 - Removed placeholder sample prompts from new canvas flows and template run examples; prompts start empty.
 - Canvas node cards are now generated from each model's Semantic Lady schema (exact fields, enum options, numeric ranges, and defaults) instead of a shared generic field list, so the UI can no longer offer fields a model does not support (for example `generation_resolution` on `runway/gen-4-turbo`) or out-of-range values (for example 1s durations). Stale values from previously saved canvases are pruned against the active model's schema on load.
-- Runway requests now translate Semantic Lady aspect ratios (for example `16:9`) to the documented Runway pixel ratios (for example `1280:720`) per endpoint family for every catalog ratio value; provider-native pixel ratios still pass through verbatim.
+- Provider adapters now submit explicit Semantic Lady fields directly instead of synthesizing provider sizes or ratios inside BabyChain.
 - Permanent OpenAI quota errors (`Limit 0` / `insufficient_quota` / billing 429s) now fail the step immediately as `provider_quota_exceeded` instead of being retried forever as transient rate limits, which previously left runs stuck in `queued`.
-- Alibaba Cloud image sizes are now computed per model from `generation_ratio` instead of one shared table. `qwen-image` / `qwen-image-plus` snap to the only sizes DashScope accepts (for example `16:9` → `1664*928`), `qwen-image-max` / `z-image-turbo` cap dimensions at 2048, and the `wan2.6` / `wan2.7` image families fit their pixel budgets. Previously every model received wan-sized values such as `2560*1440`, so `qwen/image` failed with "The size does not match the allowed size" whenever a ratio was set — which it always was from the canvas.
 - When a chain step fails, downstream queued steps are now marked `skipped` immediately (their input can never arrive) instead of being left `queued` forever, and the canvas shows a toast with the provider's error message when a run fails.
 - Canvas and Library media previews no longer crop portrait outputs (`object-contain` instead of `object-cover`) and show a spinner with "Loading…" until the image or video has actually loaded, instead of flashing raw alt text when a provider URL is slow or expired.

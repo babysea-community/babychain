@@ -164,11 +164,6 @@ function buildImageGenerationBody(args: {
       continue;
     }
 
-    if (rawKey === 'generation_ratio') {
-      body.size = mapAspectToSize(value);
-      continue;
-    }
-
     if (rawKey === 'generation_output_number') {
       body.n = jsonValue(value);
       continue;
@@ -179,24 +174,49 @@ function buildImageGenerationBody(args: {
       continue;
     }
 
+    if (rawKey === 'generation_size') {
+      body.size = jsonValue(value);
+      continue;
+    }
+
+    if (rawKey === 'generation_quality') {
+      body.quality = jsonValue(value);
+      continue;
+    }
+
+    if (rawKey === 'generation_background') {
+      body.background = jsonValue(value);
+      continue;
+    }
+
+    if (rawKey === 'generation_moderation') {
+      body.moderation = value === true ? 'auto' : 'low';
+      continue;
+    }
+
+    if (rawKey === 'generation_output_compression') {
+      body.output_compression = jsonValue(value);
+      continue;
+    }
+
+    if (rawKey === 'generation_partial_images') {
+      body.partial_images = jsonValue(value);
+      continue;
+    }
+
+    if (rawKey === 'generation_stream') {
+      body.stream = jsonValue(value);
+      continue;
+    }
+
     if (
       rawKey === 'generation_input_file' ||
       rawKey === 'generation_input_image_file' ||
       rawKey === 'generation_mask_file' ||
-      rawKey === 'image' ||
-      rawKey === 'mask' ||
       rawKey === 'generation_provider_order'
     ) {
       continue;
     }
-
-    if (rawKey.startsWith('generation_')) {
-      const providerKey = rawKey.slice('generation_'.length);
-      body[providerKey] = jsonValue(value);
-      continue;
-    }
-
-    body[rawKey] = jsonValue(value);
   }
 
   if (body.output_format === undefined) {
@@ -236,9 +256,7 @@ async function buildImageEditForm(args: {
     form.append('image[]', file.blob, file.filename);
   }
 
-  const mask =
-    readOptionalStringValue(args.params, 'generation_mask_file') ??
-    readOptionalStringValue(args.params, 'mask');
+  const mask = readOptionalStringValue(args.params, 'generation_mask_file');
   if (mask) {
     const file = await readImageInputFile(mask, args.fetchImpl, 0, 'mask');
     form.append('mask', file.blob, file.filename);
@@ -251,7 +269,6 @@ function collectImageInputValues(params: Record<string, unknown>) {
   return [
     ...collectOptionalStringValues(params, 'generation_input_file'),
     ...collectOptionalStringValues(params, 'generation_input_image_file'),
-    ...collectOptionalStringValues(params, 'image'),
   ];
 }
 
@@ -421,22 +438,6 @@ function isProviderControlledBodyKey(key: string) {
     normalized === 'generationmodel' ||
     normalized === 'model'
   );
-}
-
-function mapAspectToSize(value: unknown): JsonValue {
-  if (typeof value !== 'string') {
-    return jsonValue(value);
-  }
-
-  const aspectToSize: Record<string, string> = {
-    '1:1': '1024x1024',
-    '4:3': '1536x1152',
-    '3:4': '1152x1536',
-    '16:9': '1536x864',
-    '9:16': '864x1536',
-  };
-
-  return aspectToSize[value] ?? value;
 }
 
 function normalizeOutputFormat(value: unknown) {

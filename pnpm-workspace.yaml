@@ -26,7 +26,7 @@ catalog:
   prettier: 3.8.3
   react: 19.2.4
   react-dom: 19.2.4
-  semantic-lady: 0.3.0
+  semantic-lady: 0.4.0
   server-only: 0.0.1
   sonner: 2.0.7
   tailwind-merge: 3.6.0
@@ -36,6 +36,9 @@ catalog:
   vitest: 4.0.7
   zod: 3.25.76
 
+overrides:
+  postcss: 8.5.10
+
 onlyBuiltDependencies:
   - '@sentry/cli'
   - '@tailwindcss/oxide'
@@ -43,3 +46,9 @@ onlyBuiltDependencies:
   - sharp
   - unrs-resolver
   - workerd
+
+allowBuilds:
+  '@sentry/cli': true
+  esbuild: true
+  sharp: true
+  unrs-resolver: true

@@ -40,7 +40,9 @@ When the run starts from an uploaded image, include that image inside the first 
     },
     "image_model_input": {
       "generation_prompt": "Refresh the input image into a crisp launch visual.",
-      "generation_input_file": ["https://cdn.example.com/source-image.png"]
+      "generation_input_image_file": [
+        "https://cdn.example.com/source-image.png"
+      ]
     },
     "video_model_input": {
       "generation_prompt": "Create a restrained product reveal with smooth camera motion.",

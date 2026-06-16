@@ -74,7 +74,7 @@ export function getErrorGuidance({
   if (code === 'provider_invalid_request') {
     return guidance('The provider rejected the request shape for this model.', [
       'Compare your model input object with GET /api/v1/models/{modelId}.',
-      'Remove provider-specific fields that are not listed in the raw model schema.',
+      'Use only the Semantic Lady generation_* fields listed for the selected model.',
     ]);
   }
 
@@ -125,15 +125,15 @@ export function getErrorGuidance({
       return guidance(
         'The request included a provider-controlled field that BabyChain owns.',
         [
-          'Remove raw model, callback, provider, or BabySea routing fields from model input objects.',
-          'Select models through chain_models instead of raw provider routing fields.',
+          'Remove model, callback, provider, or BabySea routing fields from model input objects.',
+          'Select models through chain_models instead of provider routing fields.',
         ],
       );
     }
 
     return guidance('BabyChain could not prepare model input for this step.', [
       'Check that the selected model supports the input you supplied.',
-      'Use GET /api/v1/models/{modelId} to inspect the accepted raw schema.',
+      'Use GET /api/v1/models/{modelId} to inspect the accepted Semantic Lady schema.',
     ]);
   }
 

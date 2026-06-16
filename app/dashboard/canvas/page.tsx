@@ -18,6 +18,7 @@ import {
 } from '@/lib/canvas/canvas-store';
 import type { StoredCanvasNode } from '@/lib/canvas/canvas-library';
 import { formatPublicModelName } from '@/lib/models/display';
+import { chainFieldModeForRole } from '@/lib/models/chain-schema';
 import { listModelCatalog } from '@/lib/models/model-library';
 import {
   getSemanticModelSchemaFields,
@@ -253,8 +254,10 @@ function defaultFieldValue(value: unknown): Pick<FieldSpec, 'default'> {
   return {};
 }
 
-function deriveSemanticFields(modelId: string): FieldGroup {
-  const schema = getSemanticModelSchemaFields(modelId);
+function deriveSemanticFields(modelId: string, role: StepRole): FieldGroup {
+  const schema = getSemanticModelSchemaFields(modelId, {
+    chainFieldMode: chainFieldModeForRole(role),
+  });
 
   if (!schema) {
     // Defensive fallback — every catalog model ships a Semantic Lady schema.
@@ -297,12 +300,11 @@ function deriveSemanticFields(modelId: string): FieldGroup {
 
 async function getModelFieldsAction(
   modelId: string,
-  kind: 'image' | 'video',
+  role: StepRole,
 ): Promise<FieldGroup> {
   'use server';
   await requireOwnerSession();
-  void kind;
-  return deriveSemanticFields(modelId);
+  return deriveSemanticFields(modelId, role);
 }
 
 function callerKey(): string {

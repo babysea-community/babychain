@@ -113,14 +113,14 @@ describe('chain templates', () => {
     expect(isImageToVideoChainModel('google/veo-3.1')).toBe(true);
     expect(isImageToVideoChainModel('runway/gen-4-turbo')).toBe(true);
     expect(isImageToVideoChainModel('wan/2.7-r2v')).toBe(true);
-    // Text-to-video-only, performance-transfer, and edit-only models are
-    // not wireable as the chain image-to-video step.
+    // Text-to-video-only and performance-transfer models are not wireable as
+    // the chain image-to-video step.
     expect(isImageToVideoChainModel('wan/2.7-t2v')).toBe(false);
     expect(isImageToVideoChainModel('happyhorse/1.0-t2v')).toBe(false);
     expect(isImageToVideoChainModel('runway/act-two')).toBe(false);
     expect(isImageToVideoChainModel('wan/2.2-animate-mix')).toBe(false);
     expect(isImageToVideoChainModel('wan/2.2-animate-move')).toBe(false);
-    expect(isImageToVideoChainModel('runway/aleph-2')).toBe(false);
+    expect(isImageToVideoChainModel('runway/aleph-2')).toBe(true);
 
     expect(isVideoToVideoChainModel('runway/aleph-2')).toBe(true);
     expect(isVideoToVideoChainModel('runway/gen-4-aleph')).toBe(true);
@@ -134,7 +134,7 @@ describe('chain templates', () => {
     expect(isVideoToVideoChainModel('wan/2.2-animate-mix')).toBe(false);
   });
 
-  it('allows raw Google image input on the first image step', () => {
+  it('allows Google image input through Semantic Lady fields', () => {
     const template = getChainTemplate('chain');
 
     expect(() =>
@@ -143,25 +143,14 @@ describe('chain templates', () => {
         {
           image_model: 'google/nano-banana-2',
           image_model_input: {
-            contents: [
-              {
-                role: 'user',
-                parts: [
-                  { text: 'Refine this source image.' },
-                  {
-                    inlineData: {
-                      data: 'aW1hZ2U=',
-                      mimeType: 'image/png',
-                    },
-                  },
-                ],
-              },
-            ],
+            generation_input_image_file: ['https://cdn.example.com/source.png'],
+            generation_prompt: 'Refine this source image.',
           },
           video_model: 'google/veo-3.1-lite',
           video_model_input: {
-            prompt: 'Animate the generated image.',
-            parameters: { durationSeconds: '4', resolution: '720p' },
+            generation_duration: 4,
+            generation_prompt: 'Animate the generated image.',
+            generation_resolution: '720p',
           },
         },
         { byokMode: true },
@@ -202,7 +191,7 @@ describe('chain templates', () => {
       ),
     ).toThrowError(/generation_output_format must be one of/);
 
-    // Valid semantic fields plus raw provider fields pass.
+    // Valid Semantic Lady fields pass.
     expect(() =>
       parseTemplateInput(
         template!,
@@ -210,7 +199,6 @@ describe('chain templates', () => {
           generation_prompt: 'A photo',
           generation_width: 1024,
           generation_height: 768,
-          safety_tolerance: 4,
         }),
         { byokMode: true },
       ),
@@ -425,10 +413,7 @@ describe('chain templates', () => {
           image_model: TEXT_IMAGE_MODEL,
           video_model: 'runway/act-two',
           video_model_input: {
-            reference: {
-              type: 'video',
-              uri: 'https://cdn.example.com/performance.mp4',
-            },
+            generation_prompt: 'Animate the generated image',
           },
         },
         { byokMode: true },
@@ -447,11 +432,11 @@ describe('chain templates', () => {
           video_model: 'runway/gen-4-turbo',
           modify_model: 'runway/gen-4.5',
           video_model_input: {
-            duration: 5,
-            promptText: 'Animate the generated image',
+            generation_duration: 5,
+            generation_prompt: 'Animate the generated image',
           },
           modify_model_input: {
-            promptText: 'Modify the video after generation',
+            generation_prompt: 'Modify the video after generation',
           },
         },
         { byokMode: true },
@@ -466,11 +451,11 @@ describe('chain templates', () => {
           video_model: 'runway/gen-4-turbo',
           modify_model: 'runway/aleph-2',
           video_model_input: {
-            duration: 5,
-            promptText: 'Animate the generated image',
+            generation_duration: 5,
+            generation_prompt: 'Animate the generated image',
           },
           modify_model_input: {
-            promptText: 'Modify the video after generation',
+            generation_prompt: 'Modify the video after generation',
           },
         },
         { byokMode: true },
@@ -485,11 +470,11 @@ describe('chain templates', () => {
           video_model: 'wan/2.7-i2v-2026-04-25',
           modify_model: 'wan/2.7-videoedit',
           video_model_input: {
-            duration: 4,
-            prompt: 'Animate the generated image',
+            generation_duration: 4,
+            generation_prompt: 'Animate the generated image',
           },
           modify_model_input: {
-            prompt: 'Modify the video after generation',
+            generation_prompt: 'Modify the video after generation',
           },
         },
         { byokMode: true },
@@ -504,11 +489,12 @@ describe('chain templates', () => {
           video_model: 'google/veo-3.1-lite',
           modify_model: 'wan/2.7-videoedit',
           video_model_input: {
-            parameters: { durationSeconds: '4', resolution: '720p' },
-            prompt: 'Animate the generated image',
+            generation_duration: 4,
+            generation_prompt: 'Animate the generated image',
+            generation_resolution: '720p',
           },
           modify_model_input: {
-            input: { prompt: 'Modify the video after generation' },
+            generation_prompt: 'Modify the video after generation',
           },
         },
         { byokMode: true },
@@ -516,7 +502,7 @@ describe('chain templates', () => {
     ).toThrow('cannot accept the selected video_model output');
   });
 
-  it('rejects video-to-video models as image-to-video steps', () => {
+  it('rejects text-to-video models as image-to-video steps', () => {
     const template = getChainTemplate('chain');
 
     expect(() =>
@@ -524,10 +510,10 @@ describe('chain templates', () => {
         template!,
         {
           image_model: TEXT_IMAGE_MODEL,
-          video_model: 'wan/2.7-videoedit',
+          video_model: 'wan/2.7-t2v',
           video_model_input: {
-            duration: 4,
-            prompt: 'Animate the generated image',
+            generation_duration: 4,
+            generation_prompt: 'Animate the generated image',
           },
         },
         { byokMode: true },
@@ -552,8 +538,8 @@ describe('chain templates', () => {
             image_model: TEXT_IMAGE_MODEL,
             video_model: videoModel,
             video_model_input: {
-              duration: 4,
-              prompt: 'Animate the generated image.',
+              generation_duration: 4,
+              generation_prompt: 'Animate the generated image.',
             },
           },
           { byokMode: true },
@@ -668,7 +654,7 @@ describe('chain templates', () => {
           image_model: 'runway/gen-4-image-turbo',
           image_model_input: {
             generation_prompt: 'A robot barista.',
-            generation_input_file: ['https://example.com/start.png'],
+            generation_input_image_file: ['https://example.com/start.png'],
           },
           video_model: VIDEO_MODEL,
           video_model_input: {
@@ -758,7 +744,9 @@ describe('chain templates', () => {
         },
         { byokMode: true },
       ),
-    ).toThrow('Remove video_model_input.promptImage');
+    ).toThrow(
+      'Model input objects only accept Semantic Lady generation_* fields',
+    );
     expect(() =>
       parseTemplateInput(
         template!,
@@ -789,7 +777,7 @@ describe('chain templates', () => {
     ).not.toThrow();
   });
 
-  it('allows raw BYOK video params without BabySea duration fields', () => {
+  it('rejects non-Semantic Lady BYOK model params', () => {
     const template = getChainTemplate('chain');
 
     expect(() =>
@@ -814,7 +802,9 @@ describe('chain templates', () => {
         },
         { byokMode: true },
       ),
-    ).not.toThrow();
+    ).toThrow(
+      'Model input objects only accept Semantic Lady generation_* fields',
+    );
   });
 
   it('lets BabySea apply selected image model defaults', () => {
@@ -869,7 +859,7 @@ describe('chain templates', () => {
       video_model_input: {
         generation_camera_fixed: true,
         generation_duration: 8,
-        generation_generate_audio: true,
+        generation_audio: true,
         generation_prompt: 'Schema video prompt',
         generation_resolution: '720p',
       },
@@ -878,7 +868,6 @@ describe('chain templates', () => {
         generation_output_format: 'jpg',
         generation_prompt: 'Schema image prompt',
         generation_quality: 'high',
-        ignored_provider_field: true,
       },
     });
     const textToImageStep = template!.steps[0]!;
@@ -900,18 +889,17 @@ describe('chain templates', () => {
     expect(imageParams.generation_output_format).toBe('jpg');
     expect(imageParams.generation_prompt).toBe('Schema image prompt');
     expect(imageParams.generation_quality).toBe('high');
-    expect(imageParams).not.toHaveProperty('ignored_provider_field');
     expect(videoParams.generation_duration).toBe(8);
     expect(videoParams.generation_prompt).toBe('Schema video prompt');
     expect(videoParams.generation_resolution).toBe('720p');
-    expect(videoParams.generation_generate_audio).toBe(true);
+    expect(videoParams.generation_audio).toBe(true);
     expect(videoParams.generation_camera_fixed).toBe(true);
     expect(videoParams.generation_input_file).toEqual([
       'https://cdn.example.com/image.jpg',
     ]);
   });
 
-  it('allows raw BYOK image inputs for the initial image-to-image step', () => {
+  it('allows Semantic Lady image inputs for the initial image-to-image step', () => {
     const template = getChainTemplate('chain');
 
     expect(() =>
@@ -920,11 +908,11 @@ describe('chain templates', () => {
         {
           image_model: REFINE_IMAGE_MODEL,
           image_model_input: {
-            image: 'https://cdn.example.com/source.png',
-            prompt: 'Refine the source image',
+            generation_input_image_file: ['https://cdn.example.com/source.png'],
+            generation_prompt: 'Refine the source image',
           },
           video_model_input: {
-            duration: 4,
+            generation_duration: 4,
           },
           video_model: VIDEO_MODEL,
         },
@@ -948,12 +936,14 @@ describe('chain templates', () => {
           },
           video_model: VIDEO_MODEL,
           video_model_input: {
-            duration: 4,
+            generation_duration: 4,
           },
         },
         { byokMode: true },
       ),
-    ).toThrow('Remove refine_model_input.image');
+    ).toThrow(
+      'Model input objects only accept Semantic Lady generation_* fields',
+    );
 
     expect(() =>
       parseTemplateInput(
@@ -975,7 +965,9 @@ describe('chain templates', () => {
         },
         { byokMode: true },
       ),
-    ).toThrow('Remove video_model_input.input.media');
+    ).toThrow(
+      'Model input objects only accept Semantic Lady generation_* fields',
+    );
 
     expect(() =>
       parseTemplateInput(
@@ -984,12 +976,12 @@ describe('chain templates', () => {
           image_model: TEXT_IMAGE_MODEL,
           video_model: VIDEO_MODEL,
           video_model_input: {
-            generation_input_file: ['https://cdn.example.com/source.png'],
+            generation_input_image_file: ['https://cdn.example.com/source.png'],
           },
         },
         { byokMode: true },
       ),
-    ).toThrow('Remove video_model_input.generation_input_file');
+    ).toThrow('Remove video_model_input.generation_input_image_file');
 
     expect(() =>
       parseTemplateInput(
@@ -1000,7 +992,7 @@ describe('chain templates', () => {
           video_model_input: { generation_duration: 4 },
           modify_model: 'happyhorse/1.0-video-edit',
           modify_model_input: {
-            generation_input_video_file: 'https://cdn.example.com/source.mp4',
+            generation_input_video_file: ['https://cdn.example.com/source.mp4'],
           },
         },
         { byokMode: true },
@@ -1023,12 +1015,14 @@ describe('chain templates', () => {
           },
           video_model: VIDEO_MODEL,
           video_model_input: {
-            duration: 4,
+            generation_duration: 4,
           },
         },
         { byokMode: true },
       ),
-    ).toThrow('Remove refine_model_input.contents');
+    ).toThrow(
+      'Model input objects only accept Semantic Lady generation_* fields',
+    );
 
     expect(() =>
       parseTemplateInput(
@@ -1037,16 +1031,12 @@ describe('chain templates', () => {
           image_model: TEXT_IMAGE_MODEL,
           video_model: 'google/veo-3.1-lite',
           video_model_input: {
-            instances: [
-              {
-                prompt: 'Bypass the generated image.',
-              },
-            ],
+            generation_input_image_file: ['https://cdn.example.com/source.png'],
           },
         },
         { byokMode: true },
       ),
-    ).toThrow('Remove video_model_input.instances');
+    ).toThrow('Remove video_model_input.generation_input_image_file');
 
     expect(() =>
       parseTemplateInput(
@@ -1056,17 +1046,35 @@ describe('chain templates', () => {
           video_model: 'runway/gen-4-turbo',
           modify_model: 'runway/aleph-2',
           video_model_input: {
-            duration: 5,
-            promptText: 'Animate the generated image',
+            generation_duration: 5,
+            generation_prompt: 'Animate the generated image',
           },
           modify_model_input: {
-            promptText: 'Modify the video after generation',
-            videoUri: 'https://cdn.example.com/source.mp4',
+            generation_input_video_file: ['https://cdn.example.com/source.mp4'],
+            generation_prompt: 'Modify the video after generation',
           },
         },
         { byokMode: true },
       ),
-    ).toThrow('Remove modify_model_input.videoUri');
+    ).toThrow('Remove modify_model_input.generation_input_video_file');
+
+    expect(() =>
+      parseTemplateInput(
+        template!,
+        {
+          image_model: TEXT_IMAGE_MODEL,
+          video_model: 'wan/2.7-i2v-2026-04-25',
+          video_model_input: {
+            generation_duration: 4,
+            generation_input_audio_file: [
+              'https://cdn.example.com/dialogue.wav',
+            ],
+            generation_prompt: 'Animate the generated image',
+          },
+        },
+        { byokMode: true },
+      ),
+    ).not.toThrow();
   });
 
   it('rejects provider-specific secret-like model inputs', () => {
@@ -1251,7 +1259,7 @@ describe('chain templates', () => {
       parseTemplateInput(template!, {
         image_model: REFINE_IMAGE_MODEL,
         image_model_input: {
-          generation_input_file: ['http://localhost/image.png'],
+          generation_input_image_file: ['http://localhost/image.png'],
         },
         video_model: VIDEO_MODEL,
       }),
@@ -1260,31 +1268,34 @@ describe('chain templates', () => {
       parseTemplateInput(template!, {
         image_model: REFINE_IMAGE_MODEL,
         image_model_input: {
-          generation_input_file: ['https://100.64.0.1/image.png'],
+          generation_input_image_file: ['https://100.64.0.1/image.png'],
         },
         video_model_input: {
           generation_duration: 4,
         },
         video_model: VIDEO_MODEL,
       }),
-    ).toThrow('generation_input_file must be an array of HTTPS public URLs.');
+    ).toThrow(
+      'generation_input_image_file must be an array of HTTPS public URLs.',
+    );
     expect(() =>
       parseTemplateInput(template!, {
         image_model: REFINE_IMAGE_MODEL,
         image_model_input: {
-          generation_input_file: ['https://[2001:2::1]/image.png'],
+          generation_input_image_file: ['https://[2001:2::1]/image.png'],
         },
         video_model_input: {
           generation_duration: 4,
         },
         video_model: VIDEO_MODEL,
       }),
-    ).toThrow('generation_input_file must be an array of HTTPS public URLs.');
+    ).toThrow(
+      'generation_input_image_file must be an array of HTTPS public URLs.',
+    );
     expect(() =>
       parseTemplateInput(template!, {
         image_model: REFINE_IMAGE_MODEL,
         image_model_input: {
-          generation_input_file: ['http://localhost/image.png'],
           generation_input_image_file: ['http://localhost/image.png'],
         },
         video_model: VIDEO_MODEL,
@@ -1302,7 +1313,7 @@ describe('chain templates', () => {
         template!,
         withModelSelection({
           image_model_input: {
-            generation_input_file: ['http://localhost/image.png'],
+            generation_input_image_file: ['http://localhost/image.png'],
           },
         }),
       ),
@@ -1312,17 +1323,21 @@ describe('chain templates', () => {
         template!,
         withModelSelection({
           image_model_input: {
-            generation_input_file: ['https://[::ffff:808:808:dead]/image.png'],
+            generation_input_image_file: [
+              'https://[::ffff:808:808:dead]/image.png',
+            ],
           },
           video_model_input: {
             generation_duration: 4,
           },
         }),
       ),
-    ).toThrow('generation_input_file must be an array of HTTPS public URLs.');
+    ).toThrow(
+      'generation_input_image_file must be an array of HTTPS public URLs.',
+    );
   });
 
-  it('rejects unsafe last-content input file URLs inside model inputs', () => {
+  it('rejects unsafe last-frame URLs inside model inputs', () => {
     const template = getChainTemplate('chain');
 
     expect(() =>
@@ -1330,7 +1345,7 @@ describe('chain templates', () => {
         template!,
         withModelSelection({
           video_model_input: {
-            generation_input_file_last_content: 'http://localhost/last.png',
+            generation_last_frame: 'http://localhost/last.png',
           },
         }),
       ),
@@ -1340,9 +1355,7 @@ describe('chain templates', () => {
         template!,
         withModelSelection({
           video_model_input: {
-            generation_input_file_last_content: 'http://localhost/last.png',
-            generation_input_image_file_last_content:
-              'http://localhost/last.png',
+            generation_last_frame: 'http://localhost/last.png',
           },
         }),
       ),
@@ -1393,7 +1406,7 @@ describe('chain templates', () => {
     const input = parseTemplateInput(template!, {
       image_model: REFINE_IMAGE_MODEL,
       image_model_input: {
-        generation_input_file: ['https://cdn.example.com/source.png'],
+        generation_input_image_file: ['https://cdn.example.com/source.png'],
         generation_prompt:
           'A restored product image becomes a rotating launch video',
       },
@@ -1417,7 +1430,7 @@ describe('chain templates', () => {
       },
     });
 
-    expect(imageParams.generation_input_file).toEqual([
+    expect(imageParams.generation_input_image_file).toEqual([
       'https://cdn.example.com/source.png',
     ]);
     expect(videoParams.generation_input_file).toEqual([
@@ -1432,7 +1445,7 @@ describe('chain templates', () => {
       withModelSelection({
         image_model_input: {
           generation_prompt: 'A miniature harbor scene',
-          generation_ratio: '16:9',
+          generation_aspect_ratio: '16:9',
         },
         video_model_input: {
           generation_duration: 4,
@@ -1456,7 +1469,7 @@ describe('chain templates', () => {
 
     expect(selectedSteps.map((step) => step.key)).toEqual(['image', 'video']);
     expect(imageParams).not.toHaveProperty('generation_input_file');
-    expect(imageParams.generation_ratio).toBe('16:9');
+    expect(imageParams.generation_aspect_ratio).toBe('16:9');
     expect(videoParams.generation_input_file).toEqual([
       'https://cdn.example.com/base.jpg',
     ]);
@@ -1532,12 +1545,12 @@ describe('chain templates', () => {
         },
         video_model: 'runway/gen-4-turbo',
         video_model_input: {
-          duration: 5,
-          promptText: 'Animate the generated image',
+          generation_duration: 5,
+          generation_prompt: 'Animate the generated image',
         },
         modify_model: 'runway/gen-4-aleph',
         modify_model_input: {
-          promptText: 'Add a dramatic camera move',
+          generation_prompt: 'Add a dramatic camera move',
         },
       },
       { byokMode: true },
@@ -1763,7 +1776,7 @@ function workflowInput({
     image_model_input: {
       generation_prompt: 'A compact product photo on a clean background.',
       ...(initialImage
-        ? { generation_input_file: [VALIDATION_IMAGE_URL] }
+        ? { generation_input_image_file: [VALIDATION_IMAGE_URL] }
         : {}),
     },
     ...(refine
@@ -1775,14 +1788,18 @@ function workflowInput({
         }
       : {}),
     video_model_input: {
-      input: { prompt: 'Animate the image with a short slow camera move.' },
-      parameters: { duration: 2, resolution: '720P', watermark: false },
+      generation_duration: 2,
+      generation_prompt: 'Animate the image with a short slow camera move.',
+      generation_resolution: '720P',
+      generation_watermark: false,
     },
     ...(modify
       ? {
           modify_model_input: {
-            input: { prompt: 'Polish the generated video motion subtly.' },
-            parameters: { duration: 0, resolution: '720P', watermark: false },
+            generation_duration: 4,
+            generation_prompt: 'Polish the generated video motion subtly.',
+            generation_resolution: '720P',
+            generation_watermark: false,
           },
         }
       : {}),

@@ -217,35 +217,24 @@ async function submitSyncImage(args: {
 }
 
 function buildGeminiImageBody(params: Record<string, unknown>): JsonObject {
-  const body = copyRawGoogleBodyFields(
-    params,
-    new Set(['contents', 'generationConfig', 'generation_config', 'prompt']),
-  );
-  const generationConfig = {
-    ...readObject(params.generation_config),
-    ...readObject(params.generationConfig),
-  };
+  const body: JsonObject = {};
+  const generationConfig: JsonObject = {};
+  const prompt = readPrompt(params);
+  const parts: JsonObject[] = [{ text: prompt }];
 
-  if (params.contents !== undefined) {
-    body.contents = jsonValue(params.contents);
-  } else {
-    const prompt = readPrompt(params);
-    const parts: JsonObject[] = [{ text: prompt }];
-
-    for (const value of [
-      ...collectStringValues(params.generation_input_file),
-      ...collectStringValues(params.generation_input_image_file),
-    ]) {
-      parts.push(toGoogleMediaPart(value));
-    }
-
-    body.contents = [{ role: 'user', parts }];
+  for (const value of [
+    ...collectStringValues(params.generation_input_file),
+    ...collectStringValues(params.generation_input_image_file),
+  ]) {
+    parts.push(toGoogleMediaPart(value));
   }
+
+  body.contents = [{ role: 'user', parts }];
 
   const imageConfig = readObject(generationConfig.imageConfig);
 
-  if (params.generation_ratio !== undefined) {
-    imageConfig.aspectRatio = jsonValue(params.generation_ratio);
+  if (params.generation_aspect_ratio !== undefined) {
+    imageConfig.aspectRatio = jsonValue(params.generation_aspect_ratio);
   }
 
   if (params.generation_resolution !== undefined) {
@@ -266,27 +255,17 @@ function buildGeminiImageBody(params: Record<string, unknown>): JsonObject {
 }
 
 function buildImagenImageBody(params: Record<string, unknown>): JsonObject {
-  const body = copyRawGoogleBodyFields(
-    params,
-    new Set(['instances', 'parameters', 'prompt']),
-  );
-  const parameters: JsonObject = {
-    ...readObject(params.parameters),
-  };
-
-  if (params.instances !== undefined) {
-    body.instances = jsonValue(params.instances);
-  } else {
-    const prompt = readPrompt(params);
-    body.instances = [{ prompt }];
-  }
+  const body: JsonObject = {};
+  const parameters: JsonObject = {};
+  const prompt = readPrompt(params);
+  body.instances = [{ prompt }];
 
   if (params.generation_output_number !== undefined) {
     parameters.sampleCount = jsonValue(params.generation_output_number);
   }
 
-  if (params.generation_ratio !== undefined) {
-    parameters.aspectRatio = jsonValue(params.generation_ratio);
+  if (params.generation_aspect_ratio !== undefined) {
+    parameters.aspectRatio = jsonValue(params.generation_aspect_ratio);
   }
 
   if (params.generation_resolution !== undefined) {
@@ -305,97 +284,55 @@ async function buildVeoVideoBody(
   params: Record<string, unknown>,
   fetchImpl: typeof fetch,
 ): Promise<JsonObject> {
-  const body = copyRawGoogleBodyFields(
-    params,
-    new Set([
-      'image',
-      'instances',
-      'lastFrame',
-      'parameters',
-      'prompt',
-      'referenceImages',
-      'video',
-    ]),
-  );
+  const body: JsonObject = {};
+  const prompt = readOptionalPrompt(params);
+  const instance: JsonObject = {};
+  const inputFiles = [
+    ...collectStringValues(params.generation_input_file),
+    ...collectStringValues(params.generation_input_image_file),
+  ];
 
-  if (params.instances !== undefined) {
-    body.instances = jsonValue(params.instances);
-  } else {
-    const prompt = readOptionalPrompt(params);
-    const instance: JsonObject = {};
-    const inputFiles = [
-      ...collectStringValues(params.generation_input_file),
-      ...collectStringValues(params.generation_input_image_file),
-    ];
-
-    if (prompt) {
-      instance.prompt = prompt;
-    }
-
-    if (inputFiles[0]) {
-      instance.image = await toVeoMediaValue(inputFiles[0], fetchImpl);
-    }
-
-    const image = await readVeoMediaParam(params.image, fetchImpl);
-    if (image) {
-      instance.image = image;
-    }
-
-    const lastFrame =
-      (await readVeoMediaParam(params.lastFrame, fetchImpl)) ??
-      (typeof params.generation_input_image_file_last_content === 'string' &&
-      params.generation_input_image_file_last_content.trim().length > 0
-        ? await toVeoMediaValue(
-            params.generation_input_image_file_last_content.trim(),
-            fetchImpl,
-          )
-        : null) ??
-      (typeof params.generation_input_file_last_content === 'string' &&
-      params.generation_input_file_last_content.trim().length > 0
-        ? await toVeoMediaValue(
-            params.generation_input_file_last_content.trim(),
-            fetchImpl,
-          )
-        : null);
-    if (lastFrame) {
-      instance.lastFrame = lastFrame;
-    }
-
-    if (params.referenceImages !== undefined) {
-      instance.referenceImages = jsonValue(params.referenceImages);
-    } else if (inputFiles.length > 1) {
-      instance.referenceImages = await Promise.all(
-        inputFiles.map(async (value) => ({
-          image: await toVeoMediaValue(value, fetchImpl),
-          referenceType: 'asset',
-        })),
-      );
-    }
-
-    const video = await readVeoMediaParam(params.video, fetchImpl);
-    if (video) {
-      instance.video = video;
-    }
-
-    if (Object.keys(instance).length === 0) {
-      throw new BabyChainError(
-        'invalid_provider_params',
-        'Google video generation requires a prompt or media input.',
-        400,
-      );
-    }
-
-    body.instances = [instance];
+  if (prompt) {
+    instance.prompt = prompt;
   }
 
-  const supportsGenerateAudio = model === 'veo-3.1-generate-preview';
-  const parameters = normalizeVeoParameters(
-    readObject(params.parameters),
-    supportsGenerateAudio,
-  );
+  if (inputFiles[0]) {
+    instance.image = await toVeoMediaValue(inputFiles[0], fetchImpl);
+  }
 
-  if (params.generation_ratio !== undefined) {
-    parameters.aspectRatio = jsonValue(params.generation_ratio);
+  const lastFrame =
+    typeof params.generation_last_frame === 'string' &&
+    params.generation_last_frame.trim().length > 0
+      ? await toVeoMediaValue(params.generation_last_frame.trim(), fetchImpl)
+      : null;
+  if (lastFrame) {
+    instance.lastFrame = lastFrame;
+  }
+
+  if (inputFiles.length > 1) {
+    instance.referenceImages = await Promise.all(
+      inputFiles.map(async (value) => ({
+        image: await toVeoMediaValue(value, fetchImpl),
+        referenceType: 'asset',
+      })),
+    );
+  }
+
+  if (Object.keys(instance).length === 0) {
+    throw new BabyChainError(
+      'invalid_provider_params',
+      'Google video generation requires a prompt or media input.',
+      400,
+    );
+  }
+
+  body.instances = [instance];
+
+  const supportsGenerateAudio = model === 'veo-3.1-generate-preview';
+  const parameters = normalizeVeoParameters({}, supportsGenerateAudio);
+
+  if (params.generation_aspect_ratio !== undefined) {
+    parameters.aspectRatio = jsonValue(params.generation_aspect_ratio);
   }
 
   if (params.generation_duration !== undefined) {
@@ -411,8 +348,8 @@ async function buildVeoVideoBody(
     );
   }
 
-  if (supportsGenerateAudio && params.generation_generate_audio !== undefined) {
-    parameters.generateAudio = jsonValue(params.generation_generate_audio);
+  if (supportsGenerateAudio && params.generation_audio !== undefined) {
+    parameters.generateAudio = jsonValue(params.generation_audio);
   }
 
   if (params.generation_negative_prompt !== undefined) {
@@ -678,7 +615,7 @@ function readPrompt(params: Record<string, unknown>) {
 }
 
 function readOptionalPrompt(params: Record<string, unknown>) {
-  const value = params.generation_prompt ?? params.prompt;
+  const value = params.generation_prompt;
 
   return typeof value === 'string' && value.trim().length > 0
     ? value.trim()
@@ -926,24 +863,6 @@ function veoDurationValue(value: unknown, field: string) {
 
 function normalizeVeoResolution(value: unknown) {
   return value === '4k' ? '4K' : jsonValue(value);
-}
-
-function copyRawGoogleBodyFields(
-  params: Record<string, unknown>,
-  excludedKeys: ReadonlySet<string>,
-) {
-  const body: JsonObject = {};
-
-  for (const [rawKey, value] of Object.entries(params)) {
-    if (value === undefined) continue;
-    if (excludedKeys.has(rawKey)) continue;
-    if (rawKey.startsWith('generation_')) continue;
-    if (isProviderControlledBodyKey(rawKey)) continue;
-
-    body[rawKey] = jsonValue(value);
-  }
-
-  return body;
 }
 
 function isProviderControlledBodyKey(rawKey: string) {

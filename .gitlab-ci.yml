@@ -36,7 +36,7 @@ variables:
   CS_DISABLE_DEPENDENCY_LIST: 'false'
   DAST_WEBSITE: https://babychain.babysea.live
   DAST_BROWSER_SCAN: 'true'
-  PNPM_VERSION: '10.19.0'
+  PNPM_VERSION: '11.7.0'
   PNPM_INSTALL_FLAGS: --frozen-lockfile --ignore-scripts
   NEXT_PUBLIC_SITE_URL: https://your-app.example.com
   DATABASE_URL: postgresql://postgres:postgres@localhost:5432/postgres

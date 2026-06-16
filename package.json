@@ -27,7 +27,7 @@
     "sentry"
   ],
   "engines": {
-    "node": "24.x"
+    "node": ">=24.14.0 <25"
   },
   "scripts": {
     "build": "next build",
@@ -84,10 +84,5 @@
     "typescript-eslint": "catalog:",
     "vitest": "catalog:"
   },
-  "pnpm": {
-    "overrides": {
-      "postcss": "8.5.10"
-    }
-  },
-  "packageManager": "pnpm@10.19.0"
+  "packageManager": "pnpm@11.7.0"
 }

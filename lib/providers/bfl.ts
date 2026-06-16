@@ -428,19 +428,15 @@ function truncate(text: string, max: number) {
  *     `input_image_2`, ... `input_image_8` (URLs accepted).
  *   - FLUX 2 Klein (`/v1/flux-2-klein-*`) → `input_image`,
  *     `input_image_2`, ... `input_image_4` (URLs accepted).
- *   - Unknown endpoint → fall back to base64-encoded `input_image` (most
- *     permissive — every legacy BFL endpoint accepts it).
+ *   - Unknown endpoint → base64-encoded `input_image`.
  *
- * BabyChain prefers URL pass-through (faster, no 20 MB cap) when the endpoint
- * documents URL support; only the legacy fallback downloads + base64-encodes.
+ * BabyChain prefers URL pass-through when the endpoint documents URL support;
+ * otherwise the adapter downloads and base64-encodes the image for BFL.
  *
  * Other mappings:
  *   - `generation_prompt`        → `prompt`
- *   - `generation_ratio`         → `aspect_ratio`
+ *   - `generation_aspect_ratio`  → `aspect_ratio`
  *   - `generation_output_format` → `output_format`
- *   - Any other `generation_<name>` key → `<name>` (forward-compat escape
- *     hatch — callers can pass BFL-specific fields verbatim).
- *   - Non-`generation_*` keys are passed through unchanged.
  */
 async function mapSubmitBody(
   params: Record<string, unknown>,
@@ -457,20 +453,50 @@ async function mapSubmitBody(
       body.prompt = value as never;
       continue;
     }
-    if (rawKey === 'generation_ratio') {
+    if (rawKey === 'generation_aspect_ratio') {
       if (!usesDimensionSize) {
         body.aspect_ratio = value as never;
       }
       continue;
     }
-    if (rawKey === 'generation_resolution') {
-      continue;
-    }
-    if (rawKey === 'generation_size') {
-      continue;
-    }
     if (rawKey === 'generation_output_format') {
       body.output_format = normalizeProviderOutputFormat(value) as never;
+      continue;
+    }
+    if (rawKey === 'generation_width') {
+      body.width = value as never;
+      continue;
+    }
+    if (rawKey === 'generation_height') {
+      body.height = value as never;
+      continue;
+    }
+    if (rawKey === 'generation_prompt_extend') {
+      body.prompt_upsampling = value as never;
+      continue;
+    }
+    if (rawKey === 'generation_seed') {
+      body.seed = value as never;
+      continue;
+    }
+    if (rawKey === 'generation_guidance') {
+      body.guidance = value as never;
+      continue;
+    }
+    if (rawKey === 'generation_steps') {
+      body.steps = value as never;
+      continue;
+    }
+    if (rawKey === 'generation_raw') {
+      body.raw = value as never;
+      continue;
+    }
+    if (rawKey === 'generation_image_prompt_strength') {
+      body.image_prompt_strength = value as never;
+      continue;
+    }
+    if (rawKey === 'generation_moderation') {
+      body.safety_tolerance = value === true ? 0 : 5;
       continue;
     }
     if (
@@ -482,34 +508,15 @@ async function mapSubmitBody(
     }
     if (
       rawKey === 'generation_output_number' ||
+      rawKey === 'generation_size' ||
       rawKey === 'generation_provider_order'
     ) {
       // Concept does not apply to single-provider BYOK.
       continue;
     }
-    if (rawKey.startsWith('generation_')) {
-      const providerKey = rawKey.slice('generation_'.length);
-      body[providerKey] =
-        providerKey === 'output_format'
-          ? (normalizeProviderOutputFormat(value) as never)
-          : (value as never);
-      continue;
-    }
-
-    body[rawKey] =
-      rawKey === 'output_format'
-        ? (normalizeProviderOutputFormat(value) as never)
-        : (value as never);
   }
 
   if (usesDimensionSize) {
-    const size = bflSizeForParams(params);
-    if (body.width === undefined) {
-      body.width = size.width;
-    }
-    if (body.height === undefined) {
-      body.height = size.height;
-    }
     delete body.aspect_ratio;
     delete body.resolution;
     delete body.size;
@@ -542,7 +549,7 @@ async function mapSubmitBody(
         break;
       case 'unknown':
       default:
-        // Most permissive fallback: base64-encode the first image.
+        // BFL-compatible default: base64-encode the first image.
         if (typeof body.input_image !== 'string') {
           body.input_image = await fetchAsBase64(firstUrl, opts.fetchImpl);
         }
@@ -559,99 +566,6 @@ async function mapSubmitBody(
   }
 
   return body;
-}
-
-function bflSizeForParams(params: Record<string, unknown>) {
-  const width = numericValue(params.generation_width ?? params.width);
-  const height = numericValue(params.generation_height ?? params.height);
-
-  if (width !== null && height !== null) {
-    return { height, width };
-  }
-
-  const rawSize = readString(params.generation_size ?? params.size);
-  const parsedSize = rawSize ? parsePixelSize(rawSize) : null;
-
-  if (parsedSize) {
-    return parsedSize;
-  }
-
-  const resolution = readString(params.generation_resolution) ?? '1K';
-  const ratio = readString(params.generation_ratio) ?? '1:1';
-
-  return bflSizeForRatio(resolution, ratio);
-}
-
-function bflSizeForRatio(resolution: string, ratio: string) {
-  const exact = bflSizeMap(resolution)[ratio];
-  if (exact) {
-    return exact;
-  }
-
-  const parsed = parseRatio(ratio);
-  const base = resolution === '2K' ? 2048 : 1024;
-
-  if (!parsed) {
-    return { height: base, width: base };
-  }
-
-  const area = base * base;
-  const width = roundToMultiple(Math.sqrt(area * parsed), 16);
-  const height = roundToMultiple(width / parsed, 16);
-
-  return { height, width };
-}
-
-function bflSizeMap(
-  resolution: string,
-): Record<string, { height: number; width: number }> {
-  if (resolution === '2K') {
-    return {
-      '1:1': { height: 2048, width: 2048 },
-      '3:4': { height: 2304, width: 1728 },
-      '4:3': { height: 1728, width: 2304 },
-      '9:16': { height: 2848, width: 1600 },
-      '16:9': { height: 1600, width: 2848 },
-      '21:9': { height: 1344, width: 3136 },
-      '9:21': { height: 3136, width: 1344 },
-    };
-  }
-
-  return {
-    '1:1': { height: 1024, width: 1024 },
-    '3:4': { height: 1152, width: 864 },
-    '4:3': { height: 864, width: 1152 },
-    '9:16': { height: 1280, width: 720 },
-    '16:9': { height: 720, width: 1280 },
-    '21:9': { height: 576, width: 1344 },
-    '9:21': { height: 1344, width: 576 },
-  };
-}
-
-function parsePixelSize(value: string) {
-  const [width, height] = value.split(/[x*]/).map((item) => Number(item));
-
-  return width && height ? { height, width } : null;
-}
-
-function parseRatio(value: string) {
-  const [width, height] = value.split(':').map((item) => Number(item));
-
-  return width && height ? width / height : null;
-}
-
-function roundToMultiple(value: number, multiple: number) {
-  return Math.max(multiple, Math.round(value / multiple) * multiple);
-}
-
-function numericValue(value: unknown) {
-  return typeof value === 'number' && Number.isFinite(value) ? value : null;
-}
-
-function readString(value: unknown) {
-  return typeof value === 'string' && value.trim().length > 0
-    ? value.trim()
-    : null;
 }
 
 function hasExplicitBflAggregateImage(body: JsonObject) {
@@ -711,9 +625,9 @@ function normalizeProviderOutputFormat(value: unknown) {
 }
 
 /**
- * Classify a BFL endpoint into a family that shares an input-image schema.
- * Conservative: returns `unknown` for anything we don't recognise so the
- * caller falls back to the universally-accepted `input_image` (base64).
+ * Classify a BFL endpoint into a family that shares request image handling.
+ * Conservative: returns `unknown` for anything we do not recognize so the
+ * caller uses BFL's base64 `input_image` request shape.
  */
 function classifyBflEndpoint(
   endpoint: string,

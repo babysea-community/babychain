@@ -193,7 +193,7 @@ describe('provider adapters', () => {
     );
   });
 
-  it('accepts raw provider identifiers only when they exist in the catalog', () => {
+  it('accepts provider identifiers only when they exist in the catalog', () => {
     expect(
       resolveProvider('byteplus/seedream-5-0-lite-260128', {
         byokMode: true,
@@ -231,49 +231,49 @@ describe('provider adapters', () => {
       resolveProvider('byteplus/seedream-3-0-t2i-250415', {
         byokMode: true,
       }),
-    ).toThrow('raw schema catalog');
+    ).toThrow('Semantic Lady model catalog');
 
     expect(() =>
       resolveProvider('bfl/not-in-raw-schema', { byokMode: true }),
-    ).toThrow('raw schema catalog');
+    ).toThrow('Semantic Lady model catalog');
 
     expect(() =>
       resolveProvider('alibaba-cloud/not-in-raw-schema', { byokMode: true }),
-    ).toThrow('raw schema catalog');
+    ).toThrow('Semantic Lady model catalog');
 
     expect(() =>
       resolveProvider('runway/not-in-raw-schema', { byokMode: true }),
-    ).toThrow('raw schema catalog');
+    ).toThrow('Semantic Lady model catalog');
 
     expect(() =>
       resolveProvider('google/not-in-raw-schema', { byokMode: true }),
-    ).toThrow('raw schema catalog');
+    ).toThrow('Semantic Lady model catalog');
 
     expect(() =>
       resolveProvider('openai/not-in-raw-schema', { byokMode: true }),
-    ).toThrow('raw schema catalog');
+    ).toThrow('Semantic Lady model catalog');
 
     expect(() =>
       resolveProvider('alibaba-cloud/wan2.6-t2v', { byokMode: true }),
-    ).toThrow('raw schema catalog');
+    ).toThrow('Semantic Lady model catalog');
   });
 
-  it('rejects public model identifiers outside the raw schema catalog', () => {
+  it('rejects public model identifiers outside the Semantic Lady catalog', () => {
     expect(() =>
       resolveProvider('bytedance/seedream-3', { byokMode: false }),
-    ).toThrow('raw schema catalog');
+    ).toThrow('Semantic Lady model catalog');
 
     expect(() =>
       resolveProvider('bytedance/seedream-3', { byokMode: true }),
-    ).toThrow('raw schema catalog');
+    ).toThrow('Semantic Lady model catalog');
 
     expect(() =>
       resolveProvider('openai/not-in-raw-schema', { byokMode: false }),
-    ).toThrow('raw schema catalog');
+    ).toThrow('Semantic Lady model catalog');
 
     expect(() =>
       resolveProvider('wan/2.5-t2i-preview', { byokMode: true }),
-    ).toThrow('raw schema catalog');
+    ).toThrow('Semantic Lady model catalog');
   });
 
   it('routes every registered BytePlus model through BYOK when enabled', () => {
@@ -376,7 +376,7 @@ describe('provider adapters', () => {
     expect(resolution.modelIdentifier.endsWith('/gpt-image-2')).toBe(true);
 
     expect(() => resolveProvider('gpt/image-1.5', { byokMode: true })).toThrow(
-      'raw schema catalog',
+      'Semantic Lady model catalog',
     );
 
     const registeredOpenAiModels = listRegisteredModels()
@@ -393,7 +393,7 @@ describe('provider adapters', () => {
     });
 
     expect(resolveProvider('qwen/image', { byokMode: true })).toEqual({
-      modelIdentifier: 'alibabacloud/qwen-image-plus',
+      modelIdentifier: 'alibabacloud/qwen-image',
       provider: 'alibabacloud',
     });
 
@@ -452,12 +452,10 @@ describe('provider adapters', () => {
       'wan/2.2-animate-mix',
       'wan/2.2-animate-move',
     ]) {
-      const animateModel = alibabaCloudModels.find(
-        (model) => model.modelIdentifier === modelIdentifier,
-      );
-      expect(animateModel?.rawSchema.endpoint).toBe(
-        'https://dashscope-intl.aliyuncs.com/api/v1/services/aigc/image2video/video-synthesis',
-      );
+      expect(resolveProvider(modelIdentifier, { byokMode: true })).toEqual({
+        modelIdentifier: `alibabacloud/${modelIdentifier.replace('wan/', 'wan')}`,
+        provider: 'alibabacloud',
+      });
     }
   });
 
@@ -477,9 +475,7 @@ describe('provider adapters', () => {
   });
 
   describe('alibaba cloud image sizes', () => {
-    // DashScope image models have per-model output-size constraints; the
-    // adapter maps generation_ratio to a size each model actually accepts.
-    async function submittedSize(model: string, ratio: string) {
+    async function submittedSize(model: string, size: string) {
       let body: Record<string, unknown> | null = null;
       const fetchImpl = vi.fn(async (_url: string | URL | Request, init) => {
         body = JSON.parse(String((init as RequestInit | undefined)?.body));
@@ -498,7 +494,7 @@ describe('provider adapters', () => {
         .submit({
           idempotencyKey: 'idem_size',
           modelIdentifier: `alibabacloud/${model}`,
-          params: { generation_prompt: 'a red apple', generation_ratio: ratio },
+          params: { generation_prompt: 'a red apple', generation_size: size },
           stepKind: 'image',
         })
         .catch(() => undefined);
@@ -508,35 +504,16 @@ describe('provider adapters', () => {
       return parameters?.size;
     }
 
-    it('snaps qwen-image ratios to the only sizes the model accepts', async () => {
-      expect(await submittedSize('qwen-image-plus', '16:9')).toBe('1664*928');
-      expect(await submittedSize('qwen-image-plus', '9:16')).toBe('928*1664');
-      expect(await submittedSize('qwen-image-plus', '1:1')).toBe('1328*1328');
-      expect(await submittedSize('qwen-image', '4:3')).toBe('1472*1104');
-    });
-
-    it('caps qwen-image-max and z-image-turbo dimensions at 2048', async () => {
-      expect(await submittedSize('qwen-image-max', '16:9')).toBe('2048*1152');
-      expect(await submittedSize('qwen-image-max', '4:3')).toBe('2048*1536');
-      expect(await submittedSize('z-image-turbo', '1:1')).toBe('2048*2048');
-    });
-
-    it('fits wan2.6-t2i inside its 1920*1080 pixel budget', async () => {
-      expect(await submittedSize('wan2.6-t2i', '16:9')).toBe('1920*1072');
-      expect(await submittedSize('wan2.6-t2i', '1:1')).toBe('1440*1440');
-    });
-
-    it('computes sizes for exotic wan ratios instead of sending the ratio string', async () => {
-      expect(await submittedSize('wan2.7-image', '3:1')).toBe('3536*1168');
-      expect(await submittedSize('wan2.6-image', '4:5')).toBe('1824*2288');
-    });
-
-    it('keeps the legacy size table for area-tolerant models', async () => {
-      expect(await submittedSize('qwen-image-2.0', '16:9')).toBe('2560*1440');
-    });
-
-    it('omits size when a snapped model does not support the ratio', async () => {
-      expect(await submittedSize('qwen-image-plus', '21:9')).toBeUndefined();
+    it('passes explicit Semantic Lady size fields through to DashScope', async () => {
+      expect(await submittedSize('qwen-image-plus', '1664*928')).toBe(
+        '1664*928',
+      );
+      expect(await submittedSize('qwen-image-max', '2048*1152')).toBe(
+        '2048*1152',
+      );
+      expect(await submittedSize('wan2.7-image', '3536*1168')).toBe(
+        '3536*1168',
+      );
     });
   });
 
@@ -560,8 +537,8 @@ describe('provider adapters', () => {
       idempotencyKey: 'idem_bfl',
       modelIdentifier: 'bfl/flux-2-pro',
       params: {
-        output_format: 'jpg',
-        prompt: 'A clean product render',
+        generation_output_format: 'jpg',
+        generation_prompt: 'A clean product render',
       },
       stepKind: 'image',
     });
@@ -569,7 +546,7 @@ describe('provider adapters', () => {
     expect(submittedBody.output_format).toBe('jpeg');
   });
 
-  it('maps BFL semantic size fields to width and height instead of unsupported raw fields', async () => {
+  it('passes BFL Semantic Lady width and height fields directly', async () => {
     let submittedBody: Record<string, unknown> = {};
     const fetchImpl = vi.fn(async (_url: string | URL | Request, init) => {
       submittedBody = JSON.parse(String(init?.body));
@@ -590,8 +567,8 @@ describe('provider adapters', () => {
       modelIdentifier: 'bfl/flux-2-pro',
       params: {
         generation_prompt: 'A clean product render',
-        generation_ratio: '16:9',
-        generation_resolution: '2K',
+        generation_height: 1600,
+        generation_width: 2848,
       },
       stepKind: 'image',
     });
@@ -605,7 +582,7 @@ describe('provider adapters', () => {
     expect(submittedBody).not.toHaveProperty('size');
   });
 
-  it('maps BFL explicit generation_size to width and height without leaking size', async () => {
+  it('does not synthesize BFL dimensions from generation_size', async () => {
     let submittedBody: Record<string, unknown> = {};
     const fetchImpl = vi.fn(async (_url: string | URL | Request, init) => {
       submittedBody = JSON.parse(String(init?.body));
@@ -631,10 +608,8 @@ describe('provider adapters', () => {
       stepKind: 'image',
     });
 
-    expect(submittedBody).toMatchObject({
-      height: 1024,
-      width: 1024,
-    });
+    expect(submittedBody).not.toHaveProperty('height');
+    expect(submittedBody).not.toHaveProperty('width');
     expect(submittedBody).not.toHaveProperty('size');
   });
 
@@ -659,7 +634,7 @@ describe('provider adapters', () => {
       modelIdentifier: 'bfl/flux-pro-1.1-ultra',
       params: {
         generation_prompt: 'A clean product render',
-        generation_ratio: '21:9',
+        generation_aspect_ratio: '21:9',
       },
       stepKind: 'image',
     });
@@ -817,8 +792,8 @@ describe('provider adapters', () => {
       idempotencyKey: 'idem_byteplus',
       modelIdentifier: 'byteplus/seedream-5-0-lite-260128',
       params: {
-        output_format: 'jpg',
-        prompt: 'A clean product render',
+        generation_output_format: 'jpg',
+        generation_prompt: 'A clean product render',
       },
       stepKind: 'image',
     });
@@ -856,7 +831,7 @@ describe('provider adapters', () => {
         ],
         generation_model: 'untrusted-generation-model',
         generation_prompt: 'Refine these inputs.',
-        generation_ratio: '16:9',
+        generation_size: '2560x1440',
         model: 'untrusted-model',
       },
       stepKind: 'image',
@@ -907,8 +882,8 @@ describe('provider adapters', () => {
         idempotencyKey: 'idem_byteplus',
         modelIdentifier: 'byteplus/seedream-5-0-lite-260128',
         params: {
-          prompt: 'A clean product render',
-          response_format: 'b64_json',
+          generation_prompt: 'A clean product render',
+          generation_response_format: 'b64_json',
         },
         stepKind: 'image',
       }),
@@ -916,7 +891,7 @@ describe('provider adapters', () => {
     expect(fetchImpl).not.toHaveBeenCalled();
   });
 
-  it('merges BytePlus raw video content with chained first and last frames', async () => {
+  it('merges BytePlus prompt content with chained first and last frames', async () => {
     let submittedBody: Record<string, unknown> = {};
     const fetchImpl = vi.fn(async (_url: string | URL | Request, init) => {
       submittedBody = JSON.parse(String(init?.body));
@@ -935,14 +910,10 @@ describe('provider adapters', () => {
       idempotencyKey: 'idem_byteplus',
       modelIdentifier: 'byteplus/seedance-1-0-pro-250528',
       params: {
-        callback_url: 'https://callbacks.example.com/provider',
-        content: [{ type: 'text', text: 'Use this exact raw prompt.' }],
-        generation_callback_url: 'https://callbacks.example.com/generated',
         generation_output_format: 'mp4',
         generation_prompt: 'Do not duplicate this prompt.',
         generation_input_file: ['https://cdn.example.com/first.png'],
-        generation_input_image_file_last_content:
-          'https://cdn.example.com/last.png',
+        generation_last_frame: 'https://cdn.example.com/last.png',
         model: 'untrusted-model',
         output_format: 'mp4',
       },
@@ -951,7 +922,7 @@ describe('provider adapters', () => {
 
     expect(submittedBody.model).toBe('seedance-1-0-pro-250528');
     expect(submittedBody.content).toEqual([
-      { type: 'text', text: 'Use this exact raw prompt.' },
+      { type: 'text', text: 'Do not duplicate this prompt.' },
       {
         type: 'image_url',
         image_url: { url: 'https://cdn.example.com/first.png' },
@@ -986,7 +957,7 @@ describe('provider adapters', () => {
       idempotencyKey: 'idem_byteplus_roles',
       modelIdentifier: 'byteplus/dreamina-seedance-2-0-260128',
       params: {
-        generation_input_audio_file: 'https://cdn.example.com/dialogue.wav',
+        generation_input_audio_file: ['https://cdn.example.com/dialogue.wav'],
         generation_input_file: [
           'https://cdn.example.com/reference.png',
           'https://cdn.example.com/source.mp4',
@@ -1042,8 +1013,7 @@ describe('provider adapters', () => {
       modelIdentifier: 'byteplus/dreamina-seedance-2-0-260128',
       params: {
         generation_input_image_file: ['https://cdn.example.com/style.png'],
-        generation_input_image_file_last_content:
-          'https://cdn.example.com/end.png',
+        generation_last_frame: 'https://cdn.example.com/end.png',
         generation_media_role: 'reference_image',
         generation_prompt: 'Use this as a visual reference.',
       },
@@ -1218,7 +1188,7 @@ describe('provider adapters', () => {
       params: {
         generation_prompt: 'A clean product render',
         generation_input_file: ['https://cdn.example.com/source.png'],
-        generation_ratio: '16:9',
+        generation_size: '1664*928',
         generation_output_number: 1,
       },
       stepKind: 'image',
@@ -1330,7 +1300,7 @@ describe('provider adapters', () => {
             'https://cdn.example.com/source.png',
             'https://cdn.example.com/reference.mp4',
           ],
-          parameters: { mode: 'wan-std' },
+          generation_mode: 'wan-std',
         },
         stepKind: 'video',
       });
@@ -1382,12 +1352,10 @@ describe('provider adapters', () => {
       modelIdentifier: 'alibabacloud/wan2.7-videoedit',
       params: {
         generation_input_file: ['https://cdn.example.com/source-video.mp4'],
-        generation_audio_setting: 'origin',
-        input: { prompt: 'Polish the generated product video.' },
-        parameters: {
-          duration: 0,
-          watermark: false,
-        },
+        generation_audio: 'origin',
+        generation_duration: 0,
+        generation_prompt: 'Polish the generated product video.',
+        generation_watermark: false,
       },
       stepKind: 'video',
     });
@@ -1420,6 +1388,47 @@ describe('provider adapters', () => {
     });
   });
 
+  it('maps Alibaba Cloud dual-workflow video-step handoffs as first-frame images', async () => {
+    let submittedBody: Record<string, unknown> = {};
+    const fetchImpl = vi.fn(async (_url: string | URL | Request, init) => {
+      submittedBody = JSON.parse(String(init?.body));
+
+      return new Response(
+        JSON.stringify({
+          output: { task_id: 'dashscope_videoedit_i2v_task_123' },
+          request_id: 'dashscope_request_123',
+        }),
+        { status: 200 },
+      );
+    }) as typeof fetch;
+    const provider = createAlibabaCloudProvider({
+      apiKey: 'dashscope_test_key',
+      fetchImpl,
+    });
+
+    await provider.submit({
+      idempotencyKey: 'idem_alibaba_videoedit_i2v',
+      modelIdentifier: 'alibabacloud/wan2.7-videoedit',
+      params: {
+        generation_duration: 4,
+        generation_input_file: ['https://cdn.example.com/source-image.png'],
+        generation_prompt: 'Animate the generated product image.',
+      },
+      stepKey: 'video',
+      stepKind: 'video',
+    });
+
+    expect(submittedBody.input).toMatchObject({
+      prompt: 'Animate the generated product image.',
+      media: [
+        {
+          type: 'first_frame',
+          url: 'https://cdn.example.com/source-image.png',
+        },
+      ],
+    });
+  });
+
   it('maps Alibaba Cloud canonical R2V media and negative prompt fields', async () => {
     let submittedBody: Record<string, unknown> = {};
     const fetchImpl = vi.fn(async (_url: string | URL | Request, init) => {
@@ -1442,12 +1451,12 @@ describe('provider adapters', () => {
       idempotencyKey: 'idem_alibaba_r2v',
       modelIdentifier: 'alibabacloud/wan2.7-r2v',
       params: {
-        generation_enhance_prompt: 'standard',
+        generation_prompt_extend: true,
         generation_input_image_file: ['https://cdn.example.com/ref.png'],
-        generation_input_video_file: 'https://cdn.example.com/ref.mp4',
+        generation_input_video_file: ['https://cdn.example.com/ref.mp4'],
         generation_negative_prompt: 'No text overlays',
         generation_prompt: 'Combine the reference subjects.',
-        generation_ratio: '16:9',
+        generation_aspect_ratio: '16:9',
         generation_reference_voice_file: 'https://cdn.example.com/voice.wav',
       },
       stepKind: 'video',
@@ -1499,12 +1508,6 @@ describe('provider adapters', () => {
       params: {
         generation_input_file: ['https://cdn.example.com/video.mp4'],
         generation_prompt: 'Add a dramatic camera move',
-        references: [
-          {
-            type: 'image',
-            uri: 'https://cdn.example.com/reference.png',
-          },
-        ],
       },
       stepKind: 'video',
     });
@@ -1513,12 +1516,6 @@ describe('provider adapters', () => {
     expect(submittedBody).toMatchObject({
       model: 'gen4_aleph',
       promptText: 'Add a dramatic camera move',
-      references: [
-        {
-          type: 'image',
-          uri: 'https://cdn.example.com/reference.png',
-        },
-      ],
       videoUri: 'https://cdn.example.com/video.mp4',
     });
     expect(submittedBody).not.toHaveProperty('promptImage');
@@ -1554,7 +1551,7 @@ describe('provider adapters', () => {
         generation_duration: 7,
         generation_input_file: ['https://cdn.example.com/image.png'],
         generation_prompt: 'Animate the generated image',
-        generation_ratio: '1584:672',
+        generation_aspect_ratio: '1584:672',
       },
       stepKind: 'video',
     });
@@ -1576,6 +1573,44 @@ describe('provider adapters', () => {
       kind: 'async',
       providerOrder: ['runway'],
     });
+  });
+
+  it('routes Runway dual-workflow models as image-to-video on the chain video step', async () => {
+    let submittedUrl = '';
+    let submittedBody: Record<string, unknown> = {};
+    const fetchImpl = vi.fn(async (url: string | URL | Request, init) => {
+      submittedUrl = String(url);
+      submittedBody = JSON.parse(String(init?.body));
+
+      return new Response(JSON.stringify({ id: 'runway_task_aleph_i2v' }), {
+        status: 200,
+      });
+    }) as typeof fetch;
+    const provider = createRunwayProvider({
+      apiKey: 'runway_test_key',
+      fetchImpl,
+    });
+
+    await provider.submit({
+      idempotencyKey: 'idem_runway_aleph_i2v',
+      modelIdentifier: 'runway/aleph2',
+      params: {
+        generation_input_file: ['https://cdn.example.com/image.png'],
+        generation_prompt: 'Animate the generated image',
+        generation_aspect_ratio: '1280:720',
+      },
+      stepKey: 'video',
+      stepKind: 'video',
+    });
+
+    expect(submittedUrl).toContain('/v1/image_to_video');
+    expect(submittedBody).toMatchObject({
+      model: 'aleph2',
+      promptImage: 'https://cdn.example.com/image.png',
+      promptText: 'Animate the generated image',
+      ratio: '1280:720',
+    });
+    expect(submittedBody).not.toHaveProperty('videoUri');
   });
 
   it('submits GPT Image 2 generations with documented request fields', async () => {
@@ -1612,8 +1647,8 @@ describe('provider adapters', () => {
         generation_output_format: 'webp',
         generation_output_number: 1,
         generation_prompt: 'A clean product image',
-        generation_ratio: '1:1',
-        quality: 'high',
+        generation_size: '1024x1024',
+        generation_quality: 'high',
       },
       stepKind: 'image',
     });
@@ -1722,7 +1757,6 @@ describe('provider adapters', () => {
         generation_input_file: ['data:image/png;base64,aW1hZ2U='],
         generation_output_format: 'png',
         generation_prompt: 'Refine this generated frame',
-        input_fidelity: 'high',
       },
       stepKind: 'image',
     });
@@ -1736,7 +1770,7 @@ describe('provider adapters', () => {
     const form = submittedBody as FormData;
     expect(form.get('model')).toBe('gpt-image-2');
     expect(form.get('prompt')).toBe('Refine this generated frame');
-    expect(form.get('input_fidelity')).toBe('high');
+    expect(form.get('input_fidelity')).toBeNull();
     expect(form.getAll('image[]')).toHaveLength(1);
     expect(result).toMatchObject({
       generationId: 'openai_idem_openai_edit',
@@ -1779,7 +1813,7 @@ describe('provider adapters', () => {
     expect(form.get('mask_file')).toBeNull();
   });
 
-  it('submits GPT Image 2 edits with raw image data URL input', async () => {
+  it('submits GPT Image 2 edits with canonical image data URL input', async () => {
     let submittedBody: BodyInit | null | undefined;
     const fetchImpl = vi.fn(async (_url: string | URL | Request, init) => {
       submittedBody = init?.body;
@@ -1799,8 +1833,8 @@ describe('provider adapters', () => {
       modelIdentifier: resolveProvider('gpt/image-2', { byokMode: true })
         .modelIdentifier,
       params: {
-        image: 'data:image/png;base64,aW1hZ2U=',
-        prompt: 'Refine this image',
+        generation_input_image_file: ['data:image/png;base64,aW1hZ2U='],
+        generation_prompt: 'Refine this image',
       },
       stepKind: 'image',
     });
@@ -1840,8 +1874,8 @@ describe('provider adapters', () => {
       modelIdentifier: resolveProvider('gpt/image-2', { byokMode: true })
         .modelIdentifier,
       params: {
-        image: 'https://8.8.8.8/source.png',
-        prompt: 'Refine this image',
+        generation_input_image_file: ['https://8.8.8.8/source.png'],
+        generation_prompt: 'Refine this image',
       },
       stepKind: 'image',
     });
@@ -1866,8 +1900,8 @@ describe('provider adapters', () => {
         modelIdentifier: resolveProvider('gpt/image-2', { byokMode: true })
           .modelIdentifier,
         params: {
-          image: 'https://127.0.0.1/source.png',
-          prompt: 'Refine this image',
+          generation_input_image_file: ['https://127.0.0.1/source.png'],
+          generation_prompt: 'Refine this image',
         },
         stepKind: 'image',
       }),
@@ -1888,8 +1922,8 @@ describe('provider adapters', () => {
         modelIdentifier: resolveProvider('gpt/image-2', { byokMode: true })
           .modelIdentifier,
         params: {
-          image: 'not-a-url',
-          prompt: 'Refine this image',
+          generation_input_image_file: ['not-a-url'],
+          generation_prompt: 'Refine this image',
         },
         stepKind: 'image',
       }),
@@ -1910,8 +1944,8 @@ describe('provider adapters', () => {
         modelIdentifier: resolveProvider('gpt/image-2', { byokMode: true })
           .modelIdentifier,
         params: {
-          image: [123],
-          prompt: 'Refine this image',
+          generation_input_image_file: [123],
+          generation_prompt: 'Refine this image',
         },
         stepKind: 'image',
       }),
@@ -1932,9 +1966,9 @@ describe('provider adapters', () => {
         modelIdentifier: resolveProvider('gpt/image-2', { byokMode: true })
           .modelIdentifier,
         params: {
-          image: 'data:image/png;base64,aW1hZ2U=',
-          mask: ['data:image/png;base64,bWFzaw=='],
-          prompt: 'Refine this image',
+          generation_input_image_file: ['data:image/png;base64,aW1hZ2U='],
+          generation_mask_file: ['data:image/png;base64,bWFzaw=='],
+          generation_prompt: 'Refine this image',
         },
         stepKind: 'image',
       }),
@@ -1955,8 +1989,8 @@ describe('provider adapters', () => {
         modelIdentifier: resolveProvider('gpt/image-2', { byokMode: true })
           .modelIdentifier,
         params: {
-          image: 'data:image/png;base64,@@@=',
-          prompt: 'Refine this image',
+          generation_input_image_file: ['data:image/png;base64,@@@='],
+          generation_prompt: 'Refine this image',
         },
         stepKind: 'image',
       }),
@@ -1988,8 +2022,8 @@ describe('provider adapters', () => {
         modelIdentifier: resolveProvider('gpt/image-2', { byokMode: true })
           .modelIdentifier,
         params: {
-          image: 'https://8.8.8.8/redirect.png',
-          prompt: 'Refine this image',
+          generation_input_image_file: ['https://8.8.8.8/redirect.png'],
+          generation_prompt: 'Refine this image',
         },
         stepKind: 'image',
       }),
@@ -2033,8 +2067,8 @@ describe('provider adapters', () => {
         modelIdentifier: resolveProvider('gpt/image-2', { byokMode: true })
           .modelIdentifier,
         params: {
-          image: 'https://8.8.8.8/large.png',
-          prompt: 'Refine this image',
+          generation_input_image_file: ['https://8.8.8.8/large.png'],
+          generation_prompt: 'Refine this image',
         },
         stepKind: 'image',
       }),
@@ -2083,10 +2117,9 @@ describe('provider adapters', () => {
       idempotencyKey: 'idem_google_image',
       modelIdentifier: resolution.modelIdentifier,
       params: {
-        generationConfig: { temperature: 0.2 },
         generation_prompt: 'A clean product image',
         generation_input_file: ['data:image/png;base64,aW5wdXQ='],
-        generation_ratio: '1:8',
+        generation_aspect_ratio: '1:8',
         generation_resolution: '4K',
       },
       stepKind: 'image',
@@ -2121,7 +2154,6 @@ describe('provider adapters', () => {
         imageSize: '4K',
       },
       responseModalities: ['IMAGE'],
-      temperature: 0.2,
     });
     expect(result).toMatchObject({
       generationId: 'google_idem_google_image',
@@ -2132,7 +2164,7 @@ describe('provider adapters', () => {
     });
   });
 
-  it('submits raw Google generateContent payloads without requiring prompt shorthand', async () => {
+  it('submits Google Nano Banana Pro canonical fields', async () => {
     let submittedBody: Record<string, unknown> = {};
     const fetchImpl = vi.fn(async (_url: string | URL | Request, init) => {
       submittedBody = JSON.parse(String(init?.body));
@@ -2169,32 +2201,24 @@ describe('provider adapters', () => {
       idempotencyKey: 'idem_google_raw_image',
       modelIdentifier: resolution.modelIdentifier,
       params: {
-        contents: [
-          {
-            role: 'user',
-            parts: [{ text: 'Render this raw Google request.' }],
-          },
-        ],
-        generationConfig: {
-          imageConfig: { aspectRatio: '1:4', imageSize: '2K' },
-        },
-        safetySettings: [{ category: 'HARM_CATEGORY_DANGEROUS_CONTENT' }],
+        generation_aspect_ratio: '1:1',
+        generation_prompt: 'Render this Google request.',
+        generation_resolution: '2K',
       },
       stepKind: 'image',
     });
 
-    expect(submittedBody).toEqual({
+    expect(submittedBody).toMatchObject({
       contents: [
         {
           role: 'user',
-          parts: [{ text: 'Render this raw Google request.' }],
+          parts: [{ text: 'Render this Google request.' }],
         },
       ],
       generationConfig: {
-        imageConfig: { aspectRatio: '1:4', imageSize: '2K' },
+        imageConfig: { aspectRatio: '1:1', imageSize: '2K' },
         responseModalities: ['IMAGE'],
       },
-      safetySettings: [{ category: 'HARM_CATEGORY_DANGEROUS_CONTENT' }],
     });
     expect(result).toMatchObject({
       generationId: 'google_idem_google_raw_image',
@@ -2233,7 +2257,7 @@ describe('provider adapters', () => {
       params: {
         generation_output_number: 2,
         generation_prompt: 'A clean product image',
-        generation_ratio: '16:9',
+        generation_aspect_ratio: '16:9',
         generation_resolution: '2K',
       },
       stepKind: 'image',
@@ -2309,11 +2333,11 @@ describe('provider adapters', () => {
       modelIdentifier: resolution.modelIdentifier,
       params: {
         generation_duration: 8,
-        generation_generate_audio: false,
+        generation_audio: false,
         generation_input_file: ['data:image/png;base64,aW1hZ2U='],
         generation_negative_prompt: 'No text overlays',
         generation_prompt: 'Slow product camera orbit',
-        generation_ratio: '9:16',
+        generation_aspect_ratio: '9:16',
         generation_resolution: '1080p',
         generation_seed: 1234,
       },
@@ -2396,7 +2420,7 @@ describe('provider adapters', () => {
       idempotencyKey: 'idem_google_video_handoff',
       modelIdentifier: resolution.modelIdentifier,
       params: {
-        generation_generate_audio: false,
+        generation_audio: false,
         generation_input_image_file: ['https://8.8.8.8/image.png'],
         generation_prompt: 'Waves roll in slowly',
       },
@@ -2421,7 +2445,7 @@ describe('provider adapters', () => {
     });
   });
 
-  it('normalizes raw Google Veo media aliases and parameters', async () => {
+  it('normalizes Google Veo canonical media and parameters', async () => {
     let submittedBody: Record<string, unknown> = {};
     const fetchImpl = vi.fn(async (_url: string | URL | Request, init) => {
       submittedBody = JSON.parse(String(init?.body));
@@ -2443,17 +2467,11 @@ describe('provider adapters', () => {
       idempotencyKey: 'idem_google_raw_video',
       modelIdentifier: resolution.modelIdentifier,
       params: {
-        image: 'data:image/png;base64,aW1hZ2U=',
-        generation_input_image_file_last_content:
-          'data:image/png;base64,bGFzdA==',
-        parameters: {
-          durationSeconds: '4',
-          generateAudio: false,
-          numberOfVideos: 1,
-          resolution: '4k',
-          seed: -1,
-        },
-        prompt: 'A slow cinematic push in',
+        generation_duration: 4,
+        generation_input_image_file: ['data:image/png;base64,aW1hZ2U='],
+        generation_last_frame: 'data:image/png;base64,bGFzdA==',
+        generation_prompt: 'A slow cinematic push in',
+        generation_resolution: '4K',
       },
       stepKind: 'video',
     });
@@ -2479,7 +2497,7 @@ describe('provider adapters', () => {
     });
   });
 
-  it('rejects raw Google Veo durations outside provider enum values', async () => {
+  it('rejects Google Veo durations outside provider enum values', async () => {
     const provider = createGoogleProvider({
       apiKey: 'gemini_test_key',
       fetchImpl: vi.fn() as unknown as typeof fetch,
@@ -2493,15 +2511,15 @@ describe('provider adapters', () => {
         idempotencyKey: 'idem_google_bad_duration',
         modelIdentifier: resolution.modelIdentifier,
         params: {
-          parameters: { durationSeconds: '5' },
-          prompt: 'A slow cinematic push in',
+          generation_duration: 5,
+          generation_prompt: 'A slow cinematic push in',
         },
         stepKind: 'video',
       }),
-    ).rejects.toThrow('Google parameters.durationSeconds must be one of');
+    ).rejects.toThrow('Google generation_duration must be one of');
   });
 
-  it('submits Google Veo Fast raw extension payloads', async () => {
+  it('submits Google Veo Fast canonical payloads', async () => {
     let submittedUrl = '';
     let submittedBody: Record<string, unknown> = {};
     const fetchImpl = vi.fn(async (url: string | URL | Request, init) => {
@@ -2525,18 +2543,8 @@ describe('provider adapters', () => {
       idempotencyKey: 'idem_google_fast_video',
       modelIdentifier: resolution.modelIdentifier,
       params: {
-        instances: [
-          {
-            prompt: 'Extend the previous shot.',
-            video: {
-              bytesBase64Encoded: 'dmlkZW8=',
-              mimeType: 'video/mp4',
-            },
-          },
-        ],
-        parameters: {
-          resolution: '720p',
-        },
+        generation_prompt: 'Extend the previous shot.',
+        generation_resolution: '720p',
       },
       stepKind: 'video',
     });
@@ -2548,10 +2556,6 @@ describe('provider adapters', () => {
       instances: [
         {
           prompt: 'Extend the previous shot.',
-          video: {
-            bytesBase64Encoded: 'dmlkZW8=',
-            mimeType: 'video/mp4',
-          },
         },
       ],
       parameters: {
@@ -2623,11 +2627,10 @@ describe('provider adapters', () => {
       params: {
         generation_prompt: 'Move the product camera slowly',
         generation_input_image_file: ['https://cdn.example.com/first.png'],
-        generation_input_image_file_last_content:
-          'https://cdn.example.com/last.png',
+        generation_last_frame: 'https://cdn.example.com/last.png',
         generation_duration: 5,
         generation_output_number: 3,
-        generation_ratio: '16:9',
+        generation_aspect_ratio: '16:9',
         generation_resolution: '720p',
         generation_size: '1024x1024',
         parameters: { n: 9 },
@@ -2707,7 +2710,7 @@ describe('provider adapters', () => {
         modelIdentifier: args.modelIdentifier,
         params: {
           generation_prompt: 'Ratio mapping test',
-          generation_ratio: args.ratio,
+          generation_aspect_ratio: args.ratio,
           ...(args.stepKind === 'video'
             ? {
                 generation_duration: 5,
@@ -2724,7 +2727,7 @@ describe('provider adapters', () => {
     it('maps every semantic aspect ratio to a documented runway image ratio', async () => {
       const { getModel } = await import('semantic-lady');
       const ratioField = getModel('runway/gen-4-image')!.schema.find(
-        (field) => field.name === 'generation_ratio',
+        (field) => field.name === 'generation_aspect_ratio',
       );
 
       expect(ratioField?.enum?.length).toBeGreaterThan(0);
@@ -2744,7 +2747,7 @@ describe('provider adapters', () => {
     it('maps every semantic aspect ratio to a documented runway video ratio', async () => {
       const { getModel } = await import('semantic-lady');
       const ratioField = getModel('runway/gen-4-turbo')!.schema.find(
-        (field) => field.name === 'generation_ratio',
+        (field) => field.name === 'generation_aspect_ratio',
       );
 
       expect(ratioField?.enum?.length).toBeGreaterThan(0);

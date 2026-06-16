@@ -48,6 +48,18 @@ describe('semantic-lady BYOK schema core', () => {
     }
   });
 
+  it('keeps audio reference fields in downstream chain schemas', () => {
+    const fields = getSemanticModelSchemaFields('wan/2.7-i2v-2026-04-25', {
+      chainFieldMode: 'downstream',
+    });
+    const fieldNames = fields?.map((field) => field.name) ?? [];
+
+    expect(fieldNames).toContain('generation_input_audio_file');
+    expect(fieldNames).not.toContain('generation_input_image_file');
+    expect(fieldNames).not.toContain('generation_input_video_file');
+    expect(fieldNames).not.toContain('generation_last_frame');
+  });
+
   it('never exposes a schema field name as its own default value', () => {
     for (const modelIdentifier of listRegisteredModels()) {
       const fields = getSemanticModelSchemaFields(modelIdentifier);
@@ -78,36 +90,30 @@ describe('semantic-lady BYOK schema core', () => {
     ).toBeNull();
   });
 
-  it('accepts chain-level keys, dialect aliases, and raw provider fields', () => {
+  it('accepts chain-level generation keys', () => {
     expect(
       findByokGenerationFieldIssue('bytedance/seedream-5-lite', {
         generation_prompt: 'A product photo',
-        generation_input_file: ['https://example.com/ref.png'],
         generation_provider_order: ['byteplus'],
-        watermark: false,
-        response_format: 'url',
-      }),
-    ).toBeNull();
-
-    // generation_config is the documented raw-config escape for Google.
-    expect(
-      findByokGenerationFieldIssue('google/nano-banana-2', {
-        generation_prompt: 'A product photo',
-        generation_config: { temperature: 0.4 },
       }),
     ).toBeNull();
   });
 
-  it('maps generation_input_file onto the model media input field', () => {
-    // Video-to-video models resolve the alias to the video input field.
+  it('accepts canonical media input fields only', () => {
+    expect(
+      findByokGenerationFieldIssue('runway/aleph-2', {
+        generation_prompt: 'Make the scene snowier',
+        generation_input_video_file: ['https://example.com/clip.mp4'],
+      }),
+    ).toBeNull();
+
     expect(
       findByokGenerationFieldIssue('runway/aleph-2', {
         generation_prompt: 'Make the scene snowier',
         generation_input_file: ['https://example.com/clip.mp4'],
       }),
-    ).toBeNull();
+    ).toMatchObject({ path: ['generation_input_file'] });
 
-    // Models without any file input reject the alias as unknown.
     expect(
       findByokGenerationFieldIssue('google/imagen-4', {
         generation_prompt: 'A skyline at dusk',
@@ -118,15 +124,14 @@ describe('semantic-lady BYOK schema core', () => {
     expect(
       findByokGenerationFieldIssue('google/imagen-4', {
         generation_prompt: 'A skyline at dusk',
-        generation_input_file_last_content: 'https://example.com/end.png',
+        generation_last_frame: 'https://example.com/end.png',
       }),
-    ).toMatchObject({ path: ['generation_input_file_last_content'] });
+    ).toMatchObject({ path: ['generation_last_frame'] });
 
-    // Models with a last-frame field accept the last-content alias.
     expect(
-      findByokGenerationFieldIssue('bytedance/seedance-1.5-pro', {
+      findByokGenerationFieldIssue('bytedance/seedance-2.0', {
         generation_prompt: 'A slow pan',
-        generation_input_file_last_content: 'https://example.com/end.png',
+        generation_last_frame: 'https://example.com/end.png',
       }),
     ).toBeNull();
   });
@@ -188,7 +193,7 @@ describe('semantic-lady BYOK schema core', () => {
     expect(
       findByokGenerationFieldIssue('runway/gen-4-turbo', {
         generation_prompt: 'A slow dolly forward',
-        generation_ratio: '1280:720',
+        generation_aspect_ratio: '1280:720',
         generation_duration: 5,
       }),
     ).toBeNull();
@@ -201,17 +206,13 @@ describe('semantic-lady BYOK schema core', () => {
     ).toBeNull();
   });
 
-  it('enforces Semantic Lady numeric enum and seed constraints when present', () => {
+  it('enforces Semantic Lady numeric enum and seed constraints', () => {
     const issue = findByokGenerationFieldIssue('google/veo-3.1-fast', {
       generation_duration: 5,
       generation_prompt: 'A slow push in',
     });
 
-    // semantic-lady@0.2.1 carries enum: [4, 6, 8]. Keep this expectation
-    // active once BabyChain bumps the published dependency.
-    if (issue) {
-      expect(issue).toMatchObject({ path: ['generation_duration'] });
-    }
+    expect(issue).toMatchObject({ path: ['generation_duration'] });
   });
 
   it('throws BabyChainError with a prefixed path through the assert helper', () => {
@@ -236,7 +237,7 @@ describe('semantic-lady BYOK schema core', () => {
   it('ignores non-generation keys and unknown models', () => {
     expect(
       findByokGenerationFieldIssue('bfl/flux-2-pro', {
-        prompt: 'raw provider prompt',
+        prompt: 'provider prompt',
         steps: 28,
       }),
     ).toBeNull();

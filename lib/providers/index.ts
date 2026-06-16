@@ -122,17 +122,15 @@ export type ProviderResolutionOptions = {
 /**
  * Decide which provider handles a given model identifier.
  *
- *   - In BYOK mode, anything registered in `lib/models/model-library.ts`
- *     (e.g. `bytedance/seedance-1-pro`, `bfl/flux-1.1-pro`) is rewritten to
- *     the provider-prefixed raw endpoint id and routed to the matching
- *     adapter.
+ *   - In BYOK mode, any Semantic Lady model id is rewritten to its published
+ *     provider model id and routed to the matching adapter.
  *   - In BabySea mode, registered BabySea model identifiers stay on the
  *     BabySea SDK path and keep the public `generation_*` request shape.
  *   - In BYOK mode, raw `black-forest-labs/<endpoint>`, `byteplus/<model>`,
  *     `alibaba-cloud/<model>`, `google/<model>`, `openai/<model>`, and `runway/<model>` identifiers route directly
- *     only when the raw id is present in the model catalog. The older `bfl/*` and
- *     `alibabacloud/*` prefixes remain accepted as aliases.
- *   - anything outside the catalog is rejected.
+ *     only when the provider model id is published by Semantic Lady. The older
+ *     `bfl/*` and `alibabacloud/*` prefixes remain accepted as aliases.
+ *   - anything outside the Semantic Lady catalog is rejected.
  *
  * The library lookup runs first so registered BabySea names do not fall
  * through to raw prefix passthrough while running in BabySea mode.
@@ -186,7 +184,7 @@ export function resolveProvider(
     if (!rawModel) {
       throw new BabyChainError(
         'unsupported_model_identifier',
-        `Raw provider model "${modelIdentifier}" is not in BabyChain's raw schema catalog. Use GET /api/v1/models for supported models.`,
+        `Provider model "${modelIdentifier}" is not in the Semantic Lady model catalog. Use GET /api/v1/models for supported models.`,
         400,
       );
     }
@@ -194,7 +192,7 @@ export function resolveProvider(
     if (!options.byokMode) {
       throw new BabyChainError(
         'byok_credentials_missing',
-        `Raw provider model "${modelIdentifier}" requires server-side BYOK mode. Set BABYCHAIN_PROVIDER_MODE=byok and configure the matching provider API key on the BabyChain server.`,
+        `Provider model "${modelIdentifier}" requires server-side BYOK mode. Set BABYCHAIN_PROVIDER_MODE=byok and configure the matching provider API key on the BabyChain server.`,
         400,
       );
     }
@@ -209,7 +207,7 @@ export function resolveProvider(
 
   throw new BabyChainError(
     'unsupported_model_identifier',
-    `Model "${modelIdentifier}" is not in BabyChain's raw schema catalog. Use GET /api/v1/models for supported models.`,
+    `Model "${modelIdentifier}" is not in the Semantic Lady model catalog. Use GET /api/v1/models for supported models.`,
     400,
   );
 }

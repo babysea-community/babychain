@@ -113,7 +113,7 @@ BabyChain turns model-to-model media workflows into durable backend runs. Compos
 - **Product-ready callbacks**: return a public run resource from create/get routes and send the same resource through one final signed webhook.
 - **Schema-true node cards**: canvas fields are generated from each model's Semantic Lady schema, including exact fields, enum options, ranges, and defaults, so the UI can never offer a parameter the run API would reject.
 
-Semantic Lady is a core part of that last point. BabySea mode already has a normalized `generation_*` contract through the BabySea SDK, but BYOK mode has to deal with every provider's own schema vocabulary: different field names, enum values, ratios, defaults, and media-input rules. BabyChain uses Semantic Lady as a local schema SDK so direct BYOK execution still gets a single source of truth for model cards, validation, defaults, and chain compatibility before any provider request is sent.
+Semantic Lady is a core part of that last point. BabyChain uses the published Semantic Lady `generation_*` schema as the single source of truth for BYOK model cards, validation, defaults, provider routing metadata, and chain compatibility before any provider request is sent.
 
 ## BabyChain and canvas workflow tools
 
@@ -134,9 +134,9 @@ Use BabyChain when a visual generative workflow is ready to become infrastructur
 
 BabyChain runs workflow-driven chains for product backends that need generated media without embedding provider logic into every application. Common patterns include prompt-to-video features, image-to-video campaigns, avatar or product motion pipelines, internal media automation, and API products that need one stable callback after several provider calls.
 
-The built-in `chain` template starts with an image model, runs an image-to-video model, and can optionally modify the video with a compatible video-to-video model. Select models under `input.chain_models`, then put each model request body inside `image_model_input`, `refine_model_input`, `video_model_input`, or `modify_model_input`. BabyChain does not flatten provider schema fields at the top level. In BabySea mode, those model input objects use BabySea-normalized `generation_*` fields. In BYOK mode, those model input objects use the selected provider model's raw schema fields from `GET /api/v1/models` or `GET /api/v1/models/{modelId}`. Add `refine_model` and `refine_model_input` when one image model should feed a second image model before video. Add `modify_model` and `modify_model_input` when the video result should feed a compatible video-to-video model. See [`SUPPORTED_MODELS.md`](SUPPORTED_MODELS.md) for the supported model names and mode availability.
+The built-in `chain` template starts with an image model, runs an image-to-video model, and can optionally modify the video with a compatible video-to-video model. Select models under `input.chain_models`, then put each model request body inside `image_model_input`, `refine_model_input`, `video_model_input`, or `modify_model_input`. BabyChain does not flatten model fields at the top level. In both BabySea mode and BYOK mode, those model input objects use normalized `generation_*` fields; BYOK field metadata comes from Semantic Lady via `GET /api/v1/models` or `GET /api/v1/models/{modelId}`. Add `refine_model` and `refine_model_input` when one image model should feed a second image model before video. Add `modify_model` and `modify_model_input` when the video result should feed a compatible video-to-video model. See [`SUPPORTED_MODELS.md`](SUPPORTED_MODELS.md) for the supported model names and mode availability.
 
-Those model schema routes are powered by Semantic Lady. The SDK was extracted because BabyChain needed BabySea-like schema discipline even when it was not calling BabySea: BYOK callers and canvas users still need accurate fields, exact enums, valid defaults, and provider-specific constraints, while the server keeps the actual provider credentials and execution adapters behind BabyChain.
+Those model schema routes are powered by Semantic Lady. BYOK callers and canvas users get accurate fields, exact enums, valid defaults, and provider model ids from the SDK, while the server keeps provider credentials and execution adapters behind BabyChain.
 
 | Chain   | Model input objects                                                                  | Model flow                                                      |
 | :------ | :----------------------------------------------------------------------------------- | :-------------------------------------------------------------- |
@@ -407,7 +407,7 @@ BabyChain supports two self-hosted provider modes:
 | `byok`    | BabyChain calls supported inference providers directly with provider credentials from your server environment.          |
 | `babysea` | BabyChain calls BabySea with your BabySea API key while keeping the same BabyChain routes, callbacks, and run contract. |
 
-BabySea mode relies on the BabySea SDK's normalized `generation_*` contract. Semantic Lady is BabyChain's local schema SDK for BYOK mode: it provides provider-aware model metadata, field definitions, enum options, defaults, constraints, and validation/UI alignment for direct adapters without storing credentials or executing provider calls.
+BabySea mode relies on the BabySea SDK's normalized `generation_*` contract. BYOK mode relies on Semantic Lady's normalized `generation_*` contract: it provides provider-aware model metadata, field definitions, enum options, defaults, and validation/UI alignment for direct adapters without storing credentials or executing provider calls.
 
 All modes keep caller applications on BabyChain API keys. Provider credentials never belong in frontend code or caller requests.
 
@@ -420,7 +420,7 @@ All modes keep caller applications on BabyChain API keys. Provider credentials n
 | Get run      | `GET /api/v1/chains/get/{runId}`     |                                   |
 | Cancel run   | `POST /api/v1/chains/cancel/{runId}` |                                   |
 
-Send caller requests with `Authorization: Bearer <caller API key>`, using a key configured from [`.env.example`](.env.example) or created in the private API key table. The linked chain example uses BabySea-normalized request params; BYOK callers should use the raw provider schema returned by the model schema routes. Run resources include a `timeline` array so callers can render ordered step status, timing, provider, output count, and error details without reshaping the `steps` payload. Actionable errors include a `guidance.what_to_try_next` list for common provider, model, credential, and chaining failures.
+Send caller requests with `Authorization: Bearer <caller API key>`, using a key configured from [`.env.example`](.env.example) or created in the private API key table. The linked chain example uses the same normalized `generation_*` request params that BYOK callers should read from the Semantic Lady model schema routes. Run resources include a `timeline` array so callers can render ordered step status, timing, provider, output count, and error details without reshaping the `steps` payload. Actionable errors include a `guidance.what_to_try_next` list for common provider, model, credential, and chaining failures.
 
 ## Runtime
 
@@ -438,7 +438,7 @@ Provider adapter contract coverage lives with the provider adapter suite:
 pnpm test:run -- test/provider-adapters.test.ts
 ```
 
-The shared contract checks that each adapter returns zero-cost direct estimates and accepts best-effort cancel contexts. Provider-specific cases below it guard raw request mapping, output extraction, and failure normalization.
+The shared contract checks that each adapter returns zero-cost direct estimates and accepts best-effort cancel contexts. Provider-specific cases below it guard Semantic Lady field translation, output extraction, and failure normalization.
 
 ## Deployment
 

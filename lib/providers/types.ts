@@ -62,6 +62,7 @@ export type ProviderEstimateInput = {
 
 export type ProviderSubmitInput = {
   modelIdentifier: string;
+  stepKey?: string;
   stepKind: 'image' | 'video';
   params: GenerationParams | Record<string, unknown>;
   idempotencyKey: string;

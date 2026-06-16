@@ -73,15 +73,15 @@ describe('runner callback validation', () => {
 });
 
 describe('runner step claiming', () => {
-  it('keeps raw model inputs for direct providers only', () => {
+  it('keeps canonical step params for every provider', () => {
     const params = {
       generation_prompt: 'BabySea prompt',
-      generation_ratio: '16:9',
+      generation_aspect_ratio: '16:9',
     };
     const input = {
       image_model_input: {
         output_format: 'jpg',
-        prompt: 'Raw provider prompt',
+        prompt: 'Provider prompt',
         size: '2K',
         skipped: undefined,
       },
@@ -103,31 +103,7 @@ describe('runner step claiming', () => {
         providerName: 'byteplus',
         stepKey: 'image',
       }),
-    ).toEqual({
-      generation_prompt: 'BabySea prompt',
-      generation_ratio: '16:9',
-      output_format: 'jpg',
-      prompt: 'Raw provider prompt',
-      size: '2K',
-    });
-  });
-
-  it('rejects provider-controlled raw model inputs before direct provider submit', () => {
-    expect(() =>
-      prepareStepParamsForProvider({
-        input: {
-          video_model_input: {
-            callback_url: 'https://callbacks.example.com/provider',
-            generation_callback_url: 'https://callbacks.example.com/generated',
-            generation_model: 'untrusted-generation-model',
-            model: 'untrusted-model',
-          },
-        },
-        params: { generation_prompt: 'BabySea prompt' },
-        providerName: 'byteplus',
-        stepKey: 'video',
-      }),
-    ).toThrow('Provider-controlled model input key is not allowed');
+    ).toEqual(params);
   });
 
   it('keeps a recently started BabySea step running while the generation id is pending', async () => {

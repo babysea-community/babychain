@@ -2,9 +2,10 @@ import type { GenerationParams } from 'babysea';
 import { z } from 'zod';
 
 import { BabyChainError } from '@/lib/utils/errors';
-import { MODEL_CATALOG } from '@/lib/models/model-catalog';
+import { isChainWiredSemanticFieldName } from '@/lib/models/chain-schema';
 import {
   assertByokGenerationFields,
+  getSemanticModel,
   isImageChainModel,
   isImageInputCapableModel,
   isImageToVideoChainModel,
@@ -49,70 +50,43 @@ const StepModelInputSchema = z
       });
     }
 
-    const inputFile = modelInput.generation_input_file;
+    for (const [key, value] of Object.entries(modelInput)) {
+      if (value === undefined || key.startsWith('generation_')) {
+        continue;
+      }
 
-    if (
-      inputFile !== undefined &&
-      (!Array.isArray(inputFile) || !inputFile.every(isSafeHttpsUrlValue))
-    ) {
-      context.addIssue({
-        code: 'custom',
-        message: 'generation_input_file must be an array of HTTPS public URLs.',
-        path: ['generation_input_file'],
-      });
-    }
-
-    const inputImageFile = modelInput.generation_input_image_file;
-
-    if (
-      inputImageFile !== undefined &&
-      (!Array.isArray(inputImageFile) ||
-        !inputImageFile.every(isSafeHttpsUrlValue))
-    ) {
       context.addIssue({
         code: 'custom',
         message:
-          'generation_input_image_file must be an array of HTTPS public URLs.',
-        path: ['generation_input_image_file'],
+          'Model input objects only accept Semantic Lady generation_* fields.',
+        path: [key],
       });
     }
 
-    const lastContent = modelInput.generation_input_file_last_content;
+    const lastFrame = modelInput.generation_last_frame;
 
-    if (lastContent !== undefined && !isSafeHttpsUrlValue(lastContent)) {
+    if (lastFrame !== undefined && !isSafeHttpsUrlValue(lastFrame)) {
       context.addIssue({
         code: 'custom',
-        message:
-          'generation_input_file_last_content must be an HTTPS public URL.',
-        path: ['generation_input_file_last_content'],
-      });
-    }
-
-    const lastImageContent =
-      modelInput.generation_input_image_file_last_content;
-
-    if (
-      lastImageContent !== undefined &&
-      !isSafeHttpsUrlValue(lastImageContent)
-    ) {
-      context.addIssue({
-        code: 'custom',
-        message:
-          'generation_input_image_file_last_content must be an HTTPS public URL.',
-        path: ['generation_input_image_file_last_content'],
+        message: 'generation_last_frame must be an HTTPS public URL.',
+        path: ['generation_last_frame'],
       });
     }
 
     for (const key of [
+      'generation_input_image_file',
       'generation_input_video_file',
       'generation_input_audio_file',
     ]) {
       const value = modelInput[key];
 
-      if (value !== undefined && !isSafeHttpsUrlValue(value)) {
+      if (
+        value !== undefined &&
+        (!Array.isArray(value) || !value.every(isSafeHttpsUrlValue))
+      ) {
         context.addIssue({
           code: 'custom',
-          message: `${key} must be an HTTPS public URL.`,
+          message: `${key} must be an array of HTTPS public URLs.`,
           path: [key],
         });
       }
@@ -237,28 +211,27 @@ const chainTemplate = defineChainTemplate({
       type: 'object',
       required: false,
       description:
-        'First image model input. BabySea mode uses generation_* fields; BYOK mode forwards raw provider fields.',
+        'First image model input. Use Semantic Lady generation_* fields.',
     },
     {
       name: 'refine_model_input',
       type: 'object',
       required: false,
       description:
-        'Optional second image model input. BabyChain supplies generation_input_file from the first image output.',
+        'Optional second image model input. Use Semantic Lady generation_* fields while BabyChain supplies the previous image output.',
     },
     {
       name: 'video_model_input',
       type: 'object',
       required: false,
-      description:
-        'Video model input. BabySea mode uses generation_* fields; BYOK mode forwards raw provider fields.',
+      description: 'Video model input. Use Semantic Lady generation_* fields.',
     },
     {
       name: 'modify_model_input',
       type: 'object',
       required: false,
       description:
-        'Optional video-to-video model input. BYOK mode forwards raw provider fields while BabyChain supplies the previous video output.',
+        'Optional video-to-video model input. Use Semantic Lady generation_* fields while BabyChain supplies the previous video output.',
     },
   ],
   steps: [
@@ -370,6 +343,8 @@ export function assertChainInputRequirements(
     assertByokGenerationFieldsForSteps(input);
   }
 
+  rejectCallerHandoffInputs(input);
+
   if (hasInitialImageInput(input, { byokMode })) {
     requireImageInputCapableModel(input);
   } else {
@@ -392,8 +367,7 @@ const STEP_MODEL_INPUT_PAIRS = [
 /**
  * BYOK mode treats Semantic Lady as the `generation_*` schema core: every
  * unified field present in a step model input must exist in the model's
- * Semantic Lady schema and satisfy its value constraints. Raw provider
- * fields are forwarded unvalidated as before.
+ * Semantic Lady schema and satisfy its value constraints.
  */
 function assertByokGenerationFieldsForSteps(input: ChainInput) {
   for (const [modelKey, paramsKey] of STEP_MODEL_INPUT_PAIRS) {
@@ -468,12 +442,8 @@ function requireModifyHandoffCompatibility(input: ChainInput) {
     return;
   }
 
-  const videoModel = MODEL_CATALOG.find(
-    (entry) => entry.modelIdentifier === videoModelIdentifier,
-  );
-  const modifyModel = MODEL_CATALOG.find(
-    (entry) => entry.modelIdentifier === modifyModelIdentifier,
-  );
+  const videoModel = getSemanticModel(videoModelIdentifier);
+  const modifyModel = getSemanticModel(modifyModelIdentifier);
 
   if (!videoModel || !modifyModel) {
     return;
@@ -501,7 +471,7 @@ function requireImageInputCapableModel(input: ChainInput) {
 
   throw new BabyChainError(
     'invalid_chain_input',
-    'The selected image_model does not accept image input. Choose an image-input-capable image model or remove image_model_input.generation_input_file.',
+    'The selected image_model does not accept image input. Choose an image-input-capable image model or remove image_model_input.generation_input_image_file.',
     400,
     { path: ['image_model'] },
   );
@@ -516,7 +486,7 @@ function requireTextToImageModel(input: ChainInput) {
 
   throw new BabyChainError(
     'invalid_chain_input',
-    'The selected image_model only supports the image-to-image workflow. Provide a starting image in image_model_input.generation_input_file or choose a text-to-image model.',
+    'The selected image_model only supports the image-to-image workflow. Provide a starting image in image_model_input.generation_input_image_file or choose a text-to-image model.',
     400,
     { path: ['image_model'] },
   );
@@ -549,12 +519,6 @@ function hasInitialImageInput(
 
   if (!paramsRecord) {
     return false;
-  }
-
-  const inputFile = paramsRecord.generation_input_file;
-
-  if (Array.isArray(inputFile) && inputFile.length > 0) {
-    return true;
   }
 
   const inputImageFile = paramsRecord.generation_input_image_file;
@@ -837,7 +801,35 @@ function requireVideoDuration(input: Record<string, unknown>) {
 }
 
 function hasRawProviderImageInput(params: Record<string, unknown>) {
-  return findProviderImageInputParamPath(params) !== null;
+  return findProviderChainWiredMediaParamPath(params) !== null;
+}
+
+function rejectCallerHandoffInputs(input: ChainInput) {
+  for (const paramsKey of [
+    'image_model_input',
+    'refine_model_input',
+    'video_model_input',
+    'modify_model_input',
+  ] as const) {
+    const params = input[paramsKey];
+
+    if (!params || typeof params !== 'object' || Array.isArray(params)) {
+      continue;
+    }
+
+    const value = (params as Record<string, unknown>).generation_input_file;
+
+    if (!hasProvidedInputValue(value)) {
+      continue;
+    }
+
+    throw new BabyChainError(
+      'invalid_chain_input',
+      'generation_input_file is reserved for BabyChain step handoffs. Use generation_input_image_file for caller-supplied image input on image_model_input.',
+      400,
+      { path: [paramsKey, 'generation_input_file'] },
+    );
+  }
 }
 
 function rejectChainWiredImageInputs(input: ChainInput) {
@@ -849,7 +841,7 @@ function rejectChainWiredImageInputs(input: ChainInput) {
     const params = input[paramsKey];
     const path =
       findProviderChainWiredOverrideParamPath(params) ??
-      findProviderImageInputParamPath(params);
+      findProviderChainWiredMediaParamPath(params);
 
     if (!path) {
       continue;
@@ -910,7 +902,7 @@ function findProviderChainWiredOverrideParamPath(
   return null;
 }
 
-function findProviderImageInputParamPath(
+function findProviderChainWiredMediaParamPath(
   value: unknown,
   path: string[] = [],
 ): string[] | null {
@@ -920,7 +912,7 @@ function findProviderImageInputParamPath(
 
   if (Array.isArray(value)) {
     for (const [index, item] of value.entries()) {
-      const nestedPath = findProviderImageInputParamPath(item, [
+      const nestedPath = findProviderChainWiredMediaParamPath(item, [
         ...path,
         String(index),
       ]);
@@ -935,13 +927,13 @@ function findProviderImageInputParamPath(
 
   for (const [key, entryValue] of Object.entries(value)) {
     if (
-      isProviderImageInputParamKey(key) &&
+      isProviderChainWiredMediaParamKey(key) &&
       hasProvidedInputValue(entryValue)
     ) {
       return [...path, key];
     }
 
-    const nestedPath = findProviderImageInputParamPath(entryValue, [
+    const nestedPath = findProviderChainWiredMediaParamPath(entryValue, [
       ...path,
       key,
     ]);
@@ -954,9 +946,10 @@ function findProviderImageInputParamPath(
   return null;
 }
 
-function isProviderImageInputParamKey(key: string) {
+function isProviderChainWiredMediaParamKey(key: string) {
   return (
-    PROVIDER_IMAGE_INPUT_PARAM_KEYS.has(key) ||
+    isChainWiredSemanticFieldName(key) ||
+    PROVIDER_CHAIN_WIRED_MEDIA_PARAM_KEYS.has(key) ||
     /^input_image(?:_\d+)?$/.test(key)
   );
 }
@@ -981,12 +974,7 @@ function hasProvidedInputValue(value: unknown) {
   return true;
 }
 
-const PROVIDER_IMAGE_INPUT_PARAM_KEYS = new Set([
-  'generation_input_file',
-  'generation_input_file_last_content',
-  'generation_input_image_file',
-  'generation_input_image_file_last_content',
-  'generation_input_video_file',
+const PROVIDER_CHAIN_WIRED_MEDIA_PARAM_KEYS = new Set([
   'character',
   'fileData',
   'image',
@@ -1088,7 +1076,7 @@ function videoEstimate(input: ChainInput, paramsKey: string) {
   return compactRecord({
     duration: optionalNumber(params.generation_duration),
     resolution: optionalString(params.generation_resolution),
-    audio: optionalBoolean(params.generation_generate_audio),
+    audio: optionalBoolean(params.generation_audio),
   });
 }
 

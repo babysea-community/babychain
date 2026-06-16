@@ -5,7 +5,7 @@ import {
   type ModelCatalogEntry,
   type ModelProvider,
 } from './model-catalog';
-import { getSemanticModel, hasSemanticModel } from './semantic-schema';
+import { getSemanticModel } from './semantic-schema';
 
 export type ModelName = (typeof MODEL_CATALOG)[number]['modelIdentifier'];
 export type ModelKey = (typeof MODEL_CATALOG)[number]['key'];
@@ -99,8 +99,7 @@ export function listModelSchemaSummaries() {
       kind: model.kind,
       raw_id: model.rawId,
       modes: getModelModes(model),
-      has_constraints: Boolean(model.babychainConstraints),
-      has_byok_schema: hasSemanticModel(model.modelIdentifier),
+      has_byok_schema: true,
       schema_url: `/api/v1/models/${model.modelIdentifier}`,
     };
   });
@@ -122,18 +121,15 @@ export function getModelSchema(modelIdentifier: string) {
     kind: model.kind,
     raw_id: model.rawId,
     modes: getModelModes(model),
-    raw_schema: model.rawSchema,
     ...(semanticModel
       ? {
           byok_schema: {
             source: 'semantic-lady' as const,
+            provider_model: semanticModel.providerModel,
             workflows: semanticModel.workflows,
             fields: semanticModel.schema,
           },
         }
-      : {}),
-    ...(model.babychainConstraints
-      ? { babychain_constraints: model.babychainConstraints }
       : {}),
   };
 }

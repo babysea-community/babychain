@@ -158,7 +158,7 @@ describe('API response presentation', () => {
     expect(body).not.toHaveProperty('timestamp');
   });
 
-  it('returns model raw schema summaries separately from chains', async () => {
+  it('returns Semantic Lady model summaries separately from chains', async () => {
     const response = await listModels();
     const body = await response.json();
 
@@ -173,15 +173,15 @@ describe('API response presentation', () => {
         object: 'model',
         id: 'bfl/flux-2-max',
         provider: 'black-forest-labs',
-        has_constraints: false,
         raw_id: 'flux-2-max',
+        has_byok_schema: true,
         schema_url: '/api/v1/models/bfl/flux-2-max',
       }),
     );
     expect(body.data).toContainEqual(
       expect.objectContaining({
         id: 'bytedance/seedream-4.5',
-        has_constraints: true,
+        has_byok_schema: true,
       }),
     );
     expect(body.data).toContainEqual(
@@ -195,7 +195,7 @@ describe('API response presentation', () => {
       expect.objectContaining({
         id: 'qwen/image',
         provider: 'alibaba-cloud',
-        raw_id: 'qwen-image-plus',
+        raw_id: 'qwen-image',
         modes: ['babysea', 'byok'],
       }),
     );
@@ -233,7 +233,7 @@ describe('API response presentation', () => {
     );
   });
 
-  it('returns one provider raw schema by model identifier path', async () => {
+  it('returns Semantic Lady schema by model identifier path', async () => {
     const response = await getModelSchema(
       new Request('https://babychain.test/api/v1/models/bfl/flux-2-max'),
       { params: { model: ['bfl', 'flux-2-max'] } },
@@ -246,16 +246,23 @@ describe('API response presentation', () => {
       id: 'bfl/flux-2-max',
       provider: 'black-forest-labs',
       raw_id: 'flux-2-max',
-      raw_schema: {
-        provider: 'black-forest-labs',
-        method: 'POST',
-        endpoint: 'https://api.bfl.ai/v1/flux-2-max',
+      byok_schema: {
+        source: 'semantic-lady',
+        provider_model: 'flux-2-max',
+        workflows: expect.arrayContaining(['image-to-image', 'text-to-image']),
       },
     });
-    expect(body.raw_schema.request.properties).toHaveProperty('input_image_8');
+    expect(body.byok_schema.fields).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ name: 'generation_prompt' }),
+        expect.objectContaining({ name: 'generation_width' }),
+        expect.objectContaining({ name: 'generation_height' }),
+        expect.objectContaining({ name: 'generation_input_image_file' }),
+      ]),
+    );
   });
 
-  it('returns Alibaba Cloud raw schema under family-style model identifiers', async () => {
+  it('returns Semantic Lady Alibaba Cloud schemas under family-style model identifiers', async () => {
     const response = await getModelSchema(
       new Request('https://babychain.test/api/v1/models/qwen/image-2-pro'),
       { params: { model: ['qwen', 'image-2-pro'] } },
@@ -269,15 +276,16 @@ describe('API response presentation', () => {
       provider: 'alibaba-cloud',
       raw_id: 'qwen-image-2.0-pro',
       modes: ['byok'],
-      raw_schema: {
-        provider: 'alibaba-cloud',
-        method: 'POST',
-        endpoint:
-          'https://dashscope-intl.aliyuncs.com/api/v1/services/aigc/multimodal-generation/generation',
+      byok_schema: {
+        source: 'semantic-lady',
+        provider_model: 'qwen-image-2.0-pro',
       },
     });
-    expect(body.raw_schema.request.properties.input.properties).toHaveProperty(
-      'messages',
+    expect(body.byok_schema.fields).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ name: 'generation_prompt' }),
+        expect.objectContaining({ name: 'generation_size' }),
+      ]),
     );
 
     const happyHorseResponse = await getModelSchema(
@@ -287,10 +295,15 @@ describe('API response presentation', () => {
     const happyHorseBody = await happyHorseResponse.json();
 
     expect(happyHorseResponse.status).toBe(200);
-    expect(
-      happyHorseBody.raw_schema.request.properties.parameters.properties
-        .duration,
-    ).toMatchObject({ minimum: 3, maximum: 15, default: 5 });
+    expect(happyHorseBody.byok_schema.provider_model).toBe(
+      'happyhorse-1.0-i2v',
+    );
+    expect(happyHorseBody.byok_schema.fields).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ name: 'generation_duration' }),
+        expect.objectContaining({ name: 'generation_input_image_file' }),
+      ]),
+    );
 
     const wanReferenceResponse = await getModelSchema(
       new Request('https://babychain.test/api/v1/models/wan/2.7-r2v'),
@@ -299,13 +312,16 @@ describe('API response presentation', () => {
     const wanReferenceBody = await wanReferenceResponse.json();
 
     expect(wanReferenceResponse.status).toBe(200);
-    expect(
-      wanReferenceBody.raw_schema.request.properties.parameters.properties
-        .duration,
-    ).toMatchObject({ minimum: 3, maximum: 15, default: 5 });
+    expect(wanReferenceBody.byok_schema.provider_model).toBe('wan2.7-r2v');
+    expect(wanReferenceBody.byok_schema.fields).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ name: 'generation_duration' }),
+        expect.objectContaining({ name: 'generation_input_image_file' }),
+      ]),
+    );
   });
 
-  it('returns Runway image-to-video raw schema matching the current API docs', async () => {
+  it('returns Runway image-to-video Semantic Lady schema', async () => {
     const response = await getModelSchema(
       new Request('https://babychain.test/api/v1/models/runway/gen-4-turbo'),
       { params: { model: ['runway', 'gen-4-turbo'] } },
@@ -319,30 +335,22 @@ describe('API response presentation', () => {
       provider: 'runway',
       raw_id: 'gen4_turbo',
       modes: ['byok'],
-      raw_schema: {
-        provider: 'runway',
-        method: 'POST',
-        endpoint: 'https://api.dev.runwayml.com/v1/image_to_video',
+      byok_schema: {
+        source: 'semantic-lady',
+        provider_model: 'gen4_turbo',
       },
     });
-    expect(body.raw_schema.request.required).toEqual([
-      'model',
-      'promptImage',
-      'promptText',
-      'ratio',
-      'duration',
-    ]);
-    expect(body.raw_schema.request.properties.duration).toMatchObject({
-      type: 'integer',
-      minimum: 2,
-      maximum: 10,
-    });
-    expect(body.raw_schema.request.properties.promptImage.oneOf).toHaveLength(
-      2,
+    expect(body.byok_schema.fields).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ name: 'generation_prompt' }),
+        expect.objectContaining({ name: 'generation_aspect_ratio' }),
+        expect.objectContaining({ name: 'generation_duration' }),
+        expect.objectContaining({ name: 'generation_input_image_file' }),
+      ]),
     );
   });
 
-  it('returns GPT Image 2 raw schema', async () => {
+  it('returns GPT Image 2 Semantic Lady schema', async () => {
     const response = await getModelSchema(
       new Request('https://babychain.test/api/v1/models/gpt/image-2'),
       { params: { model: ['gpt', 'image-2'] } },
@@ -356,34 +364,22 @@ describe('API response presentation', () => {
       provider: 'openai',
       raw_id: 'gpt-image-2',
       modes: ['byok'],
-      raw_schema: {
-        provider: 'openai',
-        method: 'POST',
-        endpoint: 'https://api.openai.com/v1/images/generations',
+      byok_schema: {
+        source: 'semantic-lady',
+        provider_model: 'gpt-image-2',
       },
     });
-    expect(body.raw_schema.request.anyOf).toHaveLength(2);
-    expect(body.raw_schema.request.anyOf[0].required).toEqual([
-      'model',
-      'prompt',
-    ]);
-    expect(body.raw_schema.request.anyOf[1].required).toEqual([
-      'model',
-      'prompt',
-      'image',
-    ]);
-    expect(body.raw_schema.request.anyOf[0].properties.model.enum).toEqual([
-      'gpt-image-2',
-    ]);
-    expect(
-      body.raw_schema.request.anyOf[1].properties.output_format.enum,
-    ).toEqual(['png', 'jpeg', 'webp']);
-    expect(body.raw_schema.request.anyOf[1].properties).toHaveProperty(
-      'input_fidelity',
+    expect(body.byok_schema.fields).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ name: 'generation_prompt' }),
+        expect.objectContaining({ name: 'generation_size' }),
+        expect.objectContaining({ name: 'generation_output_format' }),
+        expect.objectContaining({ name: 'generation_input_image_file' }),
+      ]),
     );
   });
 
-  it('returns Google generative media raw schemas', async () => {
+  it('returns Google generative media Semantic Lady schemas', async () => {
     const imageResponse = await getModelSchema(
       new Request('https://babychain.test/api/v1/models/google/nano-banana-2'),
       { params: { model: ['google', 'nano-banana-2'] } },
@@ -396,21 +392,19 @@ describe('API response presentation', () => {
       id: 'google/nano-banana-2',
       provider: 'google',
       raw_id: 'gemini-3.1-flash-image',
-      raw_schema: {
-        provider: 'google',
-        endpoint:
-          'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-image:generateContent',
+      byok_schema: {
+        source: 'semantic-lady',
+        provider_model: 'gemini-3.1-flash-image',
       },
     });
 
-    expect(
-      imageBody.raw_schema.request.properties.generationConfig.properties
-        .imageConfig.properties.aspectRatio.enum,
-    ).toContain('1:8');
-    expect(
-      imageBody.raw_schema.request.properties.generationConfig.properties
-        .imageConfig.properties.imageSize.enum,
-    ).toEqual(['0.5K', '1K', '2K', '4K']);
+    expect(imageBody.byok_schema.fields).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ name: 'generation_aspect_ratio' }),
+        expect.objectContaining({ name: 'generation_resolution' }),
+        expect.objectContaining({ name: 'generation_input_image_file' }),
+      ]),
+    );
     const videoResponse = await getModelSchema(
       new Request('https://babychain.test/api/v1/models/google/veo-3.1'),
       { params: { model: ['google', 'veo-3.1'] } },
@@ -423,10 +417,9 @@ describe('API response presentation', () => {
       id: 'google/veo-3.1',
       provider: 'google',
       raw_id: 'veo-3.1-generate-preview',
-      raw_schema: {
-        provider: 'google',
-        endpoint:
-          'https://generativelanguage.googleapis.com/v1beta/models/veo-3.1-generate-preview:predictLongRunning',
+      byok_schema: {
+        source: 'semantic-lady',
+        provider_model: 'veo-3.1-generate-preview',
       },
     });
 
@@ -442,34 +435,18 @@ describe('API response presentation', () => {
       id: 'google/veo-3.1-fast',
       provider: 'google',
       raw_id: 'veo-3.1-fast-generate-preview',
-      raw_schema: {
-        provider: 'google',
-        endpoint:
-          'https://generativelanguage.googleapis.com/v1beta/models/veo-3.1-fast-generate-preview:predictLongRunning',
+      byok_schema: {
+        source: 'semantic-lady',
+        provider_model: 'veo-3.1-fast-generate-preview',
       },
     });
-    expect(
-      fastVideoBody.raw_schema.request.properties.parameters.properties
-        .durationSeconds,
-    ).toMatchObject({ default: 8, enum: [4, 6, 8], type: 'integer' });
-    expect(
-      fastVideoBody.raw_schema.request.properties.parameters.properties
-        .resolution.enum,
-    ).toEqual(['720p', '1080p', '4K']);
-    expect(
-      fastVideoBody.raw_schema.request.properties.parameters.properties,
-    ).not.toHaveProperty('numberOfVideos');
-    expect(
-      fastVideoBody.raw_schema.request.properties.instances.items.properties
-        .image,
-    ).toMatchObject({
-      required: ['bytesBase64Encoded', 'mimeType'],
-      properties: {
-        bytesBase64Encoded: { type: 'string' },
-        mimeType: { type: 'string' },
-      },
-      type: 'object',
-    });
+    expect(fastVideoBody.byok_schema.fields).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ name: 'generation_duration' }),
+        expect.objectContaining({ name: 'generation_resolution' }),
+        expect.objectContaining({ name: 'generation_input_image_file' }),
+      ]),
+    );
 
     const liteVideoResponse = await getModelSchema(
       new Request('https://babychain.test/api/v1/models/google/veo-3.1-lite'),
@@ -478,51 +455,17 @@ describe('API response presentation', () => {
     const liteVideoBody = await liteVideoResponse.json();
 
     expect(liteVideoResponse.status).toBe(200);
-    expect(
-      liteVideoBody.raw_schema.request.properties.parameters.properties
-        .resolution.enum,
-    ).toEqual(['720p', '1080p']);
-    expect(
-      liteVideoBody.raw_schema.request.properties.instances.items.properties,
-    ).not.toHaveProperty('video');
-    expect(
-      liteVideoBody.raw_schema.request.properties.instances.items.properties,
-    ).not.toHaveProperty('referenceImages');
-  });
-
-  it('returns raw schema plus BabyChain constraints for URL-only chaining', async () => {
-    const response = await getModelSchema(
-      new Request(
-        'https://babychain.test/api/v1/models/bytedance/seedream-4.5',
-      ),
-      { params: { model: ['bytedance', 'seedream-4.5'] } },
+    expect(liteVideoBody.byok_schema.fields).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ name: 'generation_duration' }),
+        expect.objectContaining({ name: 'generation_resolution' }),
+      ]),
     );
-    const body = await response.json();
-
-    expect(response.status).toBe(200);
-    expect(body.raw_schema.request.properties.response_format.enum).toEqual([
-      'url',
-      'b64_json',
-    ]);
-    expect(body.babychain_constraints.response_format).toMatchObject({
-      const: 'url',
-    });
-  });
-
-  it('returns BabyChain constraints for provider callbacks on BytePlus video models', async () => {
-    const response = await getModelSchema(
-      new Request(
-        'https://babychain.test/api/v1/models/bytedance/seedance-1.5-pro',
-      ),
-      { params: { model: ['bytedance', 'seedance-1.5-pro'] } },
+    expect(liteVideoBody.byok_schema.fields).not.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ name: 'generation_input_video_file' }),
+      ]),
     );
-    const body = await response.json();
-
-    expect(response.status).toBe(200);
-    expect(body.raw_schema.request.properties).toHaveProperty('callback_url');
-    expect(body.babychain_constraints.callback_url).toMatchObject({
-      not_supported: true,
-    });
   });
 });
 

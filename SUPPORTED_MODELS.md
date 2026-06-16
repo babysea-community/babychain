@@ -1,12 +1,12 @@
 # BabyChain Supported Models
 
-BabyChain is not a local model manager. This file is the public model catalog for the self-hosted deployment: which BabyChain model names can be selected on the canvas and in chain inputs, which provider mode can execute them, and where the raw provider schema comes from.
+BabyChain is not a local model manager. This file is the public model catalog for the self-hosted deployment: which BabyChain model names can be selected on the canvas and in chain inputs, which provider mode can execute them, and which Semantic Lady provider model id each one routes to.
 
 ## Use cases
 
 BabyChain runs workflow-driven media chains for applications that need an HTTP API instead of an interactive workflow UI. The built-in `chain` template starts with an image model, can pass through a second image model, runs an image-to-video model, and can optionally pass the video into a video-to-video modify model.
 
-The catalog can include provider models that are exposed for raw schema discovery and direct routing even when they are not the recommended final step for the built-in `chain` template. Chain compatibility is enforced by the template layer at run creation time.
+The catalog can include provider models that are exposed for direct routing even when they are not the recommended final step for the built-in `chain` template. Chain compatibility is enforced by the template layer at run creation time.
 
 | Model workflows                                                           |
 | :------------------------------------------------------------------------ |
@@ -92,16 +92,16 @@ Caller applications authenticate to BabyChain with BabyChain API keys in both mo
 
 ## Model schema
 
-BabyChain exposes provider-native model schemas through the API:
+BabyChain exposes Semantic Lady model metadata through the API:
 
-| Endpoint                       | Purpose                                         |
-| :----------------------------- | :---------------------------------------------- |
-| `GET /api/v1/models`           | List supported models and raw schema URLs       |
-| `GET /api/v1/models/{modelId}` | Return one provider raw request/response schema |
+| Endpoint                       | Purpose                                              |
+| :----------------------------- | :--------------------------------------------------- |
+| `GET /api/v1/models`           | List supported models and schema URLs                |
+| `GET /api/v1/models/{modelId}` | Return one Semantic Lady `generation_*` model schema |
 
 Example model schema URL: `GET /api/v1/models/bfl/flux-2-max`.
 
-BabySea mode keeps using BabySea's normalized `generation_*` schema. BYOK mode passes provider-native fields through. Some models also expose `babychain_constraints` when the chain engine needs one extra rule on top of the provider raw schema, such as requiring BytePlus image outputs to use URL responses for downstream steps.
+BabySea mode keeps using BabySea's normalized `generation_*` schema. BYOK mode uses the Semantic Lady `generation_*` schema returned by these routes. BabyChain does not publish a separate provider request schema catalog.
 
 | Inference/Execution | Type  | Documentation                                                                                                                            |
 | :------------------ | :---- | :--------------------------------------------------------------------------------------------------------------------------------------- |

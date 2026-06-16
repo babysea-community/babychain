@@ -7,6 +7,11 @@ import {
   siteNavigation,
 } from '@/app/_lib/homepage-content';
 import { canModifyVideoOutput } from '@/lib/chains/catalog';
+import {
+  CHAIN_STEP_ROLES,
+  chainFieldModeForRole,
+  modelSchemaCacheKey,
+} from '@/lib/models/chain-schema';
 import { formatPublicModelName } from '@/lib/models/display';
 import { listModelCatalog } from '@/lib/models/model-library';
 import {
@@ -81,10 +86,14 @@ export default function TemplatesPage() {
 
 function createModelRequestSchemas() {
   return Object.fromEntries(
-    listModelCatalog().map((model) => [
-      model.modelIdentifier,
-      createSemanticRequestSchema(model.modelIdentifier),
-    ]),
+    listModelCatalog().flatMap((model) =>
+      CHAIN_STEP_ROLES.map((role) => [
+        modelSchemaCacheKey(role, model.modelIdentifier),
+        createSemanticRequestSchema(model.modelIdentifier, {
+          chainFieldMode: chainFieldModeForRole(role),
+        }),
+      ]),
+    ),
   );
 }
 

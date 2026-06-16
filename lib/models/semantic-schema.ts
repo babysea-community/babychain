@@ -7,6 +7,10 @@ import {
   type SemanticLadyModel,
 } from 'semantic-lady';
 
+import {
+  filterChainSchemaFields,
+  type SemanticChainFieldMode,
+} from '@/lib/models/chain-schema';
 import { BabyChainError } from '@/lib/utils/errors';
 
 /**
@@ -15,17 +19,9 @@ import { BabyChainError } from '@/lib/utils/errors';
  * catalog defines which unified fields each of the 57 models accepts and the
  * value constraints for those fields.
  *
- * BabyChain's chain dialect predates Semantic Lady's split media fields, so
- * two aliases are translated before validation:
- *
- *   - `generation_input_file`              → `generation_input_image_file`
- *     (or `generation_input_video_file` when the model only consumes video)
- *   - `generation_input_file_last_content` → `generation_input_image_file_last_content`
- *
- * Raw provider fields (non-`generation_*` keys) are not validated here; BYOK
- * callers may always speak the raw provider dialect. Only the unified
- * `generation_*` vocabulary is checked so typos and invalid values fail fast
- * at run creation instead of surfacing as opaque provider 4xx errors.
+ * The unified `generation_*` vocabulary is checked so typos and invalid
+ * values fail fast at run creation instead of surfacing as opaque provider
+ * 4xx errors.
  */
 
 /**
@@ -34,17 +30,14 @@ import { BabyChainError } from '@/lib/utils/errors';
  *
  *   - `generation_provider_order` is a BabySea-mode concept that BYOK
  *     adapters skip.
- *   - `generation_config` is the documented raw-config escape consumed by
- *     the Google adapter (merged into Gemini `generationConfig`).
  */
-const CHAIN_LEVEL_GENERATION_KEYS = new Set([
-  'generation_config',
-  'generation_provider_order',
-]);
+const CHAIN_LEVEL_GENERATION_KEYS = new Set(['generation_provider_order']);
 
-const RATIO_VALUE_PATTERN = /^\d{2,5}[:x*]\d{2,5}$/;
-const SIZE_VALUE_PATTERN = /^(?:\d{2,5}[x*]\d{2,5}|\d+(?:\.\d+)?K)$/i;
 const UNKNOWN_KEY_DISPLAY_LIMIT = 100;
+
+export type SemanticRequestSchemaOptions = {
+  chainFieldMode?: SemanticChainFieldMode;
+};
 
 const SEMANTIC_MODEL_NAMES: ReadonlySet<string> = new Set(
   listSemanticLadyModelNames(),
@@ -62,16 +55,24 @@ export function getSemanticModel(
 
 export function getSemanticModelSchemaFields(
   modelIdentifier: string,
+  options: SemanticRequestSchemaOptions = {},
 ): readonly SemanticLadyField[] | null {
-  return getSemanticModel(modelIdentifier)?.schema ?? null;
+  const fields = getSemanticModel(modelIdentifier)?.schema ?? null;
+
+  if (!fields || options.chainFieldMode !== 'downstream') {
+    return fields;
+  }
+
+  return filterChainSchemaFields(fields, 'video');
 }
 
 export type SemanticJsonObject = Record<string, unknown>;
 
 export function createSemanticRequestSchema(
   modelIdentifier: string,
+  options: SemanticRequestSchemaOptions = {},
 ): SemanticJsonObject {
-  const fields = getSemanticModelSchemaFields(modelIdentifier) ?? [];
+  const fields = getSemanticModelSchemaFields(modelIdentifier, options) ?? [];
   const required = fields
     .filter((field) => field.required)
     .map((field) => field.name);
@@ -244,8 +245,7 @@ export function findByokGenerationFieldIssue(
       continue;
     }
 
-    const fieldName = resolveSemanticFieldName(key, fieldByName);
-    const field = fieldName ? fieldByName.get(fieldName) : undefined;
+    const field = fieldByName.get(key);
 
     if (!field) {
       return {
@@ -278,33 +278,6 @@ export function assertByokGenerationFields(
   throw new BabyChainError('invalid_chain_input', issue.message, 400, {
     path: [paramsKey, ...issue.path],
   });
-}
-
-function resolveSemanticFieldName(
-  key: string,
-  fieldByName: ReadonlyMap<string, SemanticLadyField>,
-): string | null {
-  if (fieldByName.has(key)) {
-    return key;
-  }
-
-  if (key === 'generation_input_file') {
-    if (fieldByName.has('generation_input_image_file')) {
-      return 'generation_input_image_file';
-    }
-
-    return fieldByName.has('generation_input_video_file')
-      ? 'generation_input_video_file'
-      : null;
-  }
-
-  if (key === 'generation_input_file_last_content') {
-    return fieldByName.has('generation_input_image_file_last_content')
-      ? 'generation_input_image_file_last_content'
-      : null;
-  }
-
-  return null;
 }
 
 function findFieldValueIssue(
@@ -344,9 +317,6 @@ function findFieldValueIssue(
       return null;
     case 'string-array':
     case 'url-array':
-      if (typeof value === 'string') {
-        return null;
-      }
       if (
         !Array.isArray(value) ||
         !value.every((item) => typeof item === 'string' && item.length > 0)
@@ -379,16 +349,6 @@ function enumIssue(
   if (
     allowed.some((candidate) => String(candidate).toLowerCase() === normalized)
   ) {
-    return null;
-  }
-
-  // Aspect ratios and resolutions accept provider-native pixel values as an
-  // escape hatch (e.g. Runway `1280:720`, DashScope `1024*1024`).
-  if (key === 'generation_ratio' && RATIO_VALUE_PATTERN.test(value)) {
-    return null;
-  }
-
-  if (key === 'generation_resolution' && SIZE_VALUE_PATTERN.test(value)) {
     return null;
   }
 
@@ -445,7 +405,7 @@ function unknownFieldMessage(
   return (
     `Unknown generation field "${displayKey}" for model "${modelIdentifier}". ` +
     `Supported generation fields: ${supported}. ` +
-    'Use raw provider field names (without the generation_ prefix) to pass provider-specific parameters.'
+    'Use the Semantic Lady schema returned by GET /api/v1/models/{modelId}.'
   );
 }
 

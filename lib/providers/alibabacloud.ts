@@ -18,7 +18,7 @@ import type {
 /**
  * Alibaba Cloud Model Studio / DashScope — direct BYOK adapter.
  *
- * BabyChain supports the raw DashScope HTTP shapes from the supplied schema:
+ * BabyChain supports DashScope's direct HTTP APIs:
  * synchronous multimodal image calls and asynchronous image/video task calls.
  * Auth uses `Authorization: Bearer <DASHSCOPE_API_KEY>`.
  */
@@ -159,6 +159,7 @@ export function createAlibabaCloudProvider(
         model,
         params: input.params as Record<string, unknown>,
         route,
+        stepKey: input.stepKey,
       });
       const url = `${baseUrl}${route.path}`;
       const headers: Record<string, string> = {
@@ -346,9 +347,10 @@ function buildSubmitBody(args: {
   model: string;
   params: Record<string, unknown>;
   route: AlibabaCloudRoute;
+  stepKey?: string;
 }): JsonObject {
-  const input = readJsonObject(args.params.input);
-  const parameters = readJsonObject(args.params.parameters);
+  const input: JsonObject = {};
+  const parameters: JsonObject = {};
   const generationPrompt = readNonEmptyString(args.params.generation_prompt);
   const handoffFiles = collectStringValues(args.params.generation_input_file);
   const imageFiles = collectStringValues(
@@ -361,12 +363,7 @@ function buildSubmitBody(args: {
     args.params.generation_input_audio_file,
   );
   const inputFiles = [...handoffFiles, ...imageFiles, ...videoFiles];
-  const lastFrameFiles = [
-    ...collectStringValues(
-      args.params.generation_input_image_file_last_content,
-    ),
-    ...collectStringValues(args.params.generation_input_file_last_content),
-  ];
+  const lastFrameFiles = collectStringValues(args.params.generation_last_frame);
   const negativePrompt = readNonEmptyString(
     args.params.generation_negative_prompt,
   );
@@ -389,6 +386,7 @@ function buildSubmitBody(args: {
       negativePrompt,
       prompt: generationPrompt,
       referenceVoice,
+      stepKey: args.stepKey,
       videoFiles,
     });
   } else if (args.route.protocol === 'animate_image_to_video') {
@@ -482,6 +480,7 @@ function mergeVideoInput(args: {
   negativePrompt: string | null;
   prompt: string | null;
   referenceVoice: string | null;
+  stepKey?: string;
   videoFiles: string[];
 }) {
   if (args.prompt && args.input.prompt === undefined) {
@@ -506,7 +505,7 @@ function mergeVideoInput(args: {
 
   const media: JsonObject[] = [];
 
-  if (isVideoEditModel(args.model)) {
+  if (isVideoEditModel(args.model) && args.stepKey !== 'video') {
     const videoFile = args.videoFiles[0] ?? args.handoffFiles[0];
     const referenceFiles = [
       ...args.imageFiles,
@@ -609,6 +608,12 @@ function mergeCommonParameters(args: {
   route: AlibabaCloudRoute;
 }) {
   if (args.route.protocol === 'animate_image_to_video') {
+    setIfMissing(
+      args.parameters,
+      'check_image',
+      args.params.generation_check_image,
+    );
+    setIfMissing(args.parameters, 'mode', args.params.generation_mode);
     pruneUnsupportedParameters(args.parameters, ANIMATE_PARAMETER_KEYS);
     return;
   }
@@ -637,31 +642,31 @@ function mergeCommonParameters(args: {
     args.parameters,
     videoParameterKeys,
     'prompt_extend',
-    args.params.prompt_extend ??
-      enhancePromptToBoolean(args.params.generation_enhance_prompt),
+    args.params.generation_prompt_extend,
   );
   setIfSupported(
     args.parameters,
     videoParameterKeys,
     'watermark',
-    args.params.watermark ?? args.params.generation_watermark,
+    args.params.generation_watermark,
   );
   setIfSupported(
     args.parameters,
     videoParameterKeys,
     'seed',
-    args.params.seed ?? args.params.generation_seed,
+    args.params.generation_seed,
   );
   setIfSupported(
     args.parameters,
     videoParameterKeys,
     'audio_setting',
-    args.params.audio_setting ?? args.params.generation_audio_setting,
+    args.params.generation_audio,
   );
+  if (args.params.generation_mode !== undefined) {
+    args.parameters.mode = args.params.generation_mode as JsonValue;
+  }
 
-  const outputSize =
-    readNonEmptyString(args.params.generation_size) ??
-    readNonEmptyString(args.params.size);
+  const outputSize = readNonEmptyString(args.params.generation_size);
   if (
     args.route.protocol !== 'video' &&
     outputSize &&
@@ -670,7 +675,7 @@ function mergeCommonParameters(args: {
     args.parameters.size = normalizeSize(outputSize);
   }
 
-  const ratio = readNonEmptyString(args.params.generation_ratio);
+  const ratio = readNonEmptyString(args.params.generation_aspect_ratio);
   const resolution = readNonEmptyString(args.params.generation_resolution);
 
   if (args.route.protocol === 'video') {
@@ -683,25 +688,6 @@ function mergeCommonParameters(args: {
     setIfSupported(args.parameters, videoParameterKeys, 'ratio', ratio);
     return;
   }
-
-  if (ratio && args.parameters.size === undefined) {
-    const size = mapImageRatioToSize(args.model, ratio);
-    if (size) {
-      args.parameters.size = size;
-    }
-  }
-}
-
-function enhancePromptToBoolean(value: unknown) {
-  if (value === undefined) {
-    return undefined;
-  }
-
-  if (typeof value === 'boolean') {
-    return value;
-  }
-
-  return value !== 'off';
 }
 
 function pruneUnsupportedParameters(
@@ -968,14 +954,6 @@ function assertModelId(value: string) {
   }
 }
 
-function readJsonObject(value: unknown): JsonObject {
-  if (!isJsonObject(value)) {
-    return {};
-  }
-
-  return { ...value };
-}
-
 function compactJsonObject(value: Record<string, unknown>): JsonObject {
   return Object.fromEntries(
     Object.entries(value).filter(([, entryValue]) => entryValue !== undefined),
@@ -1030,91 +1008,6 @@ function normalizeResolution(value: string | null) {
 
 function normalizeSize(value: string) {
   return value.replace(/x/i, '*');
-}
-
-// qwen-image / qwen-image-plus accept ONLY these exact sizes (DashScope
-// rejects everything else with "The size does not match the allowed size
-// 1664*928,1472*1104,1328*1328,1104*1472,928*1664").
-const QWEN_SNAPPED_SIZES: Record<string, string> = {
-  '1:1': '1328*1328',
-  '4:3': '1472*1104',
-  '3:4': '1104*1472',
-  '16:9': '1664*928',
-  '9:16': '928*1664',
-};
-
-// Output-size constraints per model, learned from DashScope validation
-// responses. Models without a rule keep the legacy fixed table below.
-//   fixed : only the listed sizes are accepted.
-//   fit   : any size within a pixel budget (and optional per-dimension cap).
-const IMAGE_SIZE_RULES: Record<
-  string,
-  | { kind: 'fixed'; sizes: Record<string, string> }
-  | { kind: 'fit'; maxPixels: number; maxDimension?: number }
-> = {
-  'qwen-image': { kind: 'fixed', sizes: QWEN_SNAPPED_SIZES },
-  'qwen-image-plus': { kind: 'fixed', sizes: QWEN_SNAPPED_SIZES },
-  // "Size is out of range [512*512, 2048*2048]" — per-dimension bound.
-  'qwen-image-max': { kind: 'fit', maxPixels: 4_194_304, maxDimension: 2048 },
-  'z-image-turbo': { kind: 'fit', maxPixels: 4_194_304, maxDimension: 2048 },
-  // "Total pixels (…) must be between 589824 and 2073600."
-  'wan2.6-t2i': { kind: 'fit', maxPixels: 2_073_600 },
-  // Area-bound families. These also list exotic ratios (3:1, 4:5, 16:10, …)
-  // the legacy table never knew, which used to fall through as a raw ratio
-  // string the API rejected. 4 MP keeps outputs in the legacy size range.
-  'wan2.6-image': { kind: 'fit', maxPixels: 4_194_304 },
-  'wan2.7-image': { kind: 'fit', maxPixels: 4_194_304 },
-  'wan2.7-image-pro': { kind: 'fit', maxPixels: 4_194_304 },
-};
-
-// Legacy table for models that accept large free-form sizes (qwen-image-2.0
-// family, edit models). Kept verbatim so their behavior does not change.
-const DEFAULT_RATIO_SIZES: Record<string, string> = {
-  '1:1': '2048*2048',
-  '4:3': '2304*1728',
-  '3:4': '1728*2304',
-  '3:2': '2496*1664',
-  '2:3': '1664*2496',
-  '16:9': '2560*1440',
-  '9:16': '1440*2560',
-  '21:9': '2520*1080',
-  '9:21': '1080*2520',
-};
-
-function mapImageRatioToSize(model: string, value: string) {
-  const rule = IMAGE_SIZE_RULES[model];
-
-  if (rule?.kind === 'fixed') {
-    return rule.sizes[value];
-  }
-  if (rule?.kind === 'fit') {
-    return fitSizeToRatio(value, rule.maxPixels, rule.maxDimension);
-  }
-  // Unknown ratios return undefined (provider default size) instead of being
-  // sent verbatim as a size string the API would reject.
-  return DEFAULT_RATIO_SIZES[value];
-}
-
-/** Largest W*H matching `ratio` within the pixel budget and dimension cap. */
-function fitSizeToRatio(
-  ratio: string,
-  maxPixels: number,
-  maxDimension?: number,
-) {
-  const match = /^(\d+):(\d+)$/.exec(ratio.trim());
-  if (!match) return undefined;
-  const w = Number(match[1]);
-  const h = Number(match[2]);
-  if (!w || !h) return undefined;
-
-  let scale = Math.sqrt(maxPixels / (w * h));
-  if (maxDimension) {
-    scale = Math.min(scale, maxDimension / w, maxDimension / h);
-  }
-  const width = Math.floor((w * scale) / 16) * 16;
-  const height = Math.floor((h * scale) / 16) * 16;
-  if (width <= 0 || height <= 0) return undefined;
-  return `${width}*${height}`;
 }
 
 async function safeReadText(response: Response) {

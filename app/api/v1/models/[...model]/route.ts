@@ -19,7 +19,7 @@ export async function GET(_request: Request, context: RouteContext) {
     if (!schema) {
       throw new BabyChainError(
         'model_not_found',
-        'Model raw schema was not found.',
+        'Model schema was not found.',
         404,
       );
     }

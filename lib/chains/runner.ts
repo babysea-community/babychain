@@ -542,6 +542,7 @@ async function startStep(
   try {
     const result = await provider.submit({
       modelIdentifier: providerModelIdentifier,
+      stepKey: stepTemplate.key,
       stepKind: stepTemplate.kind,
       params,
       idempotencyKey: createStepIdempotencyKey(record, claimedStep),
@@ -678,57 +679,14 @@ async function refreshStepFromProvider(
 }
 
 export function prepareStepParamsForProvider({
-  input,
   params,
-  providerName,
-  stepKey,
 }: {
   input: ChainInput;
   params: GenerationParams;
   providerName: ProviderName;
   stepKey: string;
 }): GenerationParams {
-  if (providerName === 'babysea') {
-    return params;
-  }
-
-  return {
-    ...params,
-    ...rawStepParamOverrides(input[`${stepKey}_model_input`]),
-  } as GenerationParams;
-}
-
-function rawStepParamOverrides(value: unknown) {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) {
-    return {};
-  }
-
-  const credentialPath = findCredentialLikeParamPath(value);
-  const providerControlledPath = findProviderControlledParamPath(value);
-
-  if (credentialPath) {
-    throw new BabyChainError(
-      'invalid_chain_input',
-      `Credential-like model input key is not allowed: ${credentialPath.join('.')}`,
-      400,
-      { path: credentialPath },
-    );
-  }
-
-  if (providerControlledPath) {
-    throw new BabyChainError(
-      'invalid_chain_input',
-      `Provider-controlled model input key is not allowed: ${providerControlledPath.join('.')}`,
-      400,
-      { path: providerControlledPath },
-    );
-  }
-
-  return Object.fromEntries(
-    Object.entries(value as Record<string, unknown>).filter(
-      ([, entryValue]) => entryValue !== undefined,
-    ),
-  );
+  return params;
 }
 
 function serverKeyNameForProvider(provider: ByokProviderName) {
@@ -750,100 +708,6 @@ function serverKeyNameForProvider(provider: ByokProviderName) {
       return exhaustive;
     }
   }
-}
-
-function findCredentialLikeParamPath(
-  value: unknown,
-  currentPath: (string | number)[] = [],
-): (string | number)[] | null {
-  if (!value || typeof value !== 'object') {
-    return null;
-  }
-
-  if (Array.isArray(value)) {
-    for (let index = 0; index < value.length; index += 1) {
-      const nested = findCredentialLikeParamPath(value[index], [
-        ...currentPath,
-        index,
-      ]);
-      if (nested) {
-        return nested;
-      }
-    }
-    return null;
-  }
-
-  for (const [key, nestedValue] of Object.entries(
-    value as Record<string, unknown>,
-  )) {
-    if (isCredentialLikeKey(key)) {
-      return [...currentPath, key];
-    }
-
-    const nested = findCredentialLikeParamPath(nestedValue, [
-      ...currentPath,
-      key,
-    ]);
-    if (nested) {
-      return nested;
-    }
-  }
-
-  return null;
-}
-
-function isCredentialLikeKey(key: string) {
-  const normalized = key.toLowerCase().replace(/[^a-z0-9]/g, '');
-
-  if (normalized.startsWith('xbabychainprovider')) {
-    return true;
-  }
-
-  return (
-    [
-      'apikey',
-      'authorization',
-      'authtoken',
-      'accesstoken',
-      'bearertoken',
-      'dashscopeapikey',
-      'secret',
-      'secretkey',
-      'accesskeyid',
-      'accesskeysecret',
-      'token',
-      'xapikey',
-      'xkey',
-    ].includes(normalized) ||
-    normalized.endsWith('apikey') ||
-    normalized.endsWith('secretkey') ||
-    normalized.endsWith('accesskeysecret')
-  );
-}
-
-function findProviderControlledParamPath(value: unknown) {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) {
-    return null;
-  }
-
-  for (const key of Object.keys(value as Record<string, unknown>)) {
-    if (isProviderControlledStepParamKey(key)) {
-      return [key];
-    }
-  }
-
-  return null;
-}
-
-function isProviderControlledStepParamKey(key: string) {
-  const normalized = key.toLowerCase().replace(/[^a-z0-9]/g, '');
-
-  return (
-    normalized === 'callbackurl' ||
-    normalized === 'generationcallbackurl' ||
-    normalized === 'generationmodel' ||
-    normalized === 'model'
-  );
 }
 
 async function applyGenerationStatus(

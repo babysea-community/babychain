@@ -30,6 +30,10 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableRow } from '@/components/ui/table';
 import {
+  type ChainSchemaStepRole,
+  modelSchemaCacheKey,
+} from '@/lib/models/chain-schema';
+import {
   synthesizeTemplateEntry,
   type TemplatePageEntry,
 } from './synthesize-entry';
@@ -1038,35 +1042,39 @@ function createModelSchemaViews(
 ): ModelSchemaView[] {
   const steps = [
     {
-      excludeChainWiredImageInputs: false,
       id: 'image_model',
       modelIdentifier: stringInputValue(entry.defaultInput.image_model),
+      role: 'image' as const,
     },
     {
-      excludeChainWiredImageInputs: true,
       id: 'refine_model',
       modelIdentifier: stringInputValue(entry.defaultInput.refine_model),
+      role: 'refine' as const,
     },
     {
-      excludeChainWiredImageInputs: true,
       id: 'video_model',
       modelIdentifier: stringInputValue(entry.defaultInput.video_model),
+      role: 'video' as const,
     },
     {
-      excludeChainWiredImageInputs: true,
       id: 'modify_model',
       modelIdentifier: stringInputValue(entry.defaultInput.modify_model),
+      role: 'modify' as const,
     },
   ];
 
   return steps.flatMap((step) => {
-    const { excludeChainWiredImageInputs, id, modelIdentifier } = step;
+    const { id, modelIdentifier, role } = step;
 
     if (!modelIdentifier) {
       return [];
     }
 
-    const schema = modelRequestSchemas[modelIdentifier] ?? {};
+    const schema = modelRequestSchema(
+      modelRequestSchemas,
+      role,
+      modelIdentifier,
+    );
     const label = formatPublicModelName(modelIdentifier);
 
     return [
@@ -1074,12 +1082,7 @@ function createModelSchemaViews(
         id,
         label,
         modelIdentifier,
-        schema: createSchemaJson(
-          label,
-          modelIdentifier,
-          schema,
-          excludeChainWiredImageInputs,
-        ),
+        schema: createSchemaJson(label, modelIdentifier, schema),
       },
     ];
   });
@@ -1093,19 +1096,15 @@ function createSchemaJson(
   label: string,
   modelIdentifier: string,
   schema: JsonObject,
-  excludeChainWiredImageInputs: boolean,
 ): JsonObject {
   return {
     model: label,
     model_identifier: modelIdentifier,
-    schema: createInferenceSchema(schema, excludeChainWiredImageInputs),
+    schema: createInferenceSchema(schema),
   };
 }
 
-function createInferenceSchema(
-  schema: JsonObject,
-  excludeChainWiredImageInputs: boolean,
-): JsonObject {
+function createInferenceSchema(schema: JsonObject): JsonObject {
   const required = new Set(
     Array.isArray(schema.required)
       ? schema.required.filter(
@@ -1118,7 +1117,7 @@ function createInferenceSchema(
   let order = 0;
 
   for (const [key, propertySchema] of Object.entries(properties)) {
-    if (isOmittedInferenceSchemaKey(key, excludeChainWiredImageInputs)) {
+    if (MODEL_SCHEMA_KEYS_HANDLED_BY_BABYCHAIN.has(key)) {
       continue;
     }
 
@@ -1135,24 +1134,12 @@ function createInferenceSchema(
     ...(required.size > 0
       ? {
           required: Array.from(required).filter(
-            (key) =>
-              !isOmittedInferenceSchemaKey(key, excludeChainWiredImageInputs),
+            (key) => !MODEL_SCHEMA_KEYS_HANDLED_BY_BABYCHAIN.has(key),
           ),
         }
       : {}),
     properties: orderedSchema,
   };
-}
-
-function isOmittedInferenceSchemaKey(
-  key: string,
-  excludeChainWiredImageInputs: boolean,
-) {
-  if (MODEL_SCHEMA_KEYS_HANDLED_BY_BABYCHAIN.has(key)) {
-    return true;
-  }
-
-  return excludeChainWiredImageInputs && CHAIN_WIRED_IMAGE_INPUT_KEYS.has(key);
 }
 
 function normalizeInferenceSchemaProperty(
@@ -1378,28 +1365,28 @@ function createDocsStyleRunInput(
     '',
   );
   const imageParams = createStepParams({
-    excludeChainWiredImageInputs: false,
     modelIdentifier: imageModel,
     modelRequestSchemas,
     preferredPrompt: imagePrompt,
+    role: 'image',
   });
   const refineParams = createStepParams({
-    excludeChainWiredImageInputs: true,
     modelIdentifier: refineModel ?? '',
     modelRequestSchemas,
     preferredPrompt: refinePrompt,
+    role: 'refine',
   });
   const videoParams = createStepParams({
-    excludeChainWiredImageInputs: true,
     modelIdentifier: videoModel,
     modelRequestSchemas,
     preferredPrompt: videoPrompt,
+    role: 'video',
   });
   const modifyParams = createStepParams({
-    excludeChainWiredImageInputs: true,
     modelIdentifier: modifyModel ?? '',
     modelRequestSchemas,
     preferredPrompt: modifyPrompt,
+    role: 'modify',
   });
 
   return {
@@ -1433,26 +1420,24 @@ function createDocsStyleRunInput(
 }
 
 function createStepParams({
-  excludeChainWiredImageInputs,
   modelIdentifier,
   modelRequestSchemas,
   preferredPrompt,
+  role,
 }: {
-  excludeChainWiredImageInputs: boolean;
   modelIdentifier: string;
   modelRequestSchemas: ModelRequestSchemas;
   preferredPrompt: string;
+  role: ChainSchemaStepRole;
 }) {
-  const schema = modelRequestSchemas[modelIdentifier];
+  const schema = modelRequestSchema(modelRequestSchemas, role, modelIdentifier);
 
   if (!schema) {
     return {};
   }
 
   const example = createSchemaExample(schema, {
-    excludedKeys: excludeChainWiredImageInputs
-      ? MODEL_SCHEMA_KEYS_OMITTED_FROM_DOWNSTREAM_EXAMPLES
-      : MODEL_SCHEMA_KEYS_HANDLED_BY_BABYCHAIN,
+    excludedKeys: MODEL_SCHEMA_KEYS_HANDLED_BY_BABYCHAIN,
     preferredPrompt,
   });
 
@@ -1468,38 +1453,13 @@ const MODEL_SCHEMA_KEYS_HANDLED_BY_BABYCHAIN = new Set([
   'webhook_secret',
 ]);
 
-const CHAIN_WIRED_IMAGE_INPUT_KEYS = new Set([
-  'generation_input_file',
-  'generation_input_file_last_content',
-  'generation_input_image_file',
-  'generation_input_image_file_last_content',
-  'generation_input_video_file',
-  'character',
-  'image',
-  'image_prompt',
-  'image_url',
-  'images',
-  'input_image',
-  'input_image_2',
-  'input_image_3',
-  'input_image_4',
-  'input_image_5',
-  'input_image_6',
-  'input_image_7',
-  'input_image_8',
-  'input_image_blob_path',
-  'input_images',
-  'media',
-  'promptImage',
-  'referenceImages',
-  'videoUri',
-  'video_url',
-]);
-
-const MODEL_SCHEMA_KEYS_OMITTED_FROM_DOWNSTREAM_EXAMPLES = new Set([
-  ...MODEL_SCHEMA_KEYS_HANDLED_BY_BABYCHAIN,
-  ...CHAIN_WIRED_IMAGE_INPUT_KEYS,
-]);
+function modelRequestSchema(
+  schemas: ModelRequestSchemas,
+  role: ChainSchemaStepRole,
+  modelIdentifier: string,
+) {
+  return schemas[modelSchemaCacheKey(role, modelIdentifier)] ?? {};
+}
 
 function createSchemaExample(
   schema: unknown,

@@ -214,10 +214,6 @@ async function submitImage(
       body.prompt = value as never;
       continue;
     }
-    if (rawKey === 'generation_ratio') {
-      body.size = mapAspectToSize(value) as never;
-      continue;
-    }
     if (
       rawKey === 'generation_input_file' ||
       rawKey === 'generation_input_image_file'
@@ -236,18 +232,34 @@ async function submitImage(
     ) {
       continue;
     }
-    if (rawKey.startsWith('generation_')) {
-      const providerKey = rawKey.slice('generation_'.length);
-      body[providerKey] =
-        providerKey === 'output_format'
-          ? (normalizeProviderOutputFormat(value) as never)
-          : (value as never);
+    if (rawKey === 'generation_output_format') {
+      body.output_format = normalizeProviderOutputFormat(value) as never;
       continue;
     }
-    body[rawKey] =
-      rawKey === 'output_format'
-        ? (normalizeProviderOutputFormat(value) as never)
-        : (value as never);
+    if (rawKey === 'generation_size') {
+      body.size = value as never;
+      continue;
+    }
+    if (rawKey === 'generation_seed') {
+      body.seed = value as never;
+      continue;
+    }
+    if (rawKey === 'generation_watermark') {
+      body.watermark = value as never;
+      continue;
+    }
+    if (rawKey === 'generation_prompt_extend_mode') {
+      body.optimize_prompt_options = { mode: value } as never;
+      continue;
+    }
+    if (rawKey === 'generation_response_format') {
+      body.response_format = value as never;
+      continue;
+    }
+    if (rawKey === 'generation_sequential_image_generation') {
+      body.sequential_image_generation = value as never;
+      continue;
+    }
   }
 
   if (body.response_format === undefined) {
@@ -319,14 +331,10 @@ async function submitVideoTask(
   ctx: BytePlusContext,
 ): Promise<ProviderSubmitResult> {
   const body: JsonObject = { model: ctx.model };
-  const content = readRawContent(ctx.params.content);
+  const content: JsonObject[] = [];
 
   const prompt = ctx.params.generation_prompt;
-  if (
-    typeof prompt === 'string' &&
-    prompt.length > 0 &&
-    !content.some(isTextContentItem)
-  ) {
+  if (typeof prompt === 'string' && prompt.length > 0) {
     content.push({ type: 'text', text: prompt });
   }
 
@@ -389,10 +397,7 @@ async function submitVideoTask(
     });
   }
 
-  const lastFrameFiles = [
-    ...collectStringValues(ctx.params.generation_input_image_file_last_content),
-    ...collectStringValues(ctx.params.generation_input_file_last_content),
-  ];
+  const lastFrameFiles = collectStringValues(ctx.params.generation_last_frame);
 
   for (const file of lastFrameFiles) {
     content.push({
@@ -414,8 +419,7 @@ async function submitVideoTask(
       rawKey === 'generation_input_image_file' ||
       rawKey === 'generation_input_video_file' ||
       rawKey === 'generation_input_audio_file' ||
-      rawKey === 'generation_input_file_last_content' ||
-      rawKey === 'generation_input_image_file_last_content' ||
+      rawKey === 'generation_last_frame' ||
       rawKey === 'generation_media_role' ||
       rawKey === 'generation_output_format' ||
       rawKey === 'generation_output_number' ||
@@ -423,7 +427,7 @@ async function submitVideoTask(
     ) {
       continue;
     }
-    if (rawKey === 'generation_ratio') {
+    if (rawKey === 'generation_aspect_ratio') {
       body.ratio = value as never;
       continue;
     }
@@ -435,23 +439,57 @@ async function submitVideoTask(
       body.resolution = value as never;
       continue;
     }
-    if (rawKey === 'generation_generate_audio') {
+    if (rawKey === 'generation_audio') {
       body.generate_audio = value as never;
       continue;
     }
-    if (rawKey.startsWith('generation_')) {
-      const providerKey = rawKey.slice('generation_'.length);
-      body[providerKey] =
-        providerKey === 'output_format'
-          ? (normalizeProviderOutputFormat(value) as never)
-          : (value as never);
+    if (rawKey === 'generation_seed') {
+      body.seed = value as never;
+      continue;
+    }
+    if (rawKey === 'generation_watermark') {
+      body.watermark = value as never;
+      continue;
+    }
+    if (rawKey === 'generation_camera_fixed') {
+      body.camera_fixed = value as never;
+      continue;
+    }
+    if (rawKey === 'generation_draft') {
+      body.draft = value as never;
+      continue;
+    }
+    if (rawKey === 'generation_service_tier') {
+      body.service_tier = value as never;
+      continue;
+    }
+    if (rawKey === 'generation_safety_identifier') {
+      body.safety_identifier = value as never;
+      continue;
+    }
+    if (rawKey === 'generation_frames') {
+      body.frames = value as never;
+      continue;
+    }
+    if (rawKey === 'generation_execution_expires_after') {
+      body.execution_expires_after = value as never;
+      continue;
+    }
+    if (rawKey === 'generation_return_last_frame') {
+      body.return_last_frame = value as never;
+      continue;
+    }
+    if (rawKey === 'generation_priority') {
+      body.priority = value as never;
+      continue;
+    }
+    if (rawKey === 'generation_stream') {
+      body.stream = value as never;
       continue;
     }
     if (rawKey === 'output_format') {
       continue;
     }
-
-    body[rawKey] = value as never;
   }
 
   const url = `${ctx.baseUrl}/api/v3/contents/generations/tasks`;
@@ -497,14 +535,6 @@ function readMediaRole(value: unknown) {
     : null;
 }
 
-function readRawContent(value: unknown): JsonObject[] {
-  if (!Array.isArray(value)) {
-    return [];
-  }
-
-  return value.filter(isJsonObject).map((item) => ({ ...item }));
-}
-
 function collectStringValues(value: unknown) {
   if (typeof value === 'string' && value.length > 0) {
     return [value];
@@ -517,14 +547,6 @@ function collectStringValues(value: unknown) {
   return value.filter(
     (item): item is string => typeof item === 'string' && item.length > 0,
   );
-}
-
-function isJsonObject(value: unknown): value is JsonObject {
-  return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
-}
-
-function isTextContentItem(value: JsonObject) {
-  return value.type === 'text' && typeof value.text === 'string';
 }
 
 const VIDEO_FILE_EXTENSION_PATTERN = /\.(mp4|mov|webm|mkv|3gp|ogv)$/i;
@@ -781,22 +803,4 @@ async function safeReadText(response: Response) {
 
 function truncate(text: string, max: number) {
   return text.length > max ? `${text.slice(0, max)}…` : text;
-}
-
-function mapAspectToSize(value: unknown): unknown {
-  if (typeof value !== 'string') return value;
-  // Accept either explicit `WIDTHxHEIGHT` or a babysea-standard aspect ratio.
-  if (/^\d+x\d+$/i.test(value)) return value;
-  const aspectToSize: Record<string, string> = {
-    '1:1': '2048x2048',
-    '4:3': '2304x1728',
-    '3:4': '1728x2304',
-    '3:2': '2496x1664',
-    '2:3': '1664x2496',
-    '16:9': '2560x1440',
-    '9:16': '1440x2560',
-    '21:9': '2520x1080',
-    '9:21': '1080x2520',
-  };
-  return aspectToSize[value] ?? value;
 }

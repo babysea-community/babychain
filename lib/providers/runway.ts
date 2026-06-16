@@ -27,6 +27,7 @@ const POLL_TIMEOUT_MS = 10_000;
 
 const RUNWAY_IMAGE_MODELS = new Set(['gen4_image', 'gen4_image_turbo']);
 const RUNWAY_IMAGE_TO_VIDEO_MODELS = new Set(['gen4.5', 'gen4_turbo']);
+const RUNWAY_DUAL_VIDEO_WORKFLOW_MODELS = new Set(['aleph2', 'gen4_aleph']);
 const RUNWAY_VIDEO_TO_VIDEO_MODELS = new Set(['aleph2', 'gen4_aleph']);
 const RUNWAY_CHARACTER_MODELS = new Set(['act_two']);
 
@@ -56,10 +57,11 @@ export function createRunwayProvider(config: RunwayProviderConfig): Provider {
       const model = stripPrefix(input.modelIdentifier, 'runway/');
       assertModelId(model);
 
-      const endpoint = endpointForModel(model, input.stepKind);
+      const endpoint = endpointForModel(model, input.stepKind, input.stepKey);
       const body = buildSubmitBody({
         model,
         params: input.params as Record<string, unknown>,
+        stepKey: input.stepKey,
         stepKind: input.stepKind,
       });
       const response = await fetchWithGuards(
@@ -142,12 +144,16 @@ export function createRunwayProvider(config: RunwayProviderConfig): Provider {
   };
 }
 
-function endpointForModel(model: string, stepKind: 'image' | 'video') {
+function endpointForModel(
+  model: string,
+  stepKind: 'image' | 'video',
+  stepKey?: string,
+) {
   if (stepKind === 'image' && RUNWAY_IMAGE_MODELS.has(model)) {
     return '/v1/text_to_image';
   }
 
-  if (stepKind === 'video' && RUNWAY_IMAGE_TO_VIDEO_MODELS.has(model)) {
+  if (stepKind === 'video' && isRunwayImageToVideoStep(model, stepKey)) {
     return '/v1/image_to_video';
   }
 
@@ -169,6 +175,7 @@ function endpointForModel(model: string, stepKind: 'image' | 'video') {
 function buildSubmitBody(args: {
   model: string;
   params: Record<string, unknown>;
+  stepKey?: string;
   stepKind: 'image' | 'video';
 }): JsonObject {
   const body: JsonObject = { model: args.model };
@@ -192,16 +199,43 @@ function buildSubmitBody(args: {
       continue;
     }
 
-    if (rawKey === 'generation_ratio') {
-      body.ratio = mapRunwayRatio(value, args.stepKind);
+    if (rawKey === 'generation_aspect_ratio') {
+      body.ratio = jsonValue(value);
       continue;
     }
 
     if (
       rawKey === 'generation_duration' &&
-      RUNWAY_IMAGE_TO_VIDEO_MODELS.has(args.model)
+      isRunwayImageToVideoStep(args.model, args.stepKey)
     ) {
       body.duration = jsonValue(value);
+      continue;
+    }
+
+    if (rawKey === 'generation_moderation') {
+      body.contentModeration = {
+        publicFigureThreshold: value === true ? 'auto' : 'low',
+      };
+      continue;
+    }
+
+    if (rawKey === 'generation_seed') {
+      body.seed = jsonValue(value);
+      continue;
+    }
+
+    if (rawKey === 'generation_reference_tag') {
+      body.referenceTags = [jsonValue(value)];
+      continue;
+    }
+
+    if (rawKey === 'generation_body_control') {
+      body.bodyControl = jsonValue(value);
+      continue;
+    }
+
+    if (rawKey === 'generation_expression_intensity') {
+      body.expressionIntensity = jsonValue(value);
       continue;
     }
 
@@ -209,24 +243,18 @@ function buildSubmitBody(args: {
       rawKey === 'generation_input_file' ||
       rawKey === 'generation_input_image_file' ||
       rawKey === 'generation_input_video_file' ||
-      rawKey === 'generation_input_file_last_content' ||
+      rawKey === 'generation_last_frame' ||
       rawKey === 'generation_output_format' ||
       rawKey === 'generation_output_number' ||
       rawKey === 'generation_provider_order'
     ) {
       continue;
     }
-
-    if (rawKey.startsWith('generation_')) {
-      continue;
-    }
-
-    body[rawKey] = jsonValue(value);
   }
 
   if (
     body.ratio === undefined &&
-    !RUNWAY_VIDEO_TO_VIDEO_MODELS.has(args.model)
+    !isRunwayVideoToVideoStep(args.model, args.stepKey)
   ) {
     body.ratio = '1280:720';
   }
@@ -251,7 +279,7 @@ function buildSubmitBody(args: {
   }
 
   if (
-    RUNWAY_VIDEO_TO_VIDEO_MODELS.has(args.model) &&
+    isRunwayVideoToVideoStep(args.model, args.stepKey) &&
     (videoFiles.length > 0 || inputFiles.length > 0) &&
     body.videoUri === undefined
   ) {
@@ -259,7 +287,7 @@ function buildSubmitBody(args: {
   }
 
   if (
-    RUNWAY_IMAGE_TO_VIDEO_MODELS.has(args.model) &&
+    isRunwayImageToVideoStep(args.model, args.stepKey) &&
     inputFiles.length > 0 &&
     body.promptImage === undefined
   ) {
@@ -267,6 +295,20 @@ function buildSubmitBody(args: {
   }
 
   return body;
+}
+
+function isRunwayImageToVideoStep(model: string, stepKey?: string) {
+  return (
+    RUNWAY_IMAGE_TO_VIDEO_MODELS.has(model) ||
+    (stepKey === 'video' && RUNWAY_DUAL_VIDEO_WORKFLOW_MODELS.has(model))
+  );
+}
+
+function isRunwayVideoToVideoStep(model: string, stepKey?: string) {
+  return (
+    RUNWAY_VIDEO_TO_VIDEO_MODELS.has(model) &&
+    !(stepKey === 'video' && RUNWAY_DUAL_VIDEO_WORKFLOW_MODELS.has(model))
+  );
 }
 
 type RunwayTaskResponse = {
@@ -466,67 +508,6 @@ function isProviderControlledBodyKey(key: string) {
     normalized === 'generationmodel' ||
     normalized === 'model'
   );
-}
-
-/**
- * Runway's `ratio` parameter takes pixel pairs (e.g. `1280:720`), while the
- * Semantic Lady BYOK dialect uses aspect ratios (e.g. `16:9`). Translate
- * every Semantic Lady ratio token to the closest documented Runway pixel
- * pair per endpoint family and pass any other value (already-pixel ratios
- * included) through verbatim.
- */
-const RUNWAY_IMAGE_ASPECT_RATIOS: Record<string, string> = {
-  '1:1': '1024:1024',
-  '1:2': '1080:1920',
-  '1:3': '1080:1920',
-  '2:3': '1080:1440',
-  '3:4': '1080:1440',
-  '4:5': '1080:1440',
-  '9:16': '1080:1920',
-  '10:16': '1080:1920',
-  '9:21': '1080:1920',
-  '2:1': '1920:1080',
-  '3:1': '1808:768',
-  '3:2': '1440:1080',
-  '4:3': '1440:1080',
-  '5:4': '1440:1080',
-  '16:9': '1920:1080',
-  '16:10': '1360:768',
-  '21:9': '2112:912',
-};
-
-const RUNWAY_VIDEO_ASPECT_RATIOS: Record<string, string> = {
-  '1:1': '960:960',
-  '1:2': '720:1280',
-  '1:3': '720:1280',
-  '2:3': '832:1104',
-  '3:4': '832:1104',
-  '4:5': '832:1104',
-  '9:16': '720:1280',
-  '10:16': '720:1280',
-  '9:21': '720:1280',
-  '2:1': '1280:720',
-  '3:1': '1584:672',
-  '3:2': '1104:832',
-  '4:3': '1104:832',
-  '5:4': '1104:832',
-  '16:9': '1280:720',
-  '16:10': '1280:720',
-  '21:9': '1584:672',
-  adaptive: '1280:720',
-};
-
-function mapRunwayRatio(value: unknown, stepKind: 'image' | 'video') {
-  if (typeof value !== 'string') {
-    return jsonValue(value);
-  }
-
-  const table =
-    stepKind === 'image'
-      ? RUNWAY_IMAGE_ASPECT_RATIOS
-      : RUNWAY_VIDEO_ASPECT_RATIOS;
-
-  return Object.hasOwn(table, value) ? table[value]! : value;
 }
 
 function stripPrefix(modelIdentifier: string, prefix: string) {
