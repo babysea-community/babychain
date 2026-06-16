@@ -34,13 +34,16 @@ variables:
   SECRET_DETECTION_HISTORIC_SCAN: 'true'
   CONTAINER_SCANNING_DISABLED: 'false'
   CS_DISABLE_DEPENDENCY_LIST: 'false'
-  DAST_WEBSITE: https://babychain.babysea.live
   DAST_BROWSER_SCAN: 'true'
   PNPM_VERSION: '11.7.0'
   PNPM_INSTALL_FLAGS: --frozen-lockfile --ignore-scripts
   PNPM_CONFIG_MINIMUM_RELEASE_AGE: '0'
+  DAST_WEBSITE: https://babychain.babysea.live
   NEXT_PUBLIC_SITE_URL: https://your-app.example.com
   DATABASE_URL: postgresql://postgres:postgres@localhost:5432/postgres
+  OWNER_EMAIL: ci_owner_email
+  OWNER_PASSWORD: ci_owner_password
+  OWNER_SESSION_SECRET: ci_owner_session_secret
   BABYCHAIN_API_KEY: ci_babychain_api_key
   BABYCHAIN_CRON_SECRET: ci_babychain_cron_secret
   BABYCHAIN_CALLBACK_SECRET: ci_babychain_callback_secret
@@ -53,6 +56,10 @@ variables:
   GEMINI_API_KEY: ci_gemini_api_key
   OPENAI_API_KEY: ci_openai_api_key
   RUNWAYML_API_SECRET: ci_runway_api_secret
+  BABYSEA_API_KEY: ci_babysea_api_key
+  BABYSEA_REGION: us
+  BABYSEA_API_BASE_URL: https://api.us.babysea.ai
+  BABYSEA_WEBHOOK_SECRET: ci_babysea_webhook_secret
   NEXT_PUBLIC_SENTRY_DSN: https://example.sentry.io
   NEXT_PUBLIC_SENTRY_ENVIRONMENT: ci
   SENTRY_ORG: ci

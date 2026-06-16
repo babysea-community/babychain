@@ -778,39 +778,6 @@ async function toVeoMediaValue(
   };
 }
 
-async function readVeoMediaParam(
-  value: unknown,
-  fetchImpl: typeof fetch,
-): Promise<JsonObject | null> {
-  if (typeof value === 'string' && value.trim().length > 0) {
-    return toVeoMediaValue(value.trim(), fetchImpl);
-  }
-
-  if (!value || typeof value !== 'object' || Array.isArray(value)) {
-    return null;
-  }
-
-  const media = jsonValue(value) as JsonObject;
-  const inlineData = readObject(media.inlineData);
-  const fileData = readObject(media.fileData);
-
-  if (typeof inlineData.data === 'string' && inlineData.data.trim()) {
-    return {
-      bytesBase64Encoded: inlineData.data.trim(),
-      mimeType:
-        typeof inlineData.mimeType === 'string'
-          ? inlineData.mimeType
-          : 'image/png',
-    };
-  }
-
-  if (typeof fileData.fileUri === 'string' && fileData.fileUri.trim()) {
-    return toVeoMediaValue(fileData.fileUri.trim(), fetchImpl);
-  }
-
-  return media;
-}
-
 function normalizeVeoParameters(
   input: JsonObject,
   supportsGenerateAudio: boolean,
@@ -863,18 +830,6 @@ function veoDurationValue(value: unknown, field: string) {
 
 function normalizeVeoResolution(value: unknown) {
   return value === '4k' ? '4K' : jsonValue(value);
-}
-
-function isProviderControlledBodyKey(rawKey: string) {
-  const key = rawKey.toLowerCase().replace(/[^a-z0-9]/g, '');
-
-  return (
-    key === 'authorization' ||
-    key === 'apikey' ||
-    key === 'key' ||
-    key === 'model' ||
-    key === 'xgoogapikey'
-  );
 }
 
 function parseDataUri(value: string) {

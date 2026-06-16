@@ -257,6 +257,10 @@ describe('API response presentation', () => {
         expect.objectContaining({ name: 'generation_prompt' }),
         expect.objectContaining({ name: 'generation_width' }),
         expect.objectContaining({ name: 'generation_height' }),
+        expect.objectContaining({
+          name: 'generation_seed',
+          default: 42,
+        }),
         expect.objectContaining({ name: 'generation_input_image_file' }),
       ]),
     );

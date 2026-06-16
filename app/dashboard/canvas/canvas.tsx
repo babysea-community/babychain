@@ -1997,25 +1997,11 @@ function createSchemaExample(
   const type = getPreferredSchemaType(schema.type);
 
   if ('default' in schema) {
-    if (isValidSchemaExample(schema.default, schema, type)) {
-      return schema.default;
-    }
+    return schema.default;
   }
 
   if ('const' in schema) {
     return schema.const;
-  }
-
-  const examples = Array.isArray(schema.examples) ? schema.examples : [];
-
-  if (examples.length > 0) {
-    const example = examples.find((value) =>
-      isValidSchemaExample(value, schema, type),
-    );
-
-    if (example !== undefined) {
-      return example;
-    }
   }
 
   const variants = [schema.oneOf, schema.anyOf].flatMap((value) =>
@@ -2024,10 +2010,6 @@ function createSchemaExample(
 
   if (variants.length > 0) {
     return createSchemaExample(variants[0], context);
-  }
-
-  if (context.key && isPromptLikeKey(context.key)) {
-    return context.preferredPrompt.trim() ? context.preferredPrompt : undefined;
   }
 
   if (type === 'array') {
@@ -2068,76 +2050,6 @@ function getPreferredSchemaType(type: unknown) {
   );
 }
 
-function isValidSchemaExample(
-  value: unknown,
-  schema: Record<string, unknown>,
-  type: string,
-) {
-  if (value === null || value === undefined) {
-    return false;
-  }
-
-  if ('const' in schema) {
-    return value === schema.const;
-  }
-
-  if (Array.isArray(schema.enum)) {
-    return schema.enum.includes(value);
-  }
-
-  const variants = [schema.oneOf, schema.anyOf].flatMap((variant) =>
-    Array.isArray(variant) ? variant : [],
-  );
-
-  if (variants.length > 0) {
-    return variants.some((variant): boolean => {
-      if (!isJsonObject(variant)) {
-        return false;
-      }
-
-      return isValidSchemaExample(
-        value,
-        variant,
-        getPreferredSchemaType(variant.type),
-      );
-    });
-  }
-
-  if (type === 'integer' || type === 'number') {
-    if (typeof value !== 'number' || !Number.isFinite(value)) {
-      return false;
-    }
-
-    if (type === 'integer' && !Number.isInteger(value)) {
-      return false;
-    }
-
-    if (typeof schema.minimum === 'number' && value < schema.minimum) {
-      return false;
-    }
-
-    if (typeof schema.maximum === 'number' && value > schema.maximum) {
-      return false;
-    }
-
-    return true;
-  }
-
-  if (type === 'string') {
-    return typeof value === 'string';
-  }
-
-  if (type === 'boolean') {
-    return typeof value === 'boolean';
-  }
-
-  if (type === 'array') {
-    return Array.isArray(value);
-  }
-
-  return true;
-}
-
 function isFileInputKey(key: string) {
   return /^generation_input_[a-z]+_file$/.test(key);
 }
@@ -2152,19 +2064,6 @@ function exampleFileUrlForKey(key: string) {
   }
 
   return 'https://example.com/image.png';
-}
-
-function isPromptLikeKey(key: string) {
-  const normalized = key.toLowerCase();
-
-  return (
-    normalized !== 'image_prompt' &&
-    (normalized === 'prompt' ||
-      normalized === 'prompttext' ||
-      normalized === 'prompt_text' ||
-      normalized === 'text' ||
-      normalized.endsWith('_prompt'))
-  );
 }
 
 function isMeaningfulCurlValue(value: unknown) {
@@ -3440,13 +3339,6 @@ function CanvasInner(props: CanvasProps) {
       </div>
     </div>
   );
-}
-
-function modelForId(
-  models: CanvasModel[],
-  id: string,
-): CanvasModel | undefined {
-  return models.find((model) => model.id === id);
 }
 
 export function Canvas(props: CanvasProps) {

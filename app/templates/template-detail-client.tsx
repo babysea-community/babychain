@@ -1476,25 +1476,11 @@ function createSchemaExample(
   const type = getPreferredSchemaType(schema.type);
 
   if ('default' in schema) {
-    if (isValidSchemaExample(schema.default, schema, type)) {
-      return schema.default;
-    }
+    return schema.default;
   }
 
   if ('const' in schema) {
     return schema.const;
-  }
-
-  const examples = Array.isArray(schema.examples) ? schema.examples : [];
-
-  if (examples.length > 0) {
-    const example = examples.find((value) =>
-      isValidSchemaExample(value, schema, type),
-    );
-
-    if (example !== undefined) {
-      return example;
-    }
   }
 
   const variants = [schema.oneOf, schema.anyOf].flatMap((value) =>
@@ -1503,10 +1489,6 @@ function createSchemaExample(
 
   if (variants.length > 0) {
     return createSchemaExample(variants[0], context);
-  }
-
-  if (context.key && isPromptLikeKey(context.key)) {
-    return context.preferredPrompt.trim() ? context.preferredPrompt : undefined;
   }
 
   if (type === 'array') {
@@ -1567,121 +1549,8 @@ function getPreferredSchemaType(type: unknown) {
   );
 }
 
-function isValidSchemaExample(
-  value: unknown,
-  schema: JsonObject,
-  type: string,
-): boolean {
-  if (value === null || value === undefined) {
-    return false;
-  }
-
-  if ('const' in schema) {
-    return value === schema.const;
-  }
-
-  if (Array.isArray(schema.enum)) {
-    return schema.enum.includes(value);
-  }
-
-  const variants = [schema.oneOf, schema.anyOf].flatMap((variant) =>
-    Array.isArray(variant) ? variant : [],
-  );
-
-  if (variants.length > 0) {
-    return variants.some((variant): boolean => {
-      if (!isJsonObject(variant)) {
-        return false;
-      }
-
-      return isValidSchemaExample(
-        value,
-        variant,
-        getPreferredSchemaType(variant.type),
-      );
-    });
-  }
-
-  if (type === 'integer' || type === 'number') {
-    if (typeof value !== 'number' || !Number.isFinite(value)) {
-      return false;
-    }
-
-    if (type === 'integer' && !Number.isInteger(value)) {
-      return false;
-    }
-
-    if (typeof schema.minimum === 'number' && value < schema.minimum) {
-      return false;
-    }
-
-    if (typeof schema.maximum === 'number' && value > schema.maximum) {
-      return false;
-    }
-
-    if (
-      typeof schema.multipleOf === 'number' &&
-      schema.multipleOf > 0 &&
-      value % schema.multipleOf !== 0
-    ) {
-      return false;
-    }
-
-    return true;
-  }
-
-  if (type === 'string') {
-    if (typeof value !== 'string') {
-      return false;
-    }
-
-    if (
-      typeof schema.minLength === 'number' &&
-      value.length < schema.minLength
-    ) {
-      return false;
-    }
-
-    if (
-      typeof schema.maxLength === 'number' &&
-      value.length > schema.maxLength
-    ) {
-      return false;
-    }
-
-    return true;
-  }
-
-  if (type === 'boolean') {
-    return typeof value === 'boolean';
-  }
-
-  if (type === 'array') {
-    return Array.isArray(value);
-  }
-
-  if (type === 'object') {
-    return isJsonObject(value);
-  }
-
-  return true;
-}
-
 function isJsonObject(value: unknown): value is JsonObject {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
-}
-
-function isPromptLikeKey(key: string) {
-  const normalized = key.toLowerCase();
-
-  return (
-    normalized !== 'image_prompt' &&
-    (normalized === 'prompt' ||
-      normalized === 'prompttext' ||
-      normalized === 'prompt_text' ||
-      normalized === 'text' ||
-      normalized.endsWith('_prompt'))
-  );
 }
 
 function stringValue(value: unknown, fallback: string) {

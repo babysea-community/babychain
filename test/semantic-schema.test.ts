@@ -78,6 +78,25 @@ describe('semantic-lady BYOK schema core', () => {
     }
   });
 
+  it('preserves Semantic Lady defaults in JSON request schemas', () => {
+    const schema = createSemanticRequestSchema('bfl/flux-1.1-pro');
+    const properties = schema.properties as Record<
+      string,
+      Record<string, unknown>
+    >;
+
+    expect(properties.generation_seed).toMatchObject({
+      default: 42,
+      maximum: 4294967295,
+      minimum: -1,
+      type: 'integer',
+    });
+    expect(properties.generation_prompt_extend).toMatchObject({
+      default: false,
+      type: 'boolean',
+    });
+  });
+
   it('accepts valid generation_* fields', () => {
     expect(
       findByokGenerationFieldIssue('bfl/flux-2-pro', {

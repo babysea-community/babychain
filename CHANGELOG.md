@@ -6,7 +6,7 @@ All notable changes will be documented here. The format follows [Keep a Changelo
 
 ### Changed
 
-- Updated the BYOK schema source to `semantic-lady@0.4.1`, including published provider model ids for direct BYOK routing.
+- Updated the BYOK schema source to `semantic-lady@0.4.2`, including published provider model ids and corrected provider defaults for direct BYOK routing.
 - Removed BabyChain's hand-maintained model schema catalog and provider-side size/ratio conversion tables; model fields, defaults, enums, and provider model ids now come from Semantic Lady.
 - Renaming a workspace flow that already has a Library card now updates that saved canvas title immediately by using the flow's persisted Library canvas id.
 - Added a Duplicate button to each workspace runner card so users can clone a flow's current models and inputs into a new unsaved flow without overwriting the original Library card.
@@ -14,6 +14,7 @@ All notable changes will be documented here. The format follows [Keep a Changelo
 - Each canvas model node now includes a collapsible JSON Schema view for the effective node inputs, matching the schema inspection pattern used on the templates page.
 - Each canvas flow now includes a separate cURL card after the model cards, using the current flow input and the same scroll-safe highlighted code styling.
 - The templates page curl examples and schema section now use the same Semantic Lady `generation_*` request contract as the run API and canvas node cards.
+- Canvas and template curl examples now use schema defaults exactly as published by Semantic Lady and only fabricate media file URLs for media input fields.
 
 ## [0.1.1] - 2026-06-13
 
