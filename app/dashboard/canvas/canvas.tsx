@@ -61,7 +61,10 @@ import {
   type StoredCanvasNode,
 } from '@/lib/canvas/canvas-library';
 import {
+  createCancelRunCurl,
+  createGetRunCurl,
   createChainRunCurl,
+  createListChainsCurl,
   createModelSchemaJsonFromFields,
   createStepInputFromValues,
 } from '@/lib/chains/ui-request-shape';
@@ -642,28 +645,6 @@ function needsFlowAuxReconcile(nodes: FlowNode[]) {
     if (auxById.get(id)?.type !== type) return true;
   }
 
-  for (const [flowId, flowNodes] of flowsFrom(modelNodes)) {
-    const last = flowNodes[flowNodes.length - 1];
-    if (!last) continue;
-
-    const curl = auxById.get(`curl_${flowId}`);
-    const runner = auxById.get(`runner_${flowId}`);
-
-    if (
-      curl &&
-      !samePosition(curl.position, utilityCardPosition(last, 'api'))
-    ) {
-      return true;
-    }
-
-    if (
-      runner &&
-      !samePosition(runner.position, utilityCardPosition(last, 'runner'))
-    ) {
-      return true;
-    }
-  }
-
   return false;
 }
 
@@ -673,13 +654,6 @@ function utilityCardPosition(last: FlowNode, kind: 'api' | 'runner') {
     y:
       kind === 'api' ? last.position.y + FLOW_UTILITY_STACK_Y : last.position.y,
   };
-}
-
-function samePosition(
-  left: { x: number; y: number },
-  right: { x: number; y: number },
-) {
-  return left.x === right.x && left.y === right.y;
 }
 
 /** Re-place one flow's cards in rank order along its own row. */
@@ -1490,24 +1464,47 @@ function ModelNodeComponent({ id, data }: NodeProps) {
   );
 }
 
+type ApiCurlKey = 'cancel' | 'create' | 'get' | 'list';
+
+type ApiCurlSection = {
+  key: ApiCurlKey;
+  label: string;
+  value: string | null;
+};
+
 function CurlNodeComponent({ data }: NodeProps) {
   const { flowId } = data as NodeData;
   const { createFlowCurl } = useCanvas();
-  const [open, setOpen] = useState(false);
-  const [copied, setCopied] = useState(false);
+  const [openSections, setOpenSections] = useState<
+    Partial<Record<ApiCurlKey, boolean>>
+  >({});
+  const [copiedKey, setCopiedKey] = useState<ApiCurlKey | null>(null);
   const curlText = createFlowCurl(flowId);
+  const sections = useMemo<ApiCurlSection[]>(
+    () => [
+      { key: 'list', label: 'List chains', value: createListChainsCurl() },
+      { key: 'create', label: 'Create chain', value: curlText },
+      { key: 'get', label: 'Get run', value: createGetRunCurl() },
+      { key: 'cancel', label: 'Cancel run', value: createCancelRunCurl() },
+    ],
+    [curlText],
+  );
 
-  const copyApiRequest = useCallback(async () => {
-    if (!curlText) return;
+  const copyApiRequest = useCallback(async (key: ApiCurlKey, value: string) => {
+    if (!value) return;
 
     try {
-      await navigator.clipboard.writeText(curlText);
-      setCopied(true);
-      window.setTimeout(() => setCopied(false), 1600);
+      await navigator.clipboard.writeText(value);
+      setCopiedKey(key);
+      window.setTimeout(() => setCopiedKey(null), 1600);
     } catch {
       toast.error('Copying the API request failed.');
     }
-  }, [curlText]);
+  }, []);
+
+  const toggleSection = useCallback((key: ApiCurlKey) => {
+    setOpenSections((current) => ({ ...current, [key]: !current[key] }));
+  }, []);
 
   return (
     <div className="w-[280px] border border-border bg-card shadow-lg">
@@ -1530,51 +1527,79 @@ function CurlNodeComponent({ data }: NodeProps) {
 
       <div className="space-y-2 p-3">
         <p className="text-[0.65rem] leading-4 text-muted-foreground">
-          Copy this schema and run it in a terminal or integrate it with your
-          app. This schema runs the same canvas flow.
+          Chain API requests for this canvas flow.
         </p>
-        <div className="border border-border">
-          <button
-            type="button"
-            aria-expanded={open}
-            disabled={!curlText}
-            onClick={() => setOpen((value) => !value)}
-            className={cn(
-              'nodrag flex w-full items-center justify-between gap-3 px-2.5 py-1.5 text-left font-mono text-[0.7rem] font-medium uppercase tracking-wide text-muted-foreground transition hover:text-foreground disabled:opacity-50',
-              open && 'border-b border-border',
-            )}
-          >
-            <span>API request</span>
-            <FontAwesomeIcon
-              className={cn(
-                'size-3.5 transition-transform',
-                open && 'rotate-180',
-              )}
-              icon="chevron-down"
-            />
-          </button>
-          {open && curlText ? (
-            <div className="p-2.5">
-              <div className="mb-2 flex justify-end">
-                <Button
-                  aria-label={
-                    copied ? 'API request copied' : 'Copy API request'
-                  }
-                  className="nodrag h-7 px-2 text-[0.65rem]"
-                  size="sm"
-                  title={copied ? 'Copied' : 'Copy'}
-                  variant="ghost"
-                  onClick={() => void copyApiRequest()}
-                >
-                  <FontAwesomeIcon icon={copied ? 'check' : 'copy'} />
-                  {copied ? 'Copied' : 'Copy'}
-                </Button>
-              </div>
-              <NodeCurlBlock value={curlText} />
-            </div>
-          ) : null}
-        </div>
+        {sections.map((section) => (
+          <ApiCurlDropdown
+            copied={copiedKey === section.key}
+            key={section.key}
+            label={section.label}
+            open={Boolean(openSections[section.key])}
+            value={section.value}
+            onCopy={() => {
+              if (section.value) {
+                void copyApiRequest(section.key, section.value);
+              }
+            }}
+            onToggle={() => toggleSection(section.key)}
+          />
+        ))}
       </div>
+    </div>
+  );
+}
+
+function ApiCurlDropdown({
+  copied,
+  label,
+  open,
+  value,
+  onCopy,
+  onToggle,
+}: {
+  copied: boolean;
+  label: string;
+  open: boolean;
+  value: string | null;
+  onCopy: () => void;
+  onToggle: () => void;
+}) {
+  return (
+    <div className="border border-border">
+      <button
+        type="button"
+        aria-expanded={open}
+        disabled={!value}
+        onClick={onToggle}
+        className={cn(
+          'nodrag flex w-full items-center justify-between gap-3 px-2.5 py-1.5 text-left font-mono text-[0.7rem] font-medium uppercase tracking-wide text-muted-foreground transition hover:text-foreground disabled:opacity-50',
+          open && 'border-b border-border',
+        )}
+      >
+        <span>{label}</span>
+        <FontAwesomeIcon
+          className={cn('size-3.5 transition-transform', open && 'rotate-180')}
+          icon="chevron-down"
+        />
+      </button>
+      {open && value ? (
+        <div className="p-2.5">
+          <div className="mb-2 flex justify-end">
+            <Button
+              aria-label={copied ? `${label} copied` : `Copy ${label}`}
+              className="nodrag h-7 px-2 text-[0.65rem]"
+              size="sm"
+              title={copied ? 'Copied' : 'Copy'}
+              variant="ghost"
+              onClick={onCopy}
+            >
+              <FontAwesomeIcon icon={copied ? 'check' : 'copy'} />
+              {copied ? 'Copied' : 'Copy'}
+            </Button>
+          </div>
+          <NodeCurlBlock value={value} />
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -2454,11 +2479,7 @@ function CanvasInner(props: CanvasProps) {
         const existingCurl = auxById.get(curlId);
         if (existingCurl) {
           matched += 1;
-          const position = utilityCardPosition(last, 'api');
-          if (!samePosition(existingCurl.position, position)) {
-            changed = true;
-          }
-          next.push({ ...existingCurl, position });
+          next.push(existingCurl);
         } else {
           changed = true;
           next.push({
@@ -2473,11 +2494,7 @@ function CanvasInner(props: CanvasProps) {
         const existingRunner = auxById.get(runnerId);
         if (existingRunner) {
           matched += 1;
-          const position = utilityCardPosition(last, 'runner');
-          if (!samePosition(existingRunner.position, position)) {
-            changed = true;
-          }
-          next.push({ ...existingRunner, position });
+          next.push(existingRunner);
         } else {
           changed = true;
           next.push({

@@ -191,6 +191,14 @@ export function createChainRunRequest(input: Record<string, unknown>) {
   return { input } satisfies ChainRunRequestBody;
 }
 
+export function createListChainsCurl() {
+  return [
+    'curl --request GET',
+    '  --url "$NEXT_PUBLIC_SITE_URL/api/v1/chains"',
+    '  --header "Authorization: Bearer $BABYCHAIN_API_KEY"',
+  ].join(lineContinuation());
+}
+
 export function createChainRunCurl(input: Record<string, unknown>) {
   const lines = [
     'curl --request POST',
@@ -202,6 +210,22 @@ export function createChainRunCurl(input: Record<string, unknown>) {
   ];
 
   return lines.join(lineContinuation());
+}
+
+export function createGetRunCurl() {
+  return [
+    'curl --request GET',
+    '  --url "$NEXT_PUBLIC_SITE_URL/api/v1/chains/get/$RUN_ID"',
+    '  --header "Authorization: Bearer $BABYCHAIN_API_KEY"',
+  ].join(lineContinuation());
+}
+
+export function createCancelRunCurl() {
+  return [
+    'curl --request POST',
+    '  --url "$NEXT_PUBLIC_SITE_URL/api/v1/chains/cancel/$RUN_ID"',
+    '  --header "Authorization: Bearer $BABYCHAIN_API_KEY"',
+  ].join(lineContinuation());
 }
 
 function createModelSchemaProperty(field: UiFieldSpec, order: number) {

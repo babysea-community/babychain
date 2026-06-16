@@ -1,8 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  createCancelRunCurl,
   createChainRunCurl,
   createChainRunInput,
+  createGetRunCurl,
+  createListChainsCurl,
   createModelSchemaJsonFromRequestSchema,
   createStepInputFromRequestSchema,
   createStepInputFromValues,
@@ -176,6 +179,12 @@ describe('UI request shape builders', () => {
     expect(curl).not.toContain('https://example.com/image.png');
     expect(curl).not.toContain('client_reference_id');
     expect(curl).not.toContain('webhook_url');
+  });
+
+  it('builds debugging cURL snippets for chain API routes', () => {
+    expect(createListChainsCurl()).toContain('/api/v1/chains');
+    expect(createGetRunCurl()).toContain('/api/v1/chains/get/$RUN_ID');
+    expect(createCancelRunCurl()).toContain('/api/v1/chains/cancel/$RUN_ID');
   });
 
   it('builds ordered JSON schema without changing schema defaults', () => {
