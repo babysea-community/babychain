@@ -61,6 +61,11 @@ import {
   type StoredCanvasNode,
 } from '@/lib/canvas/canvas-library';
 import {
+  createChainRunCurl,
+  createModelSchemaJsonFromFields,
+  createStepInputFromValues,
+} from '@/lib/chains/ui-request-shape';
+import {
   createDefaultCanvasName,
   MAX_CANVAS_TITLE_LENGTH,
   normalizeCanvasTitle,
@@ -1057,46 +1062,11 @@ function createNodeSchemaJson({
   modelId: string;
   modelLabel: string;
 }) {
-  const required = fields
-    .filter((field) => field.required)
-    .map((field) => field.name);
-
-  return {
-    model: modelLabel,
-    model_identifier: modelId,
-    schema: {
-      type: 'object',
-      ...(required.length > 0 ? { required } : {}),
-      properties: Object.fromEntries(
-        fields.map((field, index) => [
-          field.name,
-          createNodeSchemaProperty(field, index),
-        ]),
-      ),
-    },
-  };
-}
-
-function createNodeSchemaProperty(field: FieldSpec, order: number) {
-  const property: Record<string, unknown> = field.schema
-    ? { ...field.schema }
-    : { type: jsonSchemaTypeForField(field) };
-
-  if (field.required) {
-    property.required = true;
-  }
-
-  property['x-order'] = order;
-
-  return property;
-}
-
-function jsonSchemaTypeForField(field: FieldSpec) {
-  if (field.valueKind === 'json') return 'object';
-  if (field.valueKind === 'string-array') return 'array';
-  if (field.valueKind === 'number') return 'number';
-  if (field.valueKind === 'boolean') return 'boolean';
-  return 'string';
+  return createModelSchemaJsonFromFields({
+    fields,
+    modelId,
+    modelLabel,
+  });
 }
 
 // ----------------------------------------------------------------------------
@@ -1940,11 +1910,10 @@ function buildFlowRunInput(
     }
 
     chainModels[`${node.data.role}_model`] = node.data.modelId;
-    input[`${node.data.role}_model_input`] = createSchemaCurlParams(
-      schemaFields,
-      params,
-      promptValue(node.data.values) ?? '',
-    );
+    input[`${node.data.role}_model_input`] = createStepInputFromValues({
+      fields: schemaFields,
+      values: params,
+    });
   }
 
   return { flowNodes, input };
@@ -1958,174 +1927,8 @@ function buildFlowCurlInput(
   return buildFlowRunInput(nodes, flowId, fieldsByModel).input;
 }
 
-function createSchemaCurlParams(
-  fields: FieldSpec[],
-  liveParams: Record<string, unknown>,
-  preferredPrompt: string,
-) {
-  const params: Record<string, unknown> = {};
-
-  for (const field of fields) {
-    const liveValue = liveParams[field.name];
-
-    if (isMeaningfulCurlValue(liveValue)) {
-      params[field.name] = liveValue;
-      continue;
-    }
-
-    const schemaValue = createSchemaExample(field.schema, {
-      key: field.name,
-      preferredPrompt,
-    });
-
-    if (schemaValue !== undefined) {
-      params[field.name] = schemaValue;
-    }
-  }
-
-  return params;
-}
-
-function createSchemaExample(
-  schema: unknown,
-  context: { key?: string; preferredPrompt: string; required?: boolean },
-): unknown {
-  if (!isJsonObject(schema)) {
-    return undefined;
-  }
-
-  const type = getPreferredSchemaType(schema.type);
-
-  if ('default' in schema) {
-    return schema.default;
-  }
-
-  if ('const' in schema) {
-    return schema.const;
-  }
-
-  if (shouldUsePreferredPrompt(schema, context, type)) {
-    const prompt = context.preferredPrompt.trim();
-
-    return prompt ? prompt : undefined;
-  }
-
-  const variants = [schema.oneOf, schema.anyOf].flatMap((value) =>
-    Array.isArray(value) ? value : [],
-  );
-
-  if (variants.length > 0) {
-    return createSchemaExample(variants[0], context);
-  }
-
-  if (type === 'array') {
-    if (context.key && isFileInputKey(context.key)) {
-      return [exampleFileUrlForKey(context.key)];
-    }
-
-    const item = createSchemaExample(schema.items, context);
-
-    return item === undefined ? undefined : [item];
-  }
-
-  if (type === 'object' || isJsonObject(schema.properties)) {
-    const properties = isJsonObject(schema.properties) ? schema.properties : {};
-    const requiredKeys = new Set(
-      Array.isArray(schema.required)
-        ? schema.required.filter(
-            (key): key is string => typeof key === 'string',
-          )
-        : [],
-    );
-    const entries = Object.entries(properties).flatMap(
-      ([key, propertySchema]) => {
-        const value = createSchemaExample(propertySchema, {
-          ...context,
-          key,
-          required: requiredKeys.has(key),
-        });
-
-        return value === undefined ? [] : [[key, value]];
-      },
-    );
-
-    return entries.length > 0 ? Object.fromEntries(entries) : undefined;
-  }
-
-  return undefined;
-}
-
-function shouldUsePreferredPrompt(
-  schema: Record<string, unknown>,
-  context: { key?: string; preferredPrompt: string; required?: boolean },
-  type: string,
-) {
-  return (
-    type === 'string' &&
-    context.key === 'generation_prompt' &&
-    (context.required === true || schema.required === true)
-  );
-}
-
-function getPreferredSchemaType(type: unknown) {
-  const types = Array.isArray(type) ? type : [type];
-
-  return (
-    types.find((value) => value !== 'null' && typeof value === 'string') ??
-    'object'
-  );
-}
-
-function isFileInputKey(key: string) {
-  return /^generation_input_[a-z]+_file$/.test(key);
-}
-
-function exampleFileUrlForKey(key: string) {
-  if (key.includes('_audio_')) {
-    return 'https://example.com/audio.wav';
-  }
-
-  if (key.includes('_video_')) {
-    return 'https://example.com/video.mp4';
-  }
-
-  return 'https://example.com/image.png';
-}
-
-function isMeaningfulCurlValue(value: unknown) {
-  if (value === undefined || value === null || value === '') {
-    return false;
-  }
-
-  return !(Array.isArray(value) && value.length === 0);
-}
-
-function isJsonObject(value: unknown): value is Record<string, unknown> {
-  return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
-}
-
 function createNodeCurl(input: Record<string, unknown>) {
-  const body = {
-    input,
-    metadata: {
-      client_reference_id: 'your-unique-metadata',
-    },
-    webhook_url: 'https://example.com/api/babychain-webhook',
-  };
-  const lines = [
-    'curl --request POST',
-    '  --url "$NEXT_PUBLIC_SITE_URL/api/v1/chains/runs"',
-    '  --header "Authorization: Bearer $BABYCHAIN_API_KEY"',
-    '  --header "Content-Type: application/json"',
-    '  --header "Idempotency-Key: your-unique-idempotency-key"',
-    `  --data '${JSON.stringify(body, null, 2)}'`,
-  ];
-
-  return lines.join(lineContinuation());
-}
-
-function lineContinuation() {
-  return ` ${String.fromCharCode(92)}\n`;
+  return createChainRunCurl(input);
 }
 
 function CanvasInner(props: CanvasProps) {

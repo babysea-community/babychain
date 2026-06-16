@@ -30,6 +30,11 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableRow } from '@/components/ui/table';
 import {
+  createChainRunCurl,
+  createChainRunInput,
+  createModelSchemaJsonFromRequestSchema,
+} from '@/lib/chains/ui-request-shape';
+import {
   type ChainSchemaStepRole,
   modelSchemaCacheKey,
 } from '@/lib/models/chain-schema';
@@ -42,12 +47,10 @@ import { formatPublicModelName } from '@/lib/models/display';
 import { SectionHeading } from '../_components/section-heading';
 import { StepGrid } from '../_components/step-grid';
 
-const IDEMPOTENCY_KEY_PLACEHOLDER = 'your-unique-idempotency-key';
 const HERO_BADGE_CLASS = 'gap-2 px-3 py-2 text-sm normal-case tracking-normal';
 const HERO_BADGE_ICON_CLASS = 'size-4 shrink-0';
 const NO_REFINE_MODEL = '__no_refine_model__';
 const NO_MODIFY_MODEL = '__no_modify_model__';
-const WEBHOOK_URL = 'https://example.com/api/babychain-webhook';
 const HERO_SUBMISSION_REPO_URL =
   'https://github.com/babysea-community/babychain';
 
@@ -125,7 +128,7 @@ export function TemplateDetailClient({
     modifyModel: optionalSelectedModel(modifyModel, NO_MODIFY_MODEL),
   });
 
-  const requestCurl = createRunCurl(entry, modelRequestSchemas);
+  const requestCurl = createRunCurl(entry);
   const inferenceProviders = getUniqueInferenceProviders(
     entry.modelIdentifiers,
   );
@@ -925,24 +928,8 @@ function createRoutePacketRows(entry: TemplatePageEntry) {
   ];
 }
 
-function createRunCurl(
-  entry: TemplatePageEntry,
-  modelRequestSchemas: ModelRequestSchemas,
-) {
-  const lines = [
-    'curl --request POST',
-    '  --url "$NEXT_PUBLIC_SITE_URL/api/v1/chains/runs"',
-    '  --header "Authorization: Bearer $BABYCHAIN_API_KEY"',
-    '  --header "Content-Type: application/json"',
-    `  --header "Idempotency-Key: ${IDEMPOTENCY_KEY_PLACEHOLDER}"`,
-    `  --data '${JSON.stringify(createRunRequest(entry, modelRequestSchemas), null, 2)}'`,
-  ];
-
-  return lines.join(lineContinuation());
-}
-
-function lineContinuation() {
-  return ` ${String.fromCharCode(92)}\n`;
+function createRunCurl(entry: TemplatePageEntry) {
+  return createChainRunCurl(createDocsStyleRunInput(entry));
 }
 
 function createHeroSubmissionUrl(entry: TemplatePageEntry) {
@@ -1009,22 +996,7 @@ function createEnvironmentRows(entry: TemplatePageEntry): EnvironmentRow[] {
       value: '',
     },
     {
-      description: 'You can use: openssl rand -hex 32.',
-      name: 'BABYCHAIN_API_KEY',
-      value: '',
-    },
-    {
-      description: 'You can use: openssl rand -hex 32.',
-      name: 'BABYCHAIN_CRON_SECRET',
-      value: '',
-    },
-    {
-      description: 'You can use: openssl rand -hex 32.',
-      name: 'BABYCHAIN_CALLBACK_SECRET',
-      value: '',
-    },
-    {
-      description: 'This template runs with your inference API key.',
+      description: 'Provider execution mode.',
       name: 'BABYCHAIN_PROVIDER_MODE',
       value: 'byok',
     },
@@ -1097,172 +1069,13 @@ function createSchemaJson(
   modelIdentifier: string,
   schema: JsonObject,
 ): JsonObject {
-  return {
-    model: label,
-    model_identifier: modelIdentifier,
-    schema: createInferenceSchema(schema),
-  };
+  return createModelSchemaJsonFromRequestSchema({
+    excludedKeys: MODEL_SCHEMA_KEYS_HANDLED_BY_BABYCHAIN,
+    modelId: modelIdentifier,
+    modelLabel: label,
+    schema,
+  });
 }
-
-function createInferenceSchema(schema: JsonObject): JsonObject {
-  const required = new Set(
-    Array.isArray(schema.required)
-      ? schema.required.filter(
-          (value): value is string => typeof value === 'string',
-        )
-      : [],
-  );
-  const properties = isJsonObject(schema.properties) ? schema.properties : {};
-  const orderedSchema: JsonObject = {};
-  let order = 0;
-
-  for (const [key, propertySchema] of Object.entries(properties)) {
-    if (MODEL_SCHEMA_KEYS_HANDLED_BY_BABYCHAIN.has(key)) {
-      continue;
-    }
-
-    orderedSchema[key] = normalizeInferenceSchemaProperty(propertySchema, {
-      includeOrder: true,
-      order,
-      required: required.has(key),
-    });
-    order += 1;
-  }
-
-  return {
-    type: 'object',
-    ...(required.size > 0
-      ? {
-          required: Array.from(required).filter(
-            (key) => !MODEL_SCHEMA_KEYS_HANDLED_BY_BABYCHAIN.has(key),
-          ),
-        }
-      : {}),
-    properties: orderedSchema,
-  };
-}
-
-function normalizeInferenceSchemaProperty(
-  propertySchema: unknown,
-  context: { includeOrder?: boolean; order: number; required: boolean },
-): JsonObject {
-  const normalized = normalizeInferenceSchemaNode(propertySchema);
-
-  if (context.required) {
-    normalized.required = true;
-  }
-
-  if (context.includeOrder) {
-    normalized['x-order'] = context.order;
-  }
-
-  return normalized;
-}
-
-function normalizeInferenceSchemaNode(schema: unknown): JsonObject {
-  if (!isJsonObject(schema)) {
-    return {};
-  }
-
-  const normalized: JsonObject = {};
-
-  for (const key of JSON_SCHEMA_COPY_KEYS) {
-    const value = normalizedSchemaKeywordValue(key, schema[key]);
-
-    if (key in schema && value !== undefined) {
-      normalized[key] = value;
-    }
-  }
-
-  if (isJsonObject(schema.properties)) {
-    const required = new Set(
-      Array.isArray(schema.required)
-        ? schema.required.filter(
-            (value): value is string => typeof value === 'string',
-          )
-        : [],
-    );
-
-    normalized.properties = Object.fromEntries(
-      Object.entries(schema.properties).map(([key, propertySchema], index) => [
-        key,
-        normalizeInferenceSchemaProperty(propertySchema, {
-          includeOrder: false,
-          order: index,
-          required: required.has(key),
-        }),
-      ]),
-    );
-  }
-
-  if (schema.items) {
-    normalized.items = normalizeInferenceSchemaNode(schema.items);
-  }
-
-  for (const key of JSON_SCHEMA_VARIANT_KEYS) {
-    const variants = schema[key];
-
-    if (Array.isArray(variants)) {
-      normalized[key] = variants.map(normalizeInferenceSchemaNode);
-    }
-  }
-
-  return normalized;
-}
-
-function normalizedSchemaKeywordValue(
-  key: (typeof JSON_SCHEMA_COPY_KEYS)[number],
-  value: unknown,
-) {
-  if (key === 'type') {
-    return normalizeSchemaType(value);
-  }
-
-  if (key === 'enum' && Array.isArray(value)) {
-    const values = value.filter((item) => item !== null);
-
-    return values.length > 0 ? values : undefined;
-  }
-
-  if (key === 'default' && value === null) {
-    return undefined;
-  }
-
-  return value;
-}
-
-function normalizeSchemaType(value: unknown) {
-  if (!Array.isArray(value)) {
-    return value === 'null' ? undefined : value;
-  }
-
-  const types = value.filter((item) => item !== 'null');
-
-  if (types.length === 0) {
-    return undefined;
-  }
-
-  return types.length === 1 ? types[0] : types;
-}
-
-const JSON_SCHEMA_COPY_KEYS = [
-  'type',
-  'enum',
-  'const',
-  'default',
-  'minimum',
-  'maximum',
-  'minLength',
-  'maxLength',
-  'minItems',
-  'maxItems',
-  'multipleOf',
-  'format',
-  'pattern',
-  'examples',
-] as const;
-
-const JSON_SCHEMA_VARIANT_KEYS = ['oneOf', 'anyOf', 'allOf'] as const;
 
 function environmentRowsForProvider(provider: InferenceProvider) {
   switch (provider) {
@@ -1327,121 +1140,22 @@ function environmentRowsForProvider(provider: InferenceProvider) {
   }
 }
 
-function createRunRequest(
-  entry: TemplatePageEntry,
-  modelRequestSchemas: ModelRequestSchemas,
-) {
-  return {
-    input: createDocsStyleRunInput(entry, modelRequestSchemas),
-    metadata: {
-      client_reference_id: 'your-unique-metadata',
-    },
-    webhook_url: WEBHOOK_URL,
-  };
-}
-
-function createDocsStyleRunInput(
-  entry: TemplatePageEntry,
-  modelRequestSchemas: ModelRequestSchemas,
-) {
+function createDocsStyleRunInput(entry: TemplatePageEntry) {
   const imageModel = stringInputValue(entry.defaultInput.image_model) ?? '';
   const refineModel = stringInputValue(entry.defaultInput.refine_model);
   const videoModel = stringInputValue(entry.defaultInput.video_model) ?? '';
   const modifyModel = stringInputValue(entry.defaultInput.modify_model);
-  const imagePrompt = stringValue(
-    paramsValue(entry.defaultInput.image_model_input, 'generation_prompt'),
-    '',
-  );
-  const refinePrompt = stringValue(
-    paramsValue(entry.defaultInput.refine_model_input, 'generation_prompt'),
-    '',
-  );
-  const videoPrompt = stringValue(
-    paramsValue(entry.defaultInput.video_model_input, 'generation_prompt'),
-    '',
-  );
-  const modifyPrompt = stringValue(
-    paramsValue(entry.defaultInput.modify_model_input, 'generation_prompt'),
-    '',
-  );
-  const imageParams = createStepParams({
-    modelIdentifier: imageModel,
-    modelRequestSchemas,
-    preferredPrompt: imagePrompt,
-    role: 'image',
-  });
-  const refineParams = createStepParams({
-    modelIdentifier: refineModel ?? '',
-    modelRequestSchemas,
-    preferredPrompt: refinePrompt,
-    role: 'refine',
-  });
-  const videoParams = createStepParams({
-    modelIdentifier: videoModel,
-    modelRequestSchemas,
-    preferredPrompt: videoPrompt,
-    role: 'video',
-  });
-  const modifyParams = createStepParams({
-    modelIdentifier: modifyModel ?? '',
-    modelRequestSchemas,
-    preferredPrompt: modifyPrompt,
-    role: 'modify',
-  });
 
-  return {
-    chain_models: {
-      image_model: imageModel,
-      ...(refineModel
-        ? {
-            refine_model: refineModel,
-          }
-        : {}),
-      video_model: videoModel,
-      ...(modifyModel
-        ? {
-            modify_model: modifyModel,
-          }
-        : {}),
-    },
-    image_model_input: imageParams,
-    ...(refineModel
-      ? {
-          refine_model_input: refineParams,
-        }
-      : {}),
-    video_model_input: videoParams,
-    ...(modifyModel
-      ? {
-          modify_model_input: modifyParams,
-        }
-      : {}),
-  };
-}
-
-function createStepParams({
-  modelIdentifier,
-  modelRequestSchemas,
-  preferredPrompt,
-  role,
-}: {
-  modelIdentifier: string;
-  modelRequestSchemas: ModelRequestSchemas;
-  preferredPrompt: string;
-  role: ChainSchemaStepRole;
-}) {
-  const schema = modelRequestSchema(modelRequestSchemas, role, modelIdentifier);
-
-  if (!schema) {
-    return {};
-  }
-
-  const example = createSchemaExample(schema, {
-    excludedKeys: MODEL_SCHEMA_KEYS_HANDLED_BY_BABYCHAIN,
-    preferredPrompt,
+  return createChainRunInput({
+    imageModel,
+    imageModelInput: modelInputObject(entry.defaultInput.image_model_input),
+    modifyModel,
+    modifyModelInput: modelInputObject(entry.defaultInput.modify_model_input),
+    refineModel,
+    refineModelInput: modelInputObject(entry.defaultInput.refine_model_input),
+    videoModel,
+    videoModelInput: modelInputObject(entry.defaultInput.video_model_input),
   });
-
-  return isJsonObject(example) ? example : {};
 }
 
 const MODEL_SCHEMA_KEYS_HANDLED_BY_BABYCHAIN = new Set([
@@ -1461,129 +1175,10 @@ function modelRequestSchema(
   return schemas[modelSchemaCacheKey(role, modelIdentifier)] ?? {};
 }
 
-function createSchemaExample(
-  schema: unknown,
-  context: {
-    excludedKeys: Set<string>;
-    key?: string;
-    preferredPrompt: string;
-    required?: boolean;
-  },
-): unknown {
-  if (!isJsonObject(schema)) {
-    return undefined;
-  }
-
-  const type = getPreferredSchemaType(schema.type);
-
-  if ('default' in schema) {
-    return schema.default;
-  }
-
-  if ('const' in schema) {
-    return schema.const;
-  }
-
-  if (shouldUsePreferredPrompt(schema, context, type)) {
-    const prompt = context.preferredPrompt.trim();
-
-    return prompt ? prompt : undefined;
-  }
-
-  const variants = [schema.oneOf, schema.anyOf].flatMap((value) =>
-    Array.isArray(value) ? value : [],
-  );
-
-  if (variants.length > 0) {
-    return createSchemaExample(variants[0], context);
-  }
-
-  if (type === 'array') {
-    if (context.key && isFileInputKey(context.key)) {
-      return [exampleFileUrlForKey(context.key)];
-    }
-
-    const item = createSchemaExample(schema.items, context);
-
-    return item === undefined ? undefined : [item];
-  }
-
-  if (type === 'object' || isJsonObject(schema.properties)) {
-    const properties = isJsonObject(schema.properties) ? schema.properties : {};
-    const requiredKeys = new Set(
-      Array.isArray(schema.required)
-        ? schema.required.filter(
-            (key): key is string => typeof key === 'string',
-          )
-        : [],
-    );
-    const entries = Object.entries(properties)
-      .filter(([key]) => !isExcludedSchemaExampleKey(key, context.excludedKeys))
-      .flatMap(([key, propertySchema]) => {
-        const value = createSchemaExample(propertySchema, {
-          ...context,
-          key,
-          required: requiredKeys.has(key),
-        });
-
-        return value === undefined ? [] : [[key, value]];
-      });
-
-    return entries.length > 0 ? Object.fromEntries(entries) : undefined;
-  }
-
-  return undefined;
-}
-
-function shouldUsePreferredPrompt(
-  schema: JsonObject,
-  context: { key?: string; preferredPrompt: string; required?: boolean },
-  type: string,
-) {
-  return (
-    type === 'string' &&
-    context.key === 'generation_prompt' &&
-    (context.required === true || schema.required === true)
-  );
-}
-
-function isFileInputKey(key: string) {
-  return /^generation_input_[a-z]+_file$/.test(key);
-}
-
-function exampleFileUrlForKey(key: string) {
-  if (key.includes('_audio_')) {
-    return 'https://example.com/audio.wav';
-  }
-
-  if (key.includes('_video_')) {
-    return 'https://example.com/video.mp4';
-  }
-
-  return 'https://example.com/image.png';
-}
-
-function isExcludedSchemaExampleKey(key: string, excludedKeys: Set<string>) {
-  return excludedKeys.has(key);
-}
-
-function getPreferredSchemaType(type: unknown) {
-  const types = Array.isArray(type) ? type : [type];
-
-  return (
-    types.find((value) => value !== 'null' && typeof value === 'string') ??
-    'object'
-  );
+function modelInputObject(value: unknown) {
+  return isJsonObject(value) ? value : {};
 }
 
 function isJsonObject(value: unknown): value is JsonObject {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
-}
-
-function stringValue(value: unknown, fallback: string) {
-  return typeof value === 'string' && value.trim() ? value : fallback;
-}
-
-function paramsValue(params: unknown, key: string) {
-  return isJsonObject(params) ? params[key] : undefined;
 }
