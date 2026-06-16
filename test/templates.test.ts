@@ -695,7 +695,7 @@ describe('chain templates', () => {
           image_model_input: {
             generation_aspect_ratio: '1280:720',
             generation_prompt: 'A robot barista.',
-            generation_input_image_file: ['https://example.com/start.png'],
+            generation_input_image_file: ['https://example.com/image.png'],
           },
           video_model: VIDEO_MODEL,
           video_model_input: {

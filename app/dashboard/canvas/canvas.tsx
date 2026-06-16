@@ -2144,14 +2144,14 @@ function isFileInputKey(key: string) {
 
 function exampleFileUrlForKey(key: string) {
   if (key.includes('_audio_')) {
-    return 'https://example.com/input-audio.wav';
+    return 'https://example.com/audio.wav';
   }
 
   if (key.includes('_video_')) {
-    return 'https://example.com/input-video.mp4';
+    return 'https://example.com/video.mp4';
   }
 
-  return 'https://example.com/input-image.png';
+  return 'https://example.com/image.png';
 }
 
 function isPromptLikeKey(key: string) {

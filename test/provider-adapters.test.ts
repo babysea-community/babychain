@@ -2714,7 +2714,7 @@ describe('provider adapters', () => {
           ...(args.stepKind === 'video'
             ? {
                 generation_duration: 5,
-                generation_input_file: ['https://example.com/frame.png'],
+                generation_input_file: ['https://example.com/image.png'],
               }
             : {}),
         },

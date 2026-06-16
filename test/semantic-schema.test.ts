@@ -103,35 +103,35 @@ describe('semantic-lady BYOK schema core', () => {
     expect(
       findByokGenerationFieldIssue('runway/aleph-2', {
         generation_prompt: 'Make the scene snowier',
-        generation_input_video_file: ['https://example.com/clip.mp4'],
+        generation_input_video_file: ['https://example.com/video.mp4'],
       }),
     ).toBeNull();
 
     expect(
       findByokGenerationFieldIssue('runway/aleph-2', {
         generation_prompt: 'Make the scene snowier',
-        generation_input_file: ['https://example.com/clip.mp4'],
+        generation_input_file: ['https://example.com/video.mp4'],
       }),
     ).toMatchObject({ path: ['generation_input_file'] });
 
     expect(
       findByokGenerationFieldIssue('google/imagen-4', {
         generation_prompt: 'A skyline at dusk',
-        generation_input_file: ['https://example.com/ref.png'],
+        generation_input_file: ['https://example.com/image.png'],
       }),
     ).toMatchObject({ path: ['generation_input_file'] });
 
     expect(
       findByokGenerationFieldIssue('google/imagen-4', {
         generation_prompt: 'A skyline at dusk',
-        generation_last_frame: 'https://example.com/end.png',
+        generation_last_frame: 'https://example.com/image.png',
       }),
     ).toMatchObject({ path: ['generation_last_frame'] });
 
     expect(
       findByokGenerationFieldIssue('bytedance/seedance-2.0', {
         generation_prompt: 'A slow pan',
-        generation_last_frame: 'https://example.com/end.png',
+        generation_last_frame: 'https://example.com/image.png',
       }),
     ).toBeNull();
   });
@@ -195,7 +195,7 @@ describe('semantic-lady BYOK schema core', () => {
         generation_prompt: 'A slow dolly forward',
         generation_aspect_ratio: '1280:720',
         generation_duration: 5,
-        generation_input_image_file: ['https://example.com/frame.png'],
+        generation_input_image_file: ['https://example.com/image.png'],
       }),
     ).toBeNull();
 
