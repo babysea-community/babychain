@@ -9,6 +9,7 @@ import {
 import {
   assertByokGenerationFields,
   getSemanticModel,
+  getSemanticModelSchemaFields,
   isImageChainModel,
   isImageInputCapableModel,
   isImageToVideoChainModel,
@@ -316,6 +317,7 @@ export function parseTemplateInput(
   options: { byokMode?: boolean } = {},
 ) {
   const parsed = template.inputSchema.parse(input);
+  normalizeEmptyModelInputPlaceholders(parsed);
   assertChainInputRequirements(template, parsed, options);
   return parsed;
 }
@@ -325,6 +327,7 @@ export function assertChainInputRequirements(
   input: ChainInput,
   options: { byokMode?: boolean } = {},
 ) {
+  normalizeEmptyModelInputPlaceholders(input);
   const byokMode = options.byokMode ?? false;
 
   if (!byokMode) {
@@ -358,6 +361,61 @@ export function assertChainInputRequirements(
   if (byokMode) {
     assertByokGenerationFieldsForSteps(input);
   }
+}
+
+function normalizeEmptyModelInputPlaceholders(input: ChainInput) {
+  for (const [modelKey, paramsKey, role] of STEP_MODEL_INPUT_PAIRS) {
+    const modelIdentifier = optionalString(input[modelKey]);
+    const params = input[paramsKey];
+
+    if (!modelIdentifier || !isPlainRecord(params)) {
+      continue;
+    }
+
+    const fields = getSemanticModelSchemaFields(modelIdentifier, {
+      chainFieldMode: chainFieldModeForRole(role),
+    });
+
+    if (!fields) {
+      continue;
+    }
+
+    const fieldByName = new Map<string, (typeof fields)[number]>(
+      fields.map((field) => [field.name, field]),
+    );
+
+    for (const [key, value] of Object.entries(params)) {
+      if (!key.startsWith('generation_')) {
+        continue;
+      }
+
+      const field = fieldByName.get(key);
+
+      if (!field || field.default !== undefined) {
+        continue;
+      }
+
+      if (isEmptyModelInputPlaceholder(value)) {
+        delete params[key];
+      }
+    }
+  }
+}
+
+function isEmptyModelInputPlaceholder(value: unknown) {
+  if (value === undefined || value === null) {
+    return true;
+  }
+
+  if (typeof value === 'string') {
+    return value.trim().length === 0;
+  }
+
+  if (Array.isArray(value)) {
+    return value.length === 0;
+  }
+
+  return isPlainRecord(value) && Object.keys(value).length === 0;
 }
 
 const STEP_MODEL_INPUT_PAIRS = [

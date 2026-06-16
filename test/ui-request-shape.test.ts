@@ -10,7 +10,7 @@ import {
 import { createSemanticRequestSchema } from '@/lib/models/semantic-schema';
 
 describe('UI request shape builders', () => {
-  it('serializes user values and defaults, then omits missing no-default fields', () => {
+  it('serializes every schema field using user values, defaults, or empty placeholders', () => {
     const fields = [
       { name: 'generation_prompt', valueKind: 'string' as const },
       { name: 'generation_width', valueKind: 'number' as const },
@@ -37,13 +37,14 @@ describe('UI request shape builders', () => {
       }),
     ).toEqual({
       generation_height: 768,
+      generation_input_image_file: [],
       generation_moderation: false,
       generation_prompt: 'A product frame',
       generation_width: 1024,
     });
   });
 
-  it('uses schema defaults and omits missing no-default fields', () => {
+  it('uses schema defaults and empty placeholders for missing no-default fields', () => {
     const schema = createSemanticRequestSchema('runway/gen-4-turbo', {
       chainFieldMode: 'downstream',
     });
@@ -54,15 +55,20 @@ describe('UI request shape builders', () => {
         values: { generation_moderation: false },
       }),
     ).toEqual({
+      generation_aspect_ratio: '',
+      generation_duration: null,
       generation_moderation: false,
+      generation_prompt: '',
+      generation_seed: null,
     });
   });
 
-  it('builds template cURL inputs from schema defaults without fake media URLs', () => {
+  it('builds template cURL inputs from all schema fields without fake media URLs', () => {
     const schema = createSemanticRequestSchema('bfl/flux-1.1-pro');
 
     expect(createStepInputFromRequestSchema({ schema })).toEqual({
       generation_height: 768,
+      generation_input_image_file: [],
       generation_moderation: false,
       generation_output_format: 'jpeg',
       generation_prompt: '',
@@ -70,6 +76,47 @@ describe('UI request shape builders', () => {
       generation_seed: 42,
       generation_width: 1024,
     });
+  });
+
+  it('keeps cURL model input field counts aligned with displayed schemas', () => {
+    const fluxInput = createStepInputFromRequestSchema({
+      schema: createSemanticRequestSchema('bfl/flux-1.1-pro'),
+    });
+    const happyHorseInput = createStepInputFromRequestSchema({
+      schema: createSemanticRequestSchema('happyhorse/1.0-i2v', {
+        chainFieldMode: 'downstream',
+      }),
+    });
+    const input = createChainRunInput({
+      imageModel: 'bfl/flux-1.1-pro',
+      imageModelInput: fluxInput,
+      videoModel: 'happyhorse/1.0-i2v',
+      videoModelInput: happyHorseInput,
+    });
+
+    expect(Object.keys(fluxInput)).toEqual([
+      'generation_prompt',
+      'generation_width',
+      'generation_height',
+      'generation_output_format',
+      'generation_moderation',
+      'generation_input_image_file',
+      'generation_prompt_extend',
+      'generation_seed',
+    ]);
+    expect(Object.keys(happyHorseInput)).toEqual([
+      'generation_prompt',
+      'generation_resolution',
+      'generation_duration',
+      'generation_seed',
+      'generation_watermark',
+    ]);
+    expect(
+      Object.keys(input.image_model_input as Record<string, unknown>),
+    ).toHaveLength(8);
+    expect(
+      Object.keys(input.video_model_input as Record<string, unknown>),
+    ).toHaveLength(5);
   });
 
   it('builds cURL from the same request body sent to the backend', () => {

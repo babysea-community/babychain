@@ -319,7 +319,21 @@ function requestValueForField(field: UiFieldSpec, value: unknown) {
     return field.default;
   }
 
-  return undefined;
+  return emptyRequestValueForField(field);
+}
+
+function emptyRequestValueForField(field: UiFieldSpec) {
+  switch (field.valueKind) {
+    case 'number':
+    case 'boolean':
+    case 'json':
+      return null;
+    case 'string-array':
+      return [];
+    case 'string':
+    default:
+      return '';
+  }
 }
 
 function readSchemaDefault(schema: unknown): UiFieldSpec['default'] {

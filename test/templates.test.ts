@@ -940,6 +940,53 @@ describe('chain templates', () => {
     ]);
   });
 
+  it('strips empty full-shape cURL placeholders before provider params', () => {
+    const template = getChainTemplate('chain');
+    const input = parseTemplateInput(
+      template!,
+      {
+        image_model: 'bfl/flux-1.1-pro',
+        image_model_input: {
+          generation_height: 768,
+          generation_input_image_file: [],
+          generation_moderation: false,
+          generation_output_format: 'jpeg',
+          generation_prompt: 'A product frame',
+          generation_prompt_extend: false,
+          generation_seed: 42,
+          generation_width: 1024,
+        },
+        video_model: 'happyhorse/1.0-i2v',
+        video_model_input: {
+          generation_duration: 5,
+          generation_prompt: '',
+          generation_resolution: '1080P',
+          generation_seed: null,
+          generation_watermark: true,
+        },
+      },
+      { byokMode: true },
+    );
+    const imageStep = template!.steps[0]!;
+    const videoStep = template!.steps.find((step) => step.key === 'video')!;
+    const imageParams = imageStep.buildParams({ input, steps: {} });
+    const videoParams = videoStep.buildParams({
+      input,
+      steps: {
+        image: stepOutput({
+          outputFiles: ['https://cdn.example.com/image.png'],
+        }),
+      },
+    });
+
+    expect(imageParams).not.toHaveProperty('generation_input_image_file');
+    expect(videoParams).not.toHaveProperty('generation_prompt');
+    expect(videoParams).not.toHaveProperty('generation_seed');
+    expect(videoParams.generation_duration).toBe(5);
+    expect(videoParams.generation_resolution).toBe('1080P');
+    expect(videoParams.generation_watermark).toBe(true);
+  });
+
   it('allows Semantic Lady image inputs for the initial image-to-image step', () => {
     const template = getChainTemplate('chain');
 
