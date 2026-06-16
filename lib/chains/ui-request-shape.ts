@@ -103,19 +103,46 @@ export function createStepInputFromValues({
   values,
 }: {
   excludedKeys?: ReadonlySet<string>;
-  fields: readonly Pick<UiFieldSpec, 'name'>[];
+  fields: readonly UiFieldSpec[];
   values: Record<string, unknown>;
 }) {
-  const fieldNames = new Set(fields.map((field) => field.name));
+  const entries = fields.flatMap((field): [string, unknown][] => {
+    if (excludedKeys.has(field.name)) {
+      return [];
+    }
 
-  return Object.fromEntries(
-    Object.entries(values).filter(
-      ([key, value]) =>
-        fieldNames.has(key) &&
-        !excludedKeys.has(key) &&
-        isMeaningfulRequestValue(value),
-    ),
+    const value = requestValueForField(field, values[field.name]);
+
+    return value === undefined ? [] : [[field.name, value]];
+  });
+
+  return Object.fromEntries(entries);
+}
+
+export function createStepInputFromRequestSchema({
+  excludedKeys = EMPTY_KEYS,
+  schema,
+  values = {},
+}: {
+  excludedKeys?: ReadonlySet<string>;
+  schema: Record<string, unknown>;
+  values?: Record<string, unknown>;
+}) {
+  const properties = isJsonObject(schema.properties) ? schema.properties : {};
+  const fields: UiFieldSpec[] = Object.entries(properties).map(
+    ([name, propertySchema]) => ({
+      default: readSchemaDefault(propertySchema),
+      name,
+      schema: isJsonObject(propertySchema) ? propertySchema : undefined,
+      valueKind: valueKindForSchema(propertySchema),
+    }),
   );
+
+  return createStepInputFromValues({
+    excludedKeys,
+    fields,
+    values,
+  });
 }
 
 export function createChainRunInput({
@@ -271,9 +298,7 @@ const JSON_SCHEMA_VARIANT_KEYS = ['oneOf', 'anyOf', 'allOf'] as const;
 
 function compactRequestObject(value: Record<string, unknown>) {
   return Object.fromEntries(
-    Object.entries(value).filter(([, entry]) =>
-      isMeaningfulRequestValue(entry),
-    ),
+    Object.entries(value).filter(([, entryValue]) => entryValue !== undefined),
   );
 }
 
@@ -283,6 +308,48 @@ function isMeaningfulRequestValue(value: unknown) {
   }
 
   return !(Array.isArray(value) && value.length === 0);
+}
+
+function requestValueForField(field: UiFieldSpec, value: unknown) {
+  if (isMeaningfulRequestValue(value)) {
+    return value;
+  }
+
+  if (field.default !== undefined) {
+    return field.default;
+  }
+
+  return undefined;
+}
+
+function readSchemaDefault(schema: unknown): UiFieldSpec['default'] {
+  if (!isJsonObject(schema)) {
+    return undefined;
+  }
+
+  const value = schema.default;
+
+  return typeof value === 'string' ||
+    typeof value === 'number' ||
+    typeof value === 'boolean'
+    ? value
+    : undefined;
+}
+
+function valueKindForSchema(schema: unknown): UiFieldSpec['valueKind'] {
+  if (!isJsonObject(schema)) {
+    return 'string';
+  }
+
+  const type = Array.isArray(schema.type)
+    ? schema.type.find((value) => value !== 'null')
+    : schema.type;
+
+  if (type === 'boolean') return 'boolean';
+  if (type === 'integer' || type === 'number') return 'number';
+  if (type === 'array') return 'string-array';
+  if (type === 'object') return 'json';
+  return 'string';
 }
 
 function readStringArray(value: unknown) {

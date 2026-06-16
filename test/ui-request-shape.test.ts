@@ -4,48 +4,72 @@ import {
   createChainRunCurl,
   createChainRunInput,
   createModelSchemaJsonFromRequestSchema,
+  createStepInputFromRequestSchema,
   createStepInputFromValues,
 } from '@/lib/chains/ui-request-shape';
 import { createSemanticRequestSchema } from '@/lib/models/semantic-schema';
 
 describe('UI request shape builders', () => {
-  it('serializes only existing field values into model input objects', () => {
+  it('serializes user values and defaults, then omits missing no-default fields', () => {
     const fields = [
-      { name: 'generation_prompt' },
-      { name: 'generation_width' },
-      { name: 'generation_input_image_file' },
+      { name: 'generation_prompt', valueKind: 'string' as const },
+      { name: 'generation_width', valueKind: 'number' as const },
+      { name: 'generation_height', default: 768, valueKind: 'number' as const },
+      {
+        name: 'generation_moderation',
+        default: false,
+        valueKind: 'boolean' as const,
+      },
+      {
+        name: 'generation_input_image_file',
+        valueKind: 'string-array' as const,
+      },
     ];
 
     expect(
       createStepInputFromValues({
         fields,
         values: {
-          generation_height: 768,
           generation_input_image_file: [],
           generation_prompt: 'A product frame',
           generation_width: 1024,
         },
       }),
     ).toEqual({
+      generation_height: 768,
+      generation_moderation: false,
       generation_prompt: 'A product frame',
       generation_width: 1024,
     });
   });
 
-  it('does not fabricate missing required fields or media URLs', () => {
+  it('uses schema defaults and omits missing no-default fields', () => {
     const schema = createSemanticRequestSchema('runway/gen-4-turbo', {
       chainFieldMode: 'downstream',
     });
-    const fields = Object.keys(
-      schema.properties as Record<string, unknown>,
-    ).map((name) => ({ name }));
 
     expect(
-      createStepInputFromValues({
-        fields,
+      createStepInputFromRequestSchema({
+        schema,
         values: { generation_moderation: false },
       }),
-    ).toEqual({ generation_moderation: false });
+    ).toEqual({
+      generation_moderation: false,
+    });
+  });
+
+  it('builds template cURL inputs from schema defaults without fake media URLs', () => {
+    const schema = createSemanticRequestSchema('bfl/flux-1.1-pro');
+
+    expect(createStepInputFromRequestSchema({ schema })).toEqual({
+      generation_height: 768,
+      generation_moderation: false,
+      generation_output_format: 'jpeg',
+      generation_prompt: '',
+      generation_prompt_extend: false,
+      generation_seed: 42,
+      generation_width: 1024,
+    });
   });
 
   it('builds cURL from the same request body sent to the backend', () => {

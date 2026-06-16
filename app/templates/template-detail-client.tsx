@@ -33,6 +33,7 @@ import {
   createChainRunCurl,
   createChainRunInput,
   createModelSchemaJsonFromRequestSchema,
+  createStepInputFromRequestSchema,
 } from '@/lib/chains/ui-request-shape';
 import {
   type ChainSchemaStepRole,
@@ -128,7 +129,7 @@ export function TemplateDetailClient({
     modifyModel: optionalSelectedModel(modifyModel, NO_MODIFY_MODEL),
   });
 
-  const requestCurl = createRunCurl(entry);
+  const requestCurl = createRunCurl(entry, modelRequestSchemas);
   const inferenceProviders = getUniqueInferenceProviders(
     entry.modelIdentifiers,
   );
@@ -928,8 +929,13 @@ function createRoutePacketRows(entry: TemplatePageEntry) {
   ];
 }
 
-function createRunCurl(entry: TemplatePageEntry) {
-  return createChainRunCurl(createDocsStyleRunInput(entry));
+function createRunCurl(
+  entry: TemplatePageEntry,
+  modelRequestSchemas: ModelRequestSchemas,
+) {
+  return createChainRunCurl(
+    createDocsStyleRunInput(entry, modelRequestSchemas),
+  );
 }
 
 function createHeroSubmissionUrl(entry: TemplatePageEntry) {
@@ -1140,7 +1146,10 @@ function environmentRowsForProvider(provider: InferenceProvider) {
   }
 }
 
-function createDocsStyleRunInput(entry: TemplatePageEntry) {
+function createDocsStyleRunInput(
+  entry: TemplatePageEntry,
+  modelRequestSchemas: ModelRequestSchemas,
+) {
   const imageModel = stringInputValue(entry.defaultInput.image_model) ?? '';
   const refineModel = stringInputValue(entry.defaultInput.refine_model);
   const videoModel = stringInputValue(entry.defaultInput.video_model) ?? '';
@@ -1148,13 +1157,37 @@ function createDocsStyleRunInput(entry: TemplatePageEntry) {
 
   return createChainRunInput({
     imageModel,
-    imageModelInput: modelInputObject(entry.defaultInput.image_model_input),
+    imageModelInput: createStepInputFromRequestSchema({
+      excludedKeys: MODEL_SCHEMA_KEYS_HANDLED_BY_BABYCHAIN,
+      schema: modelRequestSchema(modelRequestSchemas, 'image', imageModel),
+      values: modelInputObject(entry.defaultInput.image_model_input),
+    }),
     modifyModel,
-    modifyModelInput: modelInputObject(entry.defaultInput.modify_model_input),
+    modifyModelInput: createStepInputFromRequestSchema({
+      excludedKeys: MODEL_SCHEMA_KEYS_HANDLED_BY_BABYCHAIN,
+      schema: modelRequestSchema(
+        modelRequestSchemas,
+        'modify',
+        modifyModel ?? '',
+      ),
+      values: modelInputObject(entry.defaultInput.modify_model_input),
+    }),
     refineModel,
-    refineModelInput: modelInputObject(entry.defaultInput.refine_model_input),
+    refineModelInput: createStepInputFromRequestSchema({
+      excludedKeys: MODEL_SCHEMA_KEYS_HANDLED_BY_BABYCHAIN,
+      schema: modelRequestSchema(
+        modelRequestSchemas,
+        'refine',
+        refineModel ?? '',
+      ),
+      values: modelInputObject(entry.defaultInput.refine_model_input),
+    }),
     videoModel,
-    videoModelInput: modelInputObject(entry.defaultInput.video_model_input),
+    videoModelInput: createStepInputFromRequestSchema({
+      excludedKeys: MODEL_SCHEMA_KEYS_HANDLED_BY_BABYCHAIN,
+      schema: modelRequestSchema(modelRequestSchemas, 'video', videoModel),
+      values: modelInputObject(entry.defaultInput.video_model_input),
+    }),
   });
 }
 
