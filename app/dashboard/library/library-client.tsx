@@ -309,16 +309,8 @@ function CanvasCard({
 
         {/* 2. Single meta badge: Run ID / Canvas ID / Created */}
         <div className="space-y-1 border border-border bg-muted/30 px-2.5 py-2">
-          <MetaRow label="Run ID">
-            {canvas.lastRunId ? (
-              <span className="break-all font-mono">{canvas.lastRunId}</span>
-            ) : (
-              <span className="text-muted-foreground">No run yet</span>
-            )}
-          </MetaRow>
-          <MetaRow label="Canvas ID">
-            <span className="break-all font-mono">{canvas.id}</span>
-          </MetaRow>
+          <MetaRow label="Run ID">{canvas.lastRunId ?? 'No run yet'}</MetaRow>
+          <MetaRow label="Canvas ID">{canvas.id}</MetaRow>
           <MetaRow label="Created">
             {new Date(canvas.createdAt).toLocaleString()}
           </MetaRow>
@@ -431,10 +423,8 @@ function MetaRow({
   children: React.ReactNode;
 }) {
   return (
-    <p className="text-[0.65rem] leading-4 text-foreground">
-      <span className="font-medium uppercase tracking-[0.12em] text-muted-foreground">
-        {label}:{' '}
-      </span>
+    <p className="break-all font-mono text-[0.65rem] leading-4 text-foreground">
+      <span className="uppercase">{label}: </span>
       {children}
     </p>
   );

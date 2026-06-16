@@ -776,6 +776,7 @@ type CanvasContextValue = {
   fieldsByModel: Record<string, FieldGroup | undefined>;
   statusByNode: Record<string, NodeStatus | undefined>;
   runningFlowIds: ReadonlySet<string>;
+  runIdsByFlow: ReadonlyMap<string, string>;
   flowMeta: Record<string, FlowMeta | undefined>;
   flowCount: number;
   isSavedCanvas: boolean;
@@ -1491,20 +1492,25 @@ type ApiCurlSection = {
 
 function CurlNodeComponent({ data }: NodeProps) {
   const { flowId } = data as NodeData;
-  const { createFlowCurl } = useCanvas();
+  const { createFlowCurl, runIdsByFlow } = useCanvas();
   const [openSections, setOpenSections] = useState<
     Partial<Record<ApiCurlKey, boolean>>
   >({});
   const [copiedKey, setCopiedKey] = useState<ApiCurlKey | null>(null);
   const curlText = createFlowCurl(flowId);
+  const runId = runIdsByFlow.get(flowId);
   const sections = useMemo<ApiCurlSection[]>(
     () => [
       { key: 'list', label: 'List chains', value: createListChainsCurl() },
       { key: 'create', label: 'Create chain', value: curlText },
-      { key: 'get', label: 'Get run', value: createGetRunCurl() },
-      { key: 'cancel', label: 'Cancel run', value: createCancelRunCurl() },
+      { key: 'get', label: 'Get run', value: createGetRunCurl({ runId }) },
+      {
+        key: 'cancel',
+        label: 'Cancel run',
+        value: createCancelRunCurl({ runId }),
+      },
     ],
-    [curlText],
+    [curlText, runId],
   );
 
   const copyApiRequest = useCallback(async (key: ApiCurlKey, value: string) => {
@@ -1524,7 +1530,7 @@ function CurlNodeComponent({ data }: NodeProps) {
   }, []);
 
   return (
-    <div className="w-[280px] border border-border bg-card shadow-lg">
+    <div className="w-[400px] border border-border bg-card shadow-lg">
       <div className="h-1.5 w-full" style={{ backgroundColor: RUNNER_COLOR }} />
       <Handle
         type="target"
@@ -1815,7 +1821,7 @@ function InfoNodeComponent({ id, data }: NodeProps) {
             />
           ) : (
             <div className="flex items-start justify-between gap-1.5">
-              <p className="min-w-0 break-words text-xs leading-5 text-foreground">
+              <p className="min-w-0 flex-1 break-words text-xs leading-5 text-foreground [overflow-wrap:anywhere]">
                 {nameValue || autoName}
               </p>
               <button
@@ -2270,6 +2276,9 @@ function CanvasInner(props: CanvasProps) {
   const [runningFlows, setRunningFlows] = useState<ReadonlySet<string>>(
     new Set(),
   );
+  const [runIdsByFlow, setRunIdsByFlow] = useState<ReadonlyMap<string, string>>(
+    new Map(),
+  );
   const fieldsRef = useRef<Record<string, FieldGroup>>({});
   // Active run per flow; poll callbacks check it to drop stale responses.
   const flowRunIdRef = useRef(new Map<string, string>());
@@ -2624,6 +2633,12 @@ function CanvasInner(props: CanvasProps) {
       if (timer) clearTimeout(timer);
       pollTimersRef.current.delete(flowId);
       flowRunIdRef.current.delete(flowId);
+      setRunIdsByFlow((prev) => {
+        if (!prev.has(flowId)) return prev;
+        const next = new Map(prev);
+        next.delete(flowId);
+        return next;
+      });
       setRunningFlows((prev) => {
         if (!prev.has(flowId)) return prev;
         const next = new Set(prev);
@@ -2750,6 +2765,7 @@ function CanvasInner(props: CanvasProps) {
     }
     pollTimersRef.current.clear();
     flowRunIdRef.current.clear();
+    setRunIdsByFlow(new Map());
     setRunningFlows(new Set());
     setStatusByNode({});
 
@@ -2900,6 +2916,7 @@ function CanvasInner(props: CanvasProps) {
       const firstFlowId = nodesRef.current[0]?.data.flowId;
       if (!firstFlowId) return;
       flowRunIdRef.current.set(firstFlowId, initialRunId);
+      setRunIdsByFlow((prev) => new Map(prev).set(firstFlowId, initialRunId));
       setRunningFlows((prev) => new Set(prev).add(firstFlowId));
       // notifyFailure=false: repainting an old failed run on page load should
       // not re-toast an error the user already saw.
@@ -2914,6 +2931,7 @@ function CanvasInner(props: CanvasProps) {
       for (const [flowId, runId] of Object.entries(initialFlowRuns)) {
         if (!liveFlowIds.has(flowId)) continue;
         flowRunIdRef.current.set(flowId, runId);
+        setRunIdsByFlow((prev) => new Map(prev).set(flowId, runId));
         setRunningFlows((prev) => new Set(prev).add(flowId));
         void pollFlow(flowId, runId, 0, false);
       }
@@ -3057,6 +3075,7 @@ function CanvasInner(props: CanvasProps) {
       }
       const run = result.run as RunJson;
       flowRunIdRef.current.set(flowId, run.id);
+      setRunIdsByFlow((prev) => new Map(prev).set(flowId, run.id));
       // Record the run on the workspace so a reload resumes tracking it.
       if (!canvasId) {
         const recorded = await recordFlowRunAction(flowId, run.id).catch(
@@ -3127,6 +3146,7 @@ function CanvasInner(props: CanvasProps) {
       fieldsByModel,
       statusByNode,
       runningFlowIds: runningFlows,
+      runIdsByFlow,
       flowMeta,
       flowCount: flows.size,
       isSavedCanvas: Boolean(canvasId),
@@ -3163,6 +3183,7 @@ function CanvasInner(props: CanvasProps) {
       fieldsByModel,
       statusByNode,
       runningFlows,
+      runIdsByFlow,
       flowMeta,
       flows,
       canvasId,

@@ -233,8 +233,13 @@ describe('UI request shape builders', () => {
         generation_prompt: 'Animate the image',
       },
     });
-    const curl = createChainRunCurl(input);
+    const curl = createChainRunCurl(input, {
+      siteUrl: 'https://babychain.example/',
+    });
 
+    expect(curl).toContain(
+      '--url "https://babychain.example/api/v1/chains/runs"',
+    );
     expect(curl).toContain("--data @- <<'JSON'\n{");
     expect(curl).toContain('\n}\nJSON');
     expect(curl).toContain(JSON.stringify({ input }, null, 2));
@@ -245,9 +250,24 @@ describe('UI request shape builders', () => {
   });
 
   it('builds debugging cURL snippets for chain API routes', () => {
-    expect(createListChainsCurl()).toContain('/api/v1/chains');
+    const runId = 'ea233d5f-12a7-45b6-aa14-b3b33bc9e3a2';
+
+    expect(
+      createListChainsCurl({ siteUrl: 'https://babychain.example/' }),
+    ).toContain('--url "https://babychain.example/api/v1/chains"');
+    expect(
+      createGetRunCurl({
+        runId,
+        siteUrl: 'https://babychain.example/',
+      }),
+    ).toContain(`https://babychain.example/api/v1/chains/get/${runId}`);
+    expect(
+      createCancelRunCurl({
+        runId,
+        siteUrl: 'https://babychain.example/',
+      }),
+    ).toContain(`https://babychain.example/api/v1/chains/cancel/${runId}`);
     expect(createGetRunCurl()).toContain('/api/v1/chains/get/$RUN_ID');
-    expect(createCancelRunCurl()).toContain('/api/v1/chains/cancel/$RUN_ID');
   });
 
   it('builds ordered JSON schema without changing schema defaults', () => {

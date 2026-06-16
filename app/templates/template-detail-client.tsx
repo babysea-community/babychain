@@ -405,7 +405,7 @@ function CurlSection({ code }: { code: string }) {
       }
       title="CURL"
     >
-      <pre className="whitespace-pre-wrap break-words bg-[#050505] p-4 font-mono text-xs leading-6 text-[#f8fafc]">
+      <pre className="min-h-0 flex-1 overflow-auto whitespace-pre-wrap break-words bg-[#050505] p-4 font-mono text-xs leading-6 text-[#f8fafc]">
         <code>{highlightCurlCode(code)}</code>
       </pre>
     </DetailSection>
@@ -645,7 +645,7 @@ function DetailSection({
   title: string;
 }) {
   return (
-    <section className="overflow-hidden border border-border bg-card">
+    <section className="flex h-full flex-col overflow-hidden border border-border bg-card">
       <div className="flex h-14 items-center justify-between gap-3 border-b border-border bg-muted/30 px-4">
         <Badge
           className="border-[var(--chain-accent)] bg-[var(--chain-accent)] font-mono text-xs text-primary-foreground"

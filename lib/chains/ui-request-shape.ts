@@ -21,7 +21,14 @@ export type ChainRunRequestBody = {
   input: Record<string, unknown>;
 };
 
+export type ChainCurlOptions = {
+  runId?: string | null;
+  siteUrl?: string | null;
+};
+
 const IDEMPOTENCY_KEY_PLACEHOLDER = 'your-unique-idempotency-key';
+const SITE_URL_PLACEHOLDER = '$NEXT_PUBLIC_SITE_URL';
+const RUN_ID_PLACEHOLDER = '$RUN_ID';
 const EMPTY_KEYS = new Set<string>();
 const NORMALIZED_INPUT_FILE_FIELDS = new Set([
   'generation_input_audio_file',
@@ -210,19 +217,22 @@ export function createChainRunRequest(input: Record<string, unknown>) {
   return { input } satisfies ChainRunRequestBody;
 }
 
-export function createListChainsCurl() {
+export function createListChainsCurl(options: ChainCurlOptions = {}) {
   return [
     'curl --request GET',
-    '  --url "$NEXT_PUBLIC_SITE_URL/api/v1/chains"',
+    `  --url "${chainApiUrl('/api/v1/chains', options)}"`,
     '  --header "Authorization: Bearer $BABYCHAIN_API_KEY"',
   ].join(lineContinuation());
 }
 
-export function createChainRunCurl(input: Record<string, unknown>) {
+export function createChainRunCurl(
+  input: Record<string, unknown>,
+  options: ChainCurlOptions = {},
+) {
   const body = JSON.stringify(createChainRunRequest(input), null, 2);
   const lines = [
     'curl --request POST',
-    '  --url "$NEXT_PUBLIC_SITE_URL/api/v1/chains/runs"',
+    `  --url "${chainApiUrl('/api/v1/chains/runs', options)}"`,
     '  --header "Authorization: Bearer $BABYCHAIN_API_KEY"',
     '  --header "Content-Type: application/json"',
     `  --header "Idempotency-Key: ${IDEMPOTENCY_KEY_PLACEHOLDER}"`,
@@ -232,18 +242,18 @@ export function createChainRunCurl(input: Record<string, unknown>) {
   return `${lines.join(lineContinuation())}\n${body}\nJSON`;
 }
 
-export function createGetRunCurl() {
+export function createGetRunCurl(options: ChainCurlOptions = {}) {
   return [
     'curl --request GET',
-    '  --url "$NEXT_PUBLIC_SITE_URL/api/v1/chains/get/$RUN_ID"',
+    `  --url "${chainApiUrl(`/api/v1/chains/get/${curlRunId(options.runId)}`, options)}"`,
     '  --header "Authorization: Bearer $BABYCHAIN_API_KEY"',
   ].join(lineContinuation());
 }
 
-export function createCancelRunCurl() {
+export function createCancelRunCurl(options: ChainCurlOptions = {}) {
   return [
     'curl --request POST',
-    '  --url "$NEXT_PUBLIC_SITE_URL/api/v1/chains/cancel/$RUN_ID"',
+    `  --url "${chainApiUrl(`/api/v1/chains/cancel/${curlRunId(options.runId)}`, options)}"`,
     '  --header "Authorization: Bearer $BABYCHAIN_API_KEY"',
   ].join(lineContinuation());
 }
@@ -453,6 +463,27 @@ function schemaType(
   if (fallbackKind === 'string-array') return 'array';
   if (fallbackKind === 'json') return 'object';
   return 'string';
+}
+
+function chainApiUrl(path: string, options: ChainCurlOptions) {
+  return `${curlSiteUrl(options.siteUrl)}${path}`;
+}
+
+function curlSiteUrl(siteUrl: string | null | undefined) {
+  const value =
+    siteUrl ??
+    (typeof process !== 'undefined'
+      ? process.env.NEXT_PUBLIC_SITE_URL
+      : undefined);
+  const normalized = value?.trim().replace(/\/+$/, '');
+
+  return normalized || SITE_URL_PLACEHOLDER;
+}
+
+function curlRunId(runId: string | null | undefined) {
+  const normalized = runId?.trim();
+
+  return normalized || RUN_ID_PLACEHOLDER;
 }
 
 const JSON_SCHEMA_COPY_KEYS = [
