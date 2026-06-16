@@ -2,7 +2,10 @@ import type { GenerationParams } from 'babysea';
 import { z } from 'zod';
 
 import { BabyChainError } from '@/lib/utils/errors';
-import { isChainWiredSemanticFieldName } from '@/lib/models/chain-schema';
+import {
+  chainFieldModeForRole,
+  isChainWiredSemanticFieldName,
+} from '@/lib/models/chain-schema';
 import {
   assertByokGenerationFields,
   getSemanticModel,
@@ -339,10 +342,6 @@ export function assertChainInputRequirements(
   requireImageToVideoModel(input);
   requireModifyVideoToVideoModel(input);
 
-  if (byokMode) {
-    assertByokGenerationFieldsForSteps(input);
-  }
-
   rejectCallerHandoffInputs(input);
 
   if (hasInitialImageInput(input, { byokMode })) {
@@ -355,13 +354,17 @@ export function assertChainInputRequirements(
   }
 
   rejectChainWiredImageInputs(input);
+
+  if (byokMode) {
+    assertByokGenerationFieldsForSteps(input);
+  }
 }
 
 const STEP_MODEL_INPUT_PAIRS = [
-  ['image_model', 'image_model_input'],
-  ['refine_model', 'refine_model_input'],
-  ['video_model', 'video_model_input'],
-  ['modify_model', 'modify_model_input'],
+  ['image_model', 'image_model_input', 'image'],
+  ['refine_model', 'refine_model_input', 'refine'],
+  ['video_model', 'video_model_input', 'video'],
+  ['modify_model', 'modify_model_input', 'modify'],
 ] as const;
 
 /**
@@ -370,15 +373,17 @@ const STEP_MODEL_INPUT_PAIRS = [
  * Semantic Lady schema and satisfy its value constraints.
  */
 function assertByokGenerationFieldsForSteps(input: ChainInput) {
-  for (const [modelKey, paramsKey] of STEP_MODEL_INPUT_PAIRS) {
+  for (const [modelKey, paramsKey, role] of STEP_MODEL_INPUT_PAIRS) {
     const modelIdentifier = optionalString(input[modelKey]);
     const params = input[paramsKey];
 
-    if (!modelIdentifier || params === undefined) {
+    if (!modelIdentifier) {
       continue;
     }
 
-    assertByokGenerationFields(modelIdentifier, params, paramsKey);
+    assertByokGenerationFields(modelIdentifier, params ?? {}, paramsKey, {
+      chainFieldMode: chainFieldModeForRole(role),
+    });
   }
 }
 

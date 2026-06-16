@@ -38,6 +38,7 @@ variables:
   DAST_BROWSER_SCAN: 'true'
   PNPM_VERSION: '11.7.0'
   PNPM_INSTALL_FLAGS: --frozen-lockfile --ignore-scripts
+  PNPM_CONFIG_MINIMUM_RELEASE_AGE: '0'
   NEXT_PUBLIC_SITE_URL: https://your-app.example.com
   DATABASE_URL: postgresql://postgres:postgres@localhost:5432/postgres
   BABYCHAIN_API_KEY: ci_babychain_api_key
@@ -57,7 +58,6 @@ variables:
   SENTRY_ORG: ci
   SENTRY_PROJECT: ci
   SENTRY_AUTH_TOKEN: ci_sentry_auth_token
-  PNPM_CONFIG_MINIMUM_RELEASE_AGE: '0'
 
 default:
   interruptible: true

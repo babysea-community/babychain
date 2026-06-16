@@ -1506,7 +1506,19 @@ function createSchemaExample(
   }
 
   if (context.key && isPromptLikeKey(context.key)) {
-    return context.preferredPrompt.trim() ? context.preferredPrompt : undefined;
+    return context.preferredPrompt.trim()
+      ? context.preferredPrompt
+      : 'Describe the generation.';
+  }
+
+  if (type === 'array') {
+    if (context.key && isFileInputKey(context.key)) {
+      return [exampleFileUrlForKey(context.key)];
+    }
+
+    const item = createSchemaExample(schema.items, context);
+
+    return item === undefined ? undefined : [item];
   }
 
   if (type === 'object' || isJsonObject(schema.properties)) {
@@ -1525,13 +1537,23 @@ function createSchemaExample(
     return entries.length > 0 ? Object.fromEntries(entries) : undefined;
   }
 
-  if (type === 'array') {
-    const item = createSchemaExample(schema.items, context);
+  return undefined;
+}
 
-    return item === undefined ? undefined : [item];
+function isFileInputKey(key: string) {
+  return /^generation_input_[a-z]+_file$/.test(key);
+}
+
+function exampleFileUrlForKey(key: string) {
+  if (key.includes('_audio_')) {
+    return 'https://cdn.example.com/reference-audio.wav';
   }
 
-  return undefined;
+  if (key.includes('_video_')) {
+    return 'https://cdn.example.com/reference-video.mp4';
+  }
+
+  return 'https://cdn.example.com/source-image.png';
 }
 
 function isExcludedSchemaExampleKey(key: string, excludedKeys: Set<string>) {

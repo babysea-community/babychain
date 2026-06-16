@@ -219,6 +219,7 @@ export type ByokGenerationFieldIssue = {
 export function findByokGenerationFieldIssue(
   modelIdentifier: string,
   params: unknown,
+  options: SemanticRequestSchemaOptions = {},
 ): ByokGenerationFieldIssue | null {
   if (!params || typeof params !== 'object' || Array.isArray(params)) {
     return null;
@@ -233,10 +234,9 @@ export function findByokGenerationFieldIssue(
   const fieldByName = new Map<string, SemanticLadyField>(
     model.schema.map((field) => [field.name, field]),
   );
+  const paramsRecord = params as Record<string, unknown>;
 
-  for (const [key, value] of Object.entries(
-    params as Record<string, unknown>,
-  )) {
+  for (const [key, value] of Object.entries(paramsRecord)) {
     if (!key.startsWith('generation_') || value === undefined) {
       continue;
     }
@@ -261,6 +261,23 @@ export function findByokGenerationFieldIssue(
     }
   }
 
+  const requiredFields =
+    options.chainFieldMode === 'downstream'
+      ? filterChainSchemaFields(model.schema, 'video')
+      : model.schema;
+
+  for (const field of requiredFields) {
+    if (!field.required) {
+      continue;
+    }
+
+    if (hasProvidedSemanticValue(paramsRecord[field.name])) {
+      continue;
+    }
+
+    return issue(field.name, 'is required.');
+  }
+
   return null;
 }
 
@@ -268,8 +285,9 @@ export function assertByokGenerationFields(
   modelIdentifier: string,
   params: unknown,
   paramsKey: string,
+  options: SemanticRequestSchemaOptions = {},
 ) {
-  const issue = findByokGenerationFieldIssue(modelIdentifier, params);
+  const issue = findByokGenerationFieldIssue(modelIdentifier, params, options);
 
   if (!issue) {
     return;
@@ -278,6 +296,22 @@ export function assertByokGenerationFields(
   throw new BabyChainError('invalid_chain_input', issue.message, 400, {
     path: [paramsKey, ...issue.path],
   });
+}
+
+function hasProvidedSemanticValue(value: unknown) {
+  if (value === undefined || value === null) {
+    return false;
+  }
+
+  if (typeof value === 'string') {
+    return value.trim().length > 0;
+  }
+
+  if (Array.isArray(value)) {
+    return value.length > 0;
+  }
+
+  return true;
 }
 
 function findFieldValueIssue(

@@ -195,6 +195,7 @@ describe('semantic-lady BYOK schema core', () => {
         generation_prompt: 'A slow dolly forward',
         generation_aspect_ratio: '1280:720',
         generation_duration: 5,
+        generation_input_image_file: ['https://example.com/frame.png'],
       }),
     ).toBeNull();
 
@@ -234,13 +235,13 @@ describe('semantic-lady BYOK schema core', () => {
     }
   });
 
-  it('ignores non-generation keys and unknown models', () => {
+  it('enforces required fields and ignores unknown models', () => {
     expect(
       findByokGenerationFieldIssue('bfl/flux-2-pro', {
         prompt: 'provider prompt',
         steps: 28,
       }),
-    ).toBeNull();
+    ).toMatchObject({ path: ['generation_prompt'] });
     expect(findByokGenerationFieldIssue('unknown/model', {})).toBeNull();
     expect(findByokGenerationFieldIssue('bfl/flux-2-pro', null)).toBeNull();
   });

@@ -204,6 +204,45 @@ describe('chain templates', () => {
       ),
     ).not.toThrow();
 
+    // Required Semantic Lady fields are enforced even when the field has no
+    // provider default.
+    expect(() =>
+      parseTemplateInput(
+        template!,
+        {
+          image_model: 'bfl/flux-2-max',
+          image_model_input: {
+            generation_output_format: 'jpeg',
+          },
+          video_model: 'happyhorse/1.0-i2v',
+          video_model_input: {
+            generation_duration: 5,
+          },
+        },
+        { byokMode: true },
+      ),
+    ).toThrow('generation_prompt is required');
+
+    // First image model inputs keep upload fields when the selected model
+    // supports image-to-image.
+    expect(() =>
+      parseTemplateInput(
+        template!,
+        {
+          image_model: 'bfl/flux-2-max',
+          image_model_input: {
+            generation_input_image_file: [VALIDATION_IMAGE_URL],
+            generation_prompt: 'Refine the uploaded image.',
+          },
+          video_model: 'happyhorse/1.0-i2v',
+          video_model_input: {
+            generation_duration: 5,
+          },
+        },
+        { byokMode: true },
+      ),
+    ).not.toThrow();
+
     // BabySea mode does not apply the semantic-lady BYOK validation.
     expect(() =>
       parseTemplateInput(
@@ -451,6 +490,7 @@ describe('chain templates', () => {
           video_model: 'runway/gen-4-turbo',
           modify_model: 'runway/aleph-2',
           video_model_input: {
+            generation_aspect_ratio: '1280:720',
             generation_duration: 5,
             generation_prompt: 'Animate the generated image',
           },
@@ -653,6 +693,7 @@ describe('chain templates', () => {
         {
           image_model: 'runway/gen-4-image-turbo',
           image_model_input: {
+            generation_aspect_ratio: '1280:720',
             generation_prompt: 'A robot barista.',
             generation_input_image_file: ['https://example.com/start.png'],
           },
@@ -1545,6 +1586,7 @@ describe('chain templates', () => {
         },
         video_model: 'runway/gen-4-turbo',
         video_model_input: {
+          generation_aspect_ratio: '1280:720',
           generation_duration: 5,
           generation_prompt: 'Animate the generated image',
         },

@@ -2027,10 +2027,16 @@ function createSchemaExample(
   }
 
   if (context.key && isPromptLikeKey(context.key)) {
-    return context.preferredPrompt.trim() ? context.preferredPrompt : undefined;
+    return context.preferredPrompt.trim()
+      ? context.preferredPrompt
+      : 'Describe the generation.';
   }
 
   if (type === 'array') {
+    if (context.key && isFileInputKey(context.key)) {
+      return [exampleFileUrlForKey(context.key)];
+    }
+
     const item = createSchemaExample(schema.items, context);
 
     return item === undefined ? undefined : [item];
@@ -2132,6 +2138,22 @@ function isValidSchemaExample(
   }
 
   return true;
+}
+
+function isFileInputKey(key: string) {
+  return /^generation_input_[a-z]+_file$/.test(key);
+}
+
+function exampleFileUrlForKey(key: string) {
+  if (key.includes('_audio_')) {
+    return 'https://cdn.example.com/reference-audio.wav';
+  }
+
+  if (key.includes('_video_')) {
+    return 'https://cdn.example.com/reference-video.mp4';
+  }
+
+  return 'https://cdn.example.com/source-image.png';
 }
 
 function isPromptLikeKey(key: string) {
