@@ -1411,7 +1411,7 @@ describe('provider adapters', () => {
       modelIdentifier: 'alibabacloud/wan2.7-videoedit',
       params: {
         generation_duration: 4,
-        generation_input_file: ['https://cdn.example.com/source-image.png'],
+        generation_input_file: ['https://example.com/image.png'],
         generation_prompt: 'Animate the generated product image.',
       },
       stepKey: 'video',
@@ -1423,7 +1423,7 @@ describe('provider adapters', () => {
       media: [
         {
           type: 'first_frame',
-          url: 'https://cdn.example.com/source-image.png',
+          url: 'https://example.com/image.png',
         },
       ],
     });

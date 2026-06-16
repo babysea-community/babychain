@@ -1526,14 +1526,14 @@ function isFileInputKey(key: string) {
 
 function exampleFileUrlForKey(key: string) {
   if (key.includes('_audio_')) {
-    return 'https://cdn.example.com/reference-audio.wav';
+    return 'https://example.com/audio.wav';
   }
 
   if (key.includes('_video_')) {
-    return 'https://cdn.example.com/reference-video.mp4';
+    return 'https://example.com/video.mp4';
   }
 
-  return 'https://cdn.example.com/source-image.png';
+  return 'https://example.com/image.png';
 }
 
 function isExcludedSchemaExampleKey(key: string, excludedKeys: Set<string>) {
