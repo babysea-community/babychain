@@ -5,6 +5,9 @@ jobs:
     docker:
       - image: cimg/node:24.11
     working_directory: ~/project
+    environment:
+      PNPM_VERSION: '11.7.0'
+      PNPM_CONFIG_MINIMUM_RELEASE_AGE: '0'
     steps:
       - checkout
       - restore_cache:
@@ -174,6 +177,9 @@ jobs:
     docker:
       - image: cimg/node:24.11
     working_directory: ~/project
+    environment:
+      PNPM_VERSION: '11.7.0'
+      PNPM_CONFIG_MINIMUM_RELEASE_AGE: '0'
     steps:
       - checkout
       - run:

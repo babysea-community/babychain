@@ -57,6 +57,7 @@ variables:
   SENTRY_ORG: ci
   SENTRY_PROJECT: ci
   SENTRY_AUTH_TOKEN: ci_sentry_auth_token
+  PNPM_CONFIG_MINIMUM_RELEASE_AGE: '0'
 
 default:
   interruptible: true
