@@ -17,7 +17,7 @@ All notable changes will be documented here. The format follows [Keep a Changelo
 - Canvas API and runner cards now keep their dragged position like model cards, and the API card exposes List chains, Create chain, Get run, and Cancel run cURL snippets for debugging.
 - Canvas media previews now use dashboard-session output links for inline provider media, keeping API responses clean while preserving browser image/video rendering.
 - The templates page curl examples and schema section now use the same Semantic Lady `generation_*` request contract as the run API and canvas node cards.
-- Canvas API requests and template curl examples now share one request-shape builder, use schema defaults exactly as published by Semantic Lady, omit no-default fields instead of inventing `null` or empty strings, and only use empty arrays for BabyChain's normalized input file fields.
+- Canvas API requests and template curl examples now share one request-shape builder, use schema defaults exactly as published by Semantic Lady, and show every user-sendable schema field by filling no-default fields with typed placeholders such as `<string>`.
 
 ### Added
 

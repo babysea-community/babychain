@@ -32,8 +32,8 @@ import { Table, TableBody, TableCell, TableRow } from '@/components/ui/table';
 import {
   createChainRunCurl,
   createChainRunInput,
+  createExampleStepInputFromRequestSchema,
   createModelSchemaJsonFromRequestSchema,
-  createStepInputFromRequestSchema,
 } from '@/lib/chains/ui-request-shape';
 import {
   type ChainSchemaStepRole,
@@ -441,6 +441,22 @@ const SHELL_EXACT_TOKEN_TONES = new Map<string, CodeTokenTone>([
 const JSON_LITERAL_TOKENS = new Set(['true', 'false', 'null']);
 
 function highlightCurlCode(code: string) {
+  const heredocMarker = "--data @- <<'JSON'\n";
+  const heredocStart = code.indexOf(heredocMarker);
+
+  if (heredocStart !== -1) {
+    const jsonStart = heredocStart + heredocMarker.length;
+    const jsonEnd = code.lastIndexOf('\nJSON');
+
+    if (jsonEnd > jsonStart) {
+      return [
+        ...highlightShellCode(code.slice(0, jsonStart), 'curl-shell'),
+        ...highlightJsonCode(code.slice(jsonStart, jsonEnd), 'curl-json'),
+        ...highlightShellCode(code.slice(jsonEnd), 'curl-tail'),
+      ];
+    }
+  }
+
   const dataMarker = "--data '";
   const dataStart = code.indexOf(dataMarker);
 
@@ -1172,13 +1188,13 @@ function createDocsStyleRunInput(
 
   return createChainRunInput({
     imageModel,
-    imageModelInput: createStepInputFromRequestSchema({
+    imageModelInput: createExampleStepInputFromRequestSchema({
       excludedKeys: MODEL_SCHEMA_KEYS_HANDLED_BY_BABYCHAIN,
       schema: modelRequestSchema(modelRequestSchemas, 'image', imageModel),
       values: modelInputObject(entry.defaultInput.image_model_input),
     }),
     modifyModel,
-    modifyModelInput: createStepInputFromRequestSchema({
+    modifyModelInput: createExampleStepInputFromRequestSchema({
       excludedKeys: MODEL_SCHEMA_KEYS_HANDLED_BY_BABYCHAIN,
       schema: modelRequestSchema(
         modelRequestSchemas,
@@ -1188,7 +1204,7 @@ function createDocsStyleRunInput(
       values: modelInputObject(entry.defaultInput.modify_model_input),
     }),
     refineModel,
-    refineModelInput: createStepInputFromRequestSchema({
+    refineModelInput: createExampleStepInputFromRequestSchema({
       excludedKeys: MODEL_SCHEMA_KEYS_HANDLED_BY_BABYCHAIN,
       schema: modelRequestSchema(
         modelRequestSchemas,
@@ -1198,7 +1214,7 @@ function createDocsStyleRunInput(
       values: modelInputObject(entry.defaultInput.refine_model_input),
     }),
     videoModel,
-    videoModelInput: createStepInputFromRequestSchema({
+    videoModelInput: createExampleStepInputFromRequestSchema({
       excludedKeys: MODEL_SCHEMA_KEYS_HANDLED_BY_BABYCHAIN,
       schema: modelRequestSchema(modelRequestSchemas, 'video', videoModel),
       values: modelInputObject(entry.defaultInput.video_model_input),

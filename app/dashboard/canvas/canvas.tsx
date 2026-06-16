@@ -64,6 +64,7 @@ import {
   createCancelRunCurl,
   createGetRunCurl,
   createChainRunCurl,
+  createExampleStepInputFromValues,
   createListChainsCurl,
   createModelSchemaJsonFromFields,
   createStepInputFromValues,
@@ -970,6 +971,22 @@ function NodeCurlBlock({ value }: { value: string }) {
 }
 
 function highlightCurlCode(code: string) {
+  const heredocMarker = "--data @- <<'JSON'\n";
+  const heredocStart = code.indexOf(heredocMarker);
+
+  if (heredocStart !== -1) {
+    const jsonStart = heredocStart + heredocMarker.length;
+    const jsonEnd = code.lastIndexOf('\nJSON');
+
+    if (jsonEnd > jsonStart) {
+      return [
+        ...highlightShellCode(code.slice(0, jsonStart), 'node-curl-shell'),
+        ...highlightJsonCode(code.slice(jsonStart, jsonEnd), 'node-curl-json'),
+        ...highlightShellCode(code.slice(jsonEnd), 'node-curl-tail'),
+      ];
+    }
+  }
+
   const dataMarker = "--data '";
   const dataStart = code.indexOf(dataMarker);
 
@@ -1979,7 +1996,32 @@ function buildFlowCurlInput(
   flowId: string,
   fieldsByModel: Record<string, FieldGroup | undefined>,
 ) {
-  return buildFlowRunInput(nodes, flowId, fieldsByModel).input;
+  const flowNodes = nodes
+    .filter((node) => node.type === 'model' && node.data.flowId === flowId)
+    .sort((a, b) => ROLE_RANK[a.data.role] - ROLE_RANK[b.data.role]);
+  const chainModels: Record<string, string> = {};
+  const input: Record<string, unknown> = {
+    chain_models: chainModels,
+  };
+
+  for (const node of flowNodes) {
+    const group =
+      fieldsByModel[modelSchemaCacheKey(node.data.role, node.data.modelId)];
+    const schemaFields = group
+      ? [...group.core, ...group.advanced].filter((field) =>
+          shouldRenderFieldForRole(field, node.data.role),
+        )
+      : [];
+    const params = normalizeRunParams(compact(node.data.values), group);
+
+    chainModels[`${node.data.role}_model`] = node.data.modelId;
+    input[`${node.data.role}_model_input`] = createExampleStepInputFromValues({
+      fields: schemaFields,
+      values: params,
+    });
+  }
+
+  return input;
 }
 
 function createNodeCurl(input: Record<string, unknown>) {

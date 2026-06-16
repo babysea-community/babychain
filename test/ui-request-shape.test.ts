@@ -4,6 +4,8 @@ import {
   createCancelRunCurl,
   createChainRunCurl,
   createChainRunInput,
+  createExampleStepInputFromRequestSchema,
+  createExampleStepInputFromValues,
   createGetRunCurl,
   createListChainsCurl,
   createModelSchemaJsonFromRequestSchema,
@@ -105,6 +107,59 @@ describe('UI request shape builders', () => {
     });
   });
 
+  it('fills cURL examples with typed placeholders for no-default fields', () => {
+    expect(
+      createExampleStepInputFromRequestSchema({
+        schema: {
+          type: 'object',
+          properties: {
+            generation_prompt: { type: 'string' },
+            generation_seed: { type: 'integer' },
+            generation_strength: { type: 'number' },
+            generation_moderation: { type: 'boolean' },
+            generation_input_image_file: {
+              type: 'array',
+              items: { type: 'string', format: 'uri' },
+            },
+            generation_settings: {
+              type: 'object',
+              properties: {
+                mode: { type: 'string' },
+              },
+            },
+          },
+        },
+      }),
+    ).toEqual({
+      generation_input_image_file: ['<string>'],
+      generation_moderation: '<boolean>',
+      generation_prompt: '<string>',
+      generation_seed: '<integer>',
+      generation_settings: { mode: '<string>' },
+      generation_strength: '<number>',
+    });
+  });
+
+  it('keeps user values before defaults and cURL placeholders', () => {
+    expect(
+      createExampleStepInputFromValues({
+        fields: [
+          { name: 'generation_prompt', valueKind: 'string' },
+          { name: 'generation_width', default: 1024, valueKind: 'number' },
+          { name: 'generation_seed', valueKind: 'number' },
+        ],
+        values: {
+          generation_prompt: 'A product frame',
+          generation_width: 768,
+        },
+      }),
+    ).toEqual({
+      generation_prompt: 'A product frame',
+      generation_seed: '<number>',
+      generation_width: 768,
+    });
+  });
+
   it('builds template cURL inputs from model defaults and file arrays', () => {
     const schema = createSemanticRequestSchema('bfl/flux-1.1-pro');
 
@@ -120,11 +175,11 @@ describe('UI request shape builders', () => {
     });
   });
 
-  it('keeps cURL model input fields limited to defaults and file arrays', () => {
-    const fluxInput = createStepInputFromRequestSchema({
+  it('builds full cURL model input examples from schema fields', () => {
+    const fluxInput = createExampleStepInputFromRequestSchema({
       schema: createSemanticRequestSchema('bfl/flux-1.1-pro'),
     });
-    const happyHorseInput = createStepInputFromRequestSchema({
+    const happyHorseInput = createExampleStepInputFromRequestSchema({
       schema: createSemanticRequestSchema('happyhorse/1.0-i2v', {
         chainFieldMode: 'downstream',
       }),
@@ -147,23 +202,28 @@ describe('UI request shape builders', () => {
       'generation_seed',
     ]);
     expect(Object.keys(happyHorseInput)).toEqual([
+      'generation_prompt',
       'generation_resolution',
       'generation_duration',
+      'generation_seed',
       'generation_watermark',
     ]);
+    expect(fluxInput.generation_input_image_file).toEqual(['<string>']);
+    expect(happyHorseInput.generation_prompt).toBe('<string>');
+    expect(happyHorseInput.generation_seed).toBe('<integer>');
     expect(
       Object.keys(input.image_model_input as Record<string, unknown>),
     ).toHaveLength(8);
     expect(
       Object.keys(input.video_model_input as Record<string, unknown>),
-    ).toHaveLength(3);
+    ).toHaveLength(5);
   });
 
   it('builds cURL from the same request body sent to the backend', () => {
     const input = createChainRunInput({
       imageModel: 'bfl/flux-1.1-pro',
       imageModelInput: {
-        generation_prompt: 'A product frame',
+        generation_prompt: "A cat's product frame",
         generation_width: 1024,
       },
       videoModel: 'runway/gen-4-turbo',
@@ -175,7 +235,10 @@ describe('UI request shape builders', () => {
     });
     const curl = createChainRunCurl(input);
 
+    expect(curl).toContain("--data @- <<'JSON'\n{");
+    expect(curl).toContain('\n}\nJSON');
     expect(curl).toContain(JSON.stringify({ input }, null, 2));
+    expect(curl).toContain(`"generation_prompt": "A cat's product frame"`);
     expect(curl).not.toContain('https://example.com/image.png');
     expect(curl).not.toContain('client_reference_id');
     expect(curl).not.toContain('webhook_url');

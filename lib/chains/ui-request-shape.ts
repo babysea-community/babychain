@@ -133,28 +133,47 @@ export function createStepInputFromRequestSchema({
   schema: Record<string, unknown>;
   values?: Record<string, unknown>;
 }) {
-  const properties = isJsonObject(schema.properties) ? schema.properties : {};
-  const fields: UiFieldSpec[] = Object.entries(properties).map(
-    ([name, propertySchema]) => {
-      const schemaObject = isJsonObject(propertySchema)
-        ? propertySchema
-        : undefined;
-      const defaultEntry = hasSchemaDefault(schemaObject)
-        ? { default: schemaObject.default }
-        : {};
-
-      return {
-        ...defaultEntry,
-        name,
-        schema: schemaObject,
-        valueKind: valueKindForSchema(propertySchema),
-      };
-    },
-  );
+  const fields = fieldsFromRequestSchema(schema);
 
   return createStepInputFromValues({
     excludedKeys,
     fields,
+    values,
+  });
+}
+
+export function createExampleStepInputFromValues({
+  excludedKeys = EMPTY_KEYS,
+  fields,
+  values,
+}: {
+  excludedKeys?: ReadonlySet<string>;
+  fields: readonly UiFieldSpec[];
+  values: Record<string, unknown>;
+}) {
+  const entries = fields.flatMap((field): [string, unknown][] => {
+    if (excludedKeys.has(field.name)) {
+      return [];
+    }
+
+    return [[field.name, exampleValueForField(field, values[field.name])]];
+  });
+
+  return Object.fromEntries(entries);
+}
+
+export function createExampleStepInputFromRequestSchema({
+  excludedKeys = EMPTY_KEYS,
+  schema,
+  values = {},
+}: {
+  excludedKeys?: ReadonlySet<string>;
+  schema: Record<string, unknown>;
+  values?: Record<string, unknown>;
+}) {
+  return createExampleStepInputFromValues({
+    excludedKeys,
+    fields: fieldsFromRequestSchema(schema),
     values,
   });
 }
@@ -200,16 +219,17 @@ export function createListChainsCurl() {
 }
 
 export function createChainRunCurl(input: Record<string, unknown>) {
+  const body = JSON.stringify(createChainRunRequest(input), null, 2);
   const lines = [
     'curl --request POST',
     '  --url "$NEXT_PUBLIC_SITE_URL/api/v1/chains/runs"',
     '  --header "Authorization: Bearer $BABYCHAIN_API_KEY"',
     '  --header "Content-Type: application/json"',
     `  --header "Idempotency-Key: ${IDEMPOTENCY_KEY_PLACEHOLDER}"`,
-    `  --data '${JSON.stringify(createChainRunRequest(input), null, 2)}'`,
+    `  --data @- <<'JSON'`,
   ];
 
-  return lines.join(lineContinuation());
+  return `${lines.join(lineContinuation())}\n${body}\nJSON`;
 }
 
 export function createGetRunCurl() {
@@ -314,6 +334,125 @@ function normalizeSchemaProperty(
   }
 
   return output;
+}
+
+function fieldsFromRequestSchema(schema: Record<string, unknown>) {
+  const properties = isJsonObject(schema.properties) ? schema.properties : {};
+
+  return Object.entries(properties).map(([name, propertySchema]) => {
+    const schemaObject = isJsonObject(propertySchema)
+      ? propertySchema
+      : undefined;
+    const defaultEntry = hasSchemaDefault(schemaObject)
+      ? { default: schemaObject.default }
+      : {};
+
+    return {
+      ...defaultEntry,
+      name,
+      schema: schemaObject,
+      valueKind: valueKindForSchema(propertySchema),
+    } satisfies UiFieldSpec;
+  });
+}
+
+function exampleValueForField(field: UiFieldSpec, value: unknown) {
+  if (isMeaningfulRequestValue(value)) {
+    return value;
+  }
+
+  if (hasFieldDefault(field)) {
+    return field.default;
+  }
+
+  return placeholderValueForField(field);
+}
+
+function placeholderValueForField(field: UiFieldSpec) {
+  if (field.schema) {
+    return placeholderValueForSchema(field.schema, field.valueKind);
+  }
+
+  return placeholderValueForKind(field.valueKind);
+}
+
+function placeholderValueForSchema(
+  schema: Record<string, unknown> | undefined,
+  fallbackKind: UiFieldSpec['valueKind'],
+): unknown {
+  if (!schema) {
+    return placeholderValueForKind(fallbackKind);
+  }
+
+  const type = schemaType(schema, fallbackKind);
+
+  if (type === 'array') {
+    return [
+      placeholderValueForSchema(
+        isJsonObject(schema.items) ? schema.items : undefined,
+        undefined,
+      ),
+    ];
+  }
+
+  if (type === 'object') {
+    if (isJsonObject(schema.properties)) {
+      return Object.fromEntries(
+        Object.entries(schema.properties).map(([key, property]) => [
+          key,
+          placeholderValueForSchema(
+            isJsonObject(property) ? property : undefined,
+            undefined,
+          ),
+        ]),
+      );
+    }
+
+    return '<object>';
+  }
+
+  if (type === 'integer') return '<integer>';
+  if (type === 'number') return '<number>';
+  if (type === 'boolean') return '<boolean>';
+  if (type === 'string') return '<string>';
+
+  return placeholderValueForKind(fallbackKind);
+}
+
+function placeholderValueForKind(kind: UiFieldSpec['valueKind']) {
+  if (kind === 'number') return '<number>';
+  if (kind === 'boolean') return '<boolean>';
+  if (kind === 'string-array') return ['<string>'];
+  if (kind === 'json') return '<object>';
+  return '<string>';
+}
+
+function schemaType(
+  schema: Record<string, unknown>,
+  fallbackKind: UiFieldSpec['valueKind'],
+) {
+  const explicitType = Array.isArray(schema.type)
+    ? schema.type.find((value) => value !== 'null')
+    : schema.type;
+
+  if (typeof explicitType === 'string') {
+    return explicitType;
+  }
+
+  if (isJsonObject(schema.properties)) return 'object';
+  if (schema.items !== undefined) return 'array';
+
+  const enumValues = Array.isArray(schema.enum) ? schema.enum : [];
+  const enumValue = enumValues.find((value) => value !== null);
+  if (typeof enumValue === 'string') return 'string';
+  if (typeof enumValue === 'number') return 'number';
+  if (typeof enumValue === 'boolean') return 'boolean';
+
+  if (fallbackKind === 'number') return 'number';
+  if (fallbackKind === 'boolean') return 'boolean';
+  if (fallbackKind === 'string-array') return 'array';
+  if (fallbackKind === 'json') return 'object';
+  return 'string';
 }
 
 const JSON_SCHEMA_COPY_KEYS = [
