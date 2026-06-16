@@ -138,7 +138,14 @@ if (
   );
 }
 
-if (process.env.DATABASE_URL) {
+if (
+  process.env.DATABASE_URL &&
+  isTruthy(process.env.BABYCHAIN_DOCTOR_SKIP_DB_REACHABILITY)
+) {
+  console.log(
+    'info: DATABASE_URL reachability check skipped by BABYCHAIN_DOCTOR_SKIP_DB_REACHABILITY.',
+  );
+} else if (process.env.DATABASE_URL) {
   try {
     await assertDatabaseReachable(process.env.DATABASE_URL);
   } catch (error) {
@@ -179,6 +186,11 @@ function providerKeys(keys) {
   return Array.isArray(keys) ? keys : [keys];
 }
 
+/** @param {string | undefined} value */
+function isTruthy(value) {
+  return value === '1' || value === 'true' || value === 'yes';
+}
+
 /** @param {string} path */
 function loadEnvFile(path) {
   if (!existsSync(path)) return;
@@ -210,6 +222,7 @@ async function assertDatabaseReachable(connectionString) {
     const socket = new Socket();
     let settled = false;
 
+    /** @param {Error | null} error */
     const finish = (error) => {
       if (settled) return;
       settled = true;
@@ -231,9 +244,10 @@ async function assertDatabaseReachable(connectionString) {
       );
     });
     socket.once('error', (error) => {
+      const code = errorCode(error);
       finish(
         new Error(
-          `DATABASE_URL is not reachable at ${host}:${port}: ${error.code || error.message}. Check Aurora public access, VPC routing, and the security group inbound TCP 5432 rule for this runtime's egress IP.`,
+          `DATABASE_URL is not reachable at ${host}:${port}: ${code || error.message}. Check Aurora public access, VPC routing, and the security group inbound TCP 5432 rule for this runtime's egress IP.`,
         ),
       );
     });
@@ -241,4 +255,13 @@ async function assertDatabaseReachable(connectionString) {
   });
 
   console.log(`info: DATABASE_URL is reachable at ${host}:${port}.`);
+}
+
+/** @param {Error} error */
+function errorCode(error) {
+  const code = /** @type {{ code?: unknown }} */ (
+    /** @type {unknown} */ (error)
+  ).code;
+
+  return typeof code === 'string' ? code : null;
 }

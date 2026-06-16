@@ -17,7 +17,7 @@ import {
   type SaveCanvasInput,
 } from '@/lib/canvas/canvas-store';
 import type { StoredCanvasNode } from '@/lib/canvas/canvas-library';
-import { formatModelSelectLabel } from '@/lib/models/display';
+import { formatPublicModelName } from '@/lib/models/display';
 import { chainFieldModeForRole } from '@/lib/models/chain-schema';
 import { listModelCatalog } from '@/lib/models/model-library';
 import {
@@ -80,7 +80,7 @@ function listCanvasModels(): CanvasModel[] {
     }
     models.push({
       id: entry.modelIdentifier,
-      label: formatModelSelectLabel(entry.modelIdentifier),
+      label: formatPublicModelName(entry.modelIdentifier),
       provider: entry.provider,
       providerLabel: PROVIDER_LABELS[entry.provider] ?? entry.provider,
       kind: entry.kind,

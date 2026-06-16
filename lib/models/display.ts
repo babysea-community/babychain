@@ -78,10 +78,6 @@ export function formatPublicModelName(modelIdentifier: string) {
   return prefix ? `${prefix} ${modelName}` : modelName;
 }
 
-export function formatModelSelectLabel(modelIdentifier: string) {
-  return `${formatPublicModelName(modelIdentifier)} (${modelIdentifier})`;
-}
-
 function humanizeModelName(model: string) {
   return model.split('-').filter(Boolean).map(formatModelToken).join(' ');
 }

@@ -1,9 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import {
-  formatModelSelectLabel,
-  formatPublicModelName,
-} from '@/lib/models/display';
+import { formatPublicModelName } from '@/lib/models/display';
 
 describe('public model names', () => {
   it('keeps API identifiers out of public Alibaba model labels', () => {
@@ -38,15 +35,6 @@ describe('public model names', () => {
     expect(formatPublicModelName('gpt/image-2')).toBe('GPT Image 2');
     expect(formatPublicModelName('runway/gen-4-turbo')).toBe(
       'Runway Gen-4 Turbo',
-    );
-  });
-
-  it('shows canonical identifiers in selector labels', () => {
-    expect(formatModelSelectLabel('qwen/image')).toBe(
-      'Qwen Image (qwen/image)',
-    );
-    expect(formatModelSelectLabel('qwen/image-plus')).toBe(
-      'Qwen Image Plus (qwen/image-plus)',
     );
   });
 });

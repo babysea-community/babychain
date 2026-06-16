@@ -37,10 +37,7 @@ import {
   synthesizeTemplateEntry,
   type TemplatePageEntry,
 } from './synthesize-entry';
-import {
-  formatModelSelectLabel,
-  formatPublicModelName,
-} from '@/lib/models/display';
+import { formatPublicModelName } from '@/lib/models/display';
 
 import { SectionHeading } from '../_components/section-heading';
 import { StepGrid } from '../_components/step-grid';
@@ -694,7 +691,7 @@ function ModelSelect({
           ) : null}
           {options.map((model) => (
             <option key={`${label}-${model}`} value={model}>
-              {formatModelSelectLabel(model)}
+              {formatPublicModelName(model)}
             </option>
           ))}
         </select>
