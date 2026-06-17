@@ -328,8 +328,7 @@ async function buildVeoVideoBody(
 
   body.instances = [instance];
 
-  const supportsGenerateAudio = model === 'veo-3.1-generate-preview';
-  const parameters = normalizeVeoParameters({}, supportsGenerateAudio);
+  const parameters = normalizeVeoParameters({});
 
   if (params.generation_aspect_ratio !== undefined) {
     parameters.aspectRatio = jsonValue(params.generation_aspect_ratio);
@@ -346,10 +345,6 @@ async function buildVeoVideoBody(
     parameters.resolution = normalizeVeoResolution(
       params.generation_resolution,
     );
-  }
-
-  if (supportsGenerateAudio && params.generation_audio !== undefined) {
-    parameters.generateAudio = jsonValue(params.generation_audio);
   }
 
   if (params.generation_negative_prompt !== undefined) {
@@ -778,10 +773,7 @@ async function toVeoMediaValue(
   };
 }
 
-function normalizeVeoParameters(
-  input: JsonObject,
-  supportsGenerateAudio: boolean,
-) {
+function normalizeVeoParameters(input: JsonObject) {
   const parameters = { ...input };
 
   if (parameters.durationSeconds !== undefined) {
@@ -807,9 +799,7 @@ function normalizeVeoParameters(
 
   delete parameters.numberOfVideos;
 
-  if (!supportsGenerateAudio) {
-    delete parameters.generateAudio;
-  }
+  delete parameters.generateAudio;
 
   return parameters;
 }

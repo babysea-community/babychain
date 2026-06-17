@@ -2424,12 +2424,12 @@ describe('provider adapters', () => {
       parameters: {
         aspectRatio: '9:16',
         durationSeconds: 8,
-        generateAudio: false,
         negativePrompt: 'No text overlays',
         resolution: '1080p',
         seed: 1234,
       },
     });
+    expect(submittedBody.parameters).not.toHaveProperty('generateAudio');
     expect(submittedBody.parameters).not.toHaveProperty('numberOfVideos');
     expect(submitted).toMatchObject({
       kind: 'async',
