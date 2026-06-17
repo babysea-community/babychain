@@ -1,6 +1,6 @@
 # Run BabyChain on EC2
 
-EC2 is not a native one-click host for BabyChain. You run the VM yourself, so you must create a stable public URL, build and push a Docker image, store runtime values in Parameter Store, create an instance profile, launch Amazon Linux 2023 with user data, and operate updates and cleanup.
+EC2 gives you one inspectable VM for BabyChain. You run the VM yourself, so you must create a stable public URL, build and push a Docker image, store runtime values in Parameter Store, create an instance profile, launch Amazon Linux 2023 with user data, and operate updates and cleanup.
 
 Use this guide when you want one inspectable VM. Use CloudFormation when you want managed ECS/Fargate infrastructure.
 

@@ -1,6 +1,6 @@
 # Deploy BabyChain with AWS CloudFormation
 
-CloudFormation is not a native one-click host for BabyChain. The template creates AWS infrastructure, but you still need to choose networking, create the stack, fill retained secrets, build and push the Docker image, then start the ECS service.
+CloudFormation is the managed AWS deployment path for BabyChain. The template creates the AWS infrastructure; you still need to choose networking, create the stack, fill retained secrets, build and push the Docker image, then start the ECS service.
 
 Use this guide when you want managed AWS infrastructure with ECS Fargate, an Application Load Balancer, ECR, Secrets Manager, CloudWatch Logs, and optional EventBridge queued-run recovery.
 

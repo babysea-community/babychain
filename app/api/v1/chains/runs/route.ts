@@ -43,8 +43,8 @@ import { getEnv } from '@/lib/utils/env';
 
 export const dynamic = 'force-dynamic';
 // Keep in sync with BABYCHAIN_SDK_ROUTE_MAX_DURATION_SECONDS.
-// Ideally the `maxDuration` should be 790 to match BABYCHAIN_SDK_ROUTE_MAX_DURATION_SECONDS,
-// but 300 fits Vercel free-plan limits.
+// The starter keeps this at 300 for broad Vercel compatibility. Raise it only
+// on deployments whose plan supports a higher route duration.
 export const maxDuration = 300;
 export const runtime = 'nodejs';
 

@@ -128,7 +128,7 @@ BabyChain turns model-to-model media workflows into durable backend runs. Compos
 
 - **Multi-flow canvas studio**: run many independent image → video flows side by side on one permanent workspace. Every edit autosaves to Aurora and survives reloads, logout, and device switches; only an explicit reset clears it.
 - **Run in place, save what matters**: each flow ends in a runner card. "Run only" streams step outputs onto the canvas; "Run and save" also snapshots the flow into the Library with its results.
-- **Same contract for products**: the canvas drives `POST /api/v1/chains/runs`, the exact API your product code calls. Nothing is studio-only magic.
+- **Same contract for products**: the canvas drives `POST /api/v1/chains/runs`, the exact API your product code calls. There is no separate studio-only contract.
 - **Self-hosted control plane**: deploy on Vercel with your own environment and secrets.
 - **Server-side credentials**: keep inference provider keys or BabySea keys inside your backend. Caller apps only use BabyChain API keys.
 - **Durable execution**: store run state, ordered steps, provider request ids, generation ids, outputs, callbacks, and failure details in Aurora.
@@ -533,37 +533,37 @@ BabyChain still needs a reachable PostgreSQL database. Follow [Database (AWS Aur
 
 [![Deploy with AWS CloudFormation](public/deploy-button/aws-cloudformation.svg)](docs/deployment/aws-cloudformation.md)
 
-AWS CloudFormation is not a native one-click host for BabyChain. It needs AWS account setup, VPC/subnet choices, retained Secrets Manager values, an ECR image build, an ECS service update, and optional EventBridge queued-run recovery. Full end-to-end guide: [docs/deployment/aws-cloudformation.md](docs/deployment/aws-cloudformation.md).
+Use AWS CloudFormation when you want a managed AWS deployment with ECS Fargate, an Application Load Balancer, ECR, Secrets Manager, CloudWatch Logs, and optional EventBridge queued-run recovery. Full end-to-end guide: [docs/deployment/aws-cloudformation.md](docs/deployment/aws-cloudformation.md).
 
 ### AWS EC2
 
 [![Run on AWS EC2](public/deploy-button/aws-ec2.svg)](docs/deployment/aws-ec2.md)
 
-AWS EC2 is not a native one-click host for BabyChain. It needs an Elastic IP or final domain before build, an ECR image, Systems Manager Parameter Store values, IAM instance profile setup, security group and key pair setup, rendered user data, SSH inspection, updates, and cleanup. Full end-to-end guide: [docs/deployment/aws-ec2.md](docs/deployment/aws-ec2.md).
+Use AWS EC2 when you want one inspectable VM and are ready to manage the instance lifecycle yourself. The guide covers the Elastic IP or final domain, ECR image, Systems Manager Parameter Store values, IAM instance profile, security group, key pair, user data, SSH inspection, updates, and cleanup. Full end-to-end guide: [docs/deployment/aws-ec2.md](docs/deployment/aws-ec2.md).
 
 ### Coolify
 
 [![Deploy with Coolify](public/deploy-button/coolify.svg)](docs/deployment/coolify.md)
 
-Coolify is not a native one-click host for BabyChain. It uses the included Docker Compose file, final `NEXT_PUBLIC_*` build values, runtime environment secrets, domain/TLS routing, and a scheduled task for queued-run recovery. Full end-to-end guide: [docs/deployment/coolify.md](docs/deployment/coolify.md).
+Use Coolify when you want a Docker Compose deployment with managed builds, runtime environment values, domain/TLS routing, and a scheduled task for queued-run recovery. Full end-to-end guide: [docs/deployment/coolify.md](docs/deployment/coolify.md).
 
 ### Docker
 
 [![Deploy with Docker](public/deploy-button/docker.svg)](docs/deployment/docker.md)
 
-Docker is not a native one-click host for BabyChain. It needs a build with final public Next.js values, runtime secret injection, port/TLS setup, a host scheduler for `/api/cron/process-runs`, and optional Docker Hub publishing through GitHub Actions. Full end-to-end guide: [docs/deployment/docker.md](docs/deployment/docker.md).
+Use Docker when you want a portable production image for your own host or orchestrator. The guide covers final public Next.js build values, runtime secret injection, port/TLS setup, a host scheduler for `/api/cron/process-runs`, and optional Docker Hub publishing through GitHub Actions. Full end-to-end guide: [docs/deployment/docker.md](docs/deployment/docker.md).
 
 ### Fly.io
 
 [![Deploy on Fly.io](public/deploy-button/flyio.svg)](docs/deployment/fly-io.md)
 
-Fly.io is not a native one-click host for BabyChain. It uses the included Fly app config, final `NEXT_PUBLIC_*` build values, Fly secrets, a long-running machine, and an external scheduler for queued-run recovery. Full end-to-end guide: [docs/deployment/fly-io.md](docs/deployment/fly-io.md).
+Use Fly.io when you want a long-running Docker deployment with Fly-managed TLS, regional placement, Fly secrets, and an external scheduler for queued-run recovery. Full end-to-end guide: [docs/deployment/fly-io.md](docs/deployment/fly-io.md).
 
 ### Google Cloud Run
 
 [![Deploy on Google Cloud Run](public/deploy-button/google-cloud-run.svg)](docs/deployment/google-cloud-run.md)
 
-Google Cloud Run is not a native one-click host for BabyChain. It needs Artifact Registry, Secret Manager values, a Docker build with final public Next.js values, a Cloud Run service, and Cloud Scheduler queued-run recovery. Full end-to-end guide: [docs/deployment/google-cloud-run.md](docs/deployment/google-cloud-run.md).
+Use Google Cloud Run when you want managed HTTPS, autoscaling, Cloud Logging, Secret Manager integration, and Cloud Scheduler queued-run recovery around the BabyChain Docker image. Full end-to-end guide: [docs/deployment/google-cloud-run.md](docs/deployment/google-cloud-run.md).
 
 ## 5. Security and Compliance
 

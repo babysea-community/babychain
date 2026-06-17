@@ -1,6 +1,6 @@
 # Deploy BabyChain with Docker
 
-Docker is not a native one-click host for BabyChain. The Dockerfile gives you a production image, but you still need to build it with public Next.js values, provide runtime secrets, expose the container, add HTTPS, and run a scheduler for queued-run recovery.
+Docker is the portable deployment path for BabyChain. The Dockerfile gives you a production image; you still need to build it with public Next.js values, provide runtime secrets, expose the container, add HTTPS, and run a scheduler for queued-run recovery.
 
 Use this guide when you want to run BabyChain on any Docker-capable host or publish a reusable image from GitHub Actions.
 
