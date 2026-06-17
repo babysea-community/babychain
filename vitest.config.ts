@@ -12,11 +12,6 @@ export default defineConfig({
     globals: false,
     include: ['test/**/*.test.ts'],
     passWithNoTests: true,
-    coverage: {
-      provider: 'v8',
-      reporter: ['text', 'lcov', 'json-summary', 'cobertura'],
-      reportsDirectory: 'coverage',
-    },
   },
   resolve: {
     alias: {

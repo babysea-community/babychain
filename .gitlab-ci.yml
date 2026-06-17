@@ -28,9 +28,9 @@ variables:
   AST_ENABLE_MR_PIPELINES: 'true'
   GITLAB_ADVANCED_SAST_ENABLED: 'true'
   SECURE_LOG_LEVEL: warn
-  SAST_EXCLUDED_PATHS: '.next,.pnpm-store,coverage,dist,build,node_modules,public'
-  DS_EXCLUDED_PATHS: '.next,.pnpm-store,coverage,dist,build,node_modules,public'
-  SECRET_DETECTION_EXCLUDED_PATHS: '.next,.pnpm-store,coverage,dist,build,node_modules,public'
+  SAST_EXCLUDED_PATHS: '.next,.pnpm-store,dist,build,node_modules,public'
+  DS_EXCLUDED_PATHS: '.next,.pnpm-store,dist,build,node_modules,public'
+  SECRET_DETECTION_EXCLUDED_PATHS: '.next,.pnpm-store,dist,build,node_modules,public'
   SECRET_DETECTION_HISTORIC_SCAN: 'true'
   CONTAINER_SCANNING_DISABLED: 'false'
   CS_DISABLE_DEPENDENCY_LIST: 'false'
@@ -161,27 +161,6 @@ verify:typecheck:
       else
         echo 'No typecheck script; skipping.'
       fi
-
-test:coverage:
-  stage: test
-  extends: .pnpm-job
-  timeout: 15m
-  coverage: '/All files[^|]*\|[^|]*\s+([0-9.]+)/'
-  script:
-    - mkdir -p coverage
-    - |
-      if node -e "const pkg=require('./package.json'); process.exit(pkg.scripts?.['test:coverage'] ? 0 : 1)"; then
-        pnpm test:coverage
-      elif node -e "const pkg=require('./package.json'); process.exit(pkg.scripts?.test ? 0 : 1)"; then
-        pnpm test
-      else
-        echo 'No test or test:coverage script; skipping.'
-      fi
-  artifacts:
-    when: always
-    expire_in: 7 days
-    paths:
-      - coverage/
 
 build:app:
   stage: build

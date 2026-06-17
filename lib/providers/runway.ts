@@ -275,6 +275,13 @@ function buildSubmitBody(args: {
       };
     }
 
+    if (videoFiles.length > 0 && body.reference === undefined) {
+      body.reference = {
+        type: 'video',
+        uri: videoFiles[0] ?? '',
+      };
+    }
+
     return body;
   }
 

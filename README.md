@@ -53,6 +53,17 @@ Canvas studio and durable chain API for image and video model workflows with one
 
 <br />
 
+<strong>Custom deploy</strong>
+
+[![Deploy with AWS CloudFormation](public/deploy-button/aws-cloudformation.svg)](#aws-cloudformation)
+[![Run on AWS EC2](public/deploy-button/aws-ec2.svg)](#aws-ec2)
+[![Deploy on Google Cloud Run](public/deploy-button/google-cloud-run.svg)](#google-cloud-run)
+[![Deploy with Coolify](public/deploy-button/coolify.svg)](#coolify)
+[![Deploy with Docker](public/deploy-button/docker.svg)](#docker)
+[![Deploy on Fly.io](public/deploy-button/flyio.svg)](#flyio)
+
+<br/>
+
 <img src="public/card.png" alt="BabyChain card" />
 
 <br />
@@ -474,7 +485,7 @@ BYOK callers should read request field definitions from Semantic Lady model sche
 
 ### Tests
 
-Provider adapter contract coverage lives with the provider adapter suite:
+Provider adapter contract lives with the provider adapter suite:
 
 ```bash
 pnpm test:run -- test/provider-adapters.test.ts
@@ -521,6 +532,30 @@ Reaching Aurora from Vercel. Vercel functions have dynamic egress IPs, so allowi
 - A short-lived demo only: a publicly accessible cluster with the security group scoped to the VPC CIDR.
 
 See [Database (AWS Aurora / PostgreSQL)](#database-aws-aurora--postgresql) above for the full VPC + security-group walkthrough.
+
+### AWS CloudFormation
+
+AWS CloudFormation is not a native one-click host for BabyChain. It needs AWS account setup, VPC/subnet choices, retained Secrets Manager values, an ECR image build, an ECS service update, and optional EventBridge queued-run recovery. Full end-to-end guide: [docs/deployment/cloudformation.md](docs/deployment/aws-cloudformation.md).
+
+### AWS EC2
+
+AWS EC2 is not a native one-click host for BabyChain. It needs an Elastic IP or final domain before build, an ECR image, Systems Manager Parameter Store values, IAM instance profile setup, security group and key pair setup, rendered user data, SSH inspection, updates, and cleanup. Full end-to-end guide: [docs/deployment/ec2.md](docs/deployment/aws-ec2.md).
+
+### Google Cloud Run
+
+Google Cloud Run is not a native one-click host for BabyChain. It needs Artifact Registry, Secret Manager values, a Docker build with final public Next.js values, a Cloud Run service, and Cloud Scheduler queued-run recovery. Full end-to-end guide: [docs/deployment/cloud-run.md](docs/deployment/google-cloud-run.md).
+
+### Coolify
+
+Coolify is not a native one-click host for BabyChain. It uses the included Docker Compose file, final `NEXT_PUBLIC_*` build values, runtime environment secrets, domain/TLS routing, and a scheduled task for queued-run recovery. Full end-to-end guide: [docs/deployment/coolify.md](docs/deployment/coolify.md).
+
+### Docker
+
+Docker is not a native one-click host for BabyChain. It needs a build with final public Next.js values, runtime secret injection, port/TLS setup, a host scheduler for `/api/cron/process-runs`, and optional Docker Hub publishing through GitHub Actions. Full end-to-end guide: [docs/deployment/docker.md](docs/deployment/docker.md).
+
+### Fly.io
+
+Fly.io is not a native one-click host for BabyChain. It uses the included Fly app config, final `NEXT_PUBLIC_*` build values, Fly secrets, a long-running machine, and an external scheduler for queued-run recovery. Full end-to-end guide: [docs/deployment/fly-io.md](docs/deployment/fly-io.md).
 
 ## 5. Security and Compliance
 

@@ -113,13 +113,14 @@ describe('chain templates', () => {
     expect(isImageToVideoChainModel('google/veo-3.1')).toBe(true);
     expect(isImageToVideoChainModel('runway/gen-4-turbo')).toBe(true);
     expect(isImageToVideoChainModel('wan/2.7-r2v')).toBe(true);
-    // Text-to-video-only and performance-transfer models are not wireable as
-    // the chain image-to-video step.
+    // Text-to-video-only models are not wireable as the chain image-to-video
+    // step. Performance-transfer models are wireable when callers supply the
+    // required reference video input.
     expect(isImageToVideoChainModel('wan/2.7-t2v')).toBe(false);
     expect(isImageToVideoChainModel('happyhorse/1.0-t2v')).toBe(false);
-    expect(isImageToVideoChainModel('runway/act-two')).toBe(false);
-    expect(isImageToVideoChainModel('wan/2.2-animate-mix')).toBe(false);
-    expect(isImageToVideoChainModel('wan/2.2-animate-move')).toBe(false);
+    expect(isImageToVideoChainModel('runway/act-two')).toBe(true);
+    expect(isImageToVideoChainModel('wan/2.2-animate-mix')).toBe(true);
+    expect(isImageToVideoChainModel('wan/2.2-animate-move')).toBe(true);
     expect(isImageToVideoChainModel('runway/aleph-2')).toBe(true);
 
     expect(isVideoToVideoChainModel('runway/aleph-2')).toBe(true);
@@ -442,7 +443,7 @@ describe('chain templates', () => {
     ).toThrow('selected refine_model does not accept image input');
   });
 
-  it('requires the built-in chain video_model to accept image input', () => {
+  it('requires media-driven video models to receive a reference video input', () => {
     const template = getChainTemplate('chain');
 
     expect(() =>
@@ -452,12 +453,46 @@ describe('chain templates', () => {
           image_model: TEXT_IMAGE_MODEL,
           video_model: 'runway/act-two',
           video_model_input: {
-            generation_prompt: 'Animate the generated image',
+            generation_aspect_ratio: '1280:720',
           },
         },
         { byokMode: true },
       ),
-    ).toThrow('does not support the image-to-video workflow');
+    ).toThrow('generation_input_video_file is required');
+
+    expect(() =>
+      parseTemplateInput(
+        template!,
+        {
+          image_model: TEXT_IMAGE_MODEL,
+          video_model: 'runway/act-two',
+          video_model_input: {
+            generation_aspect_ratio: '1280:720',
+            generation_input_video_file: [
+              'https://cdn.example.com/reference.mp4',
+            ],
+          },
+        },
+        { byokMode: true },
+      ),
+    ).not.toThrow();
+
+    expect(() =>
+      parseTemplateInput(
+        template!,
+        {
+          image_model: TEXT_IMAGE_MODEL,
+          video_model: 'wan/2.2-animate-mix',
+          video_model_input: {
+            generation_input_video_file: [
+              'https://cdn.example.com/reference.mp4',
+            ],
+            generation_mode: 'wan-std',
+          },
+        },
+        { byokMode: true },
+      ),
+    ).not.toThrow();
   });
 
   it('requires the modify_model to accept video input', () => {
@@ -564,13 +599,7 @@ describe('chain templates', () => {
   it('rejects video models that cannot consume the previous image output', () => {
     const template = getChainTemplate('chain');
 
-    for (const videoModel of [
-      'happyhorse/1.0-t2v',
-      'wan/2.7-t2v',
-      'wan/2.2-animate-mix',
-      'wan/2.2-animate-move',
-      'runway/act-two',
-    ]) {
+    for (const videoModel of ['happyhorse/1.0-t2v', 'wan/2.7-t2v']) {
       expect(() =>
         parseTemplateInput(
           template!,

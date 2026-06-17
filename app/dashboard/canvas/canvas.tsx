@@ -77,6 +77,7 @@ import {
 } from '@/lib/chains/ui-request-shape';
 import {
   createDefaultCanvasName,
+  isDefaultCanvasName,
   MAX_CANVAS_TITLE_LENGTH,
   normalizeCanvasTitle,
 } from '@/lib/canvas/names';
@@ -601,8 +602,8 @@ const FLOW_ROW_H = 980;
 const FLOW_UTILITY_STACK_Y = 420;
 
 function snapshotNodes(nodes: FlowNode[]): StoredCanvasNode[] {
-  // Utility cards are derived UI; info cards persist the flow's Library id
-  // and name. Run ids are transient UI state and never stored in canvas nodes.
+  // Utility cards are derived UI; info cards persist the flow name. Run ids
+  // are transient UI state and never stored in canvas nodes.
   return nodes
     .filter((node) => node.type !== 'curl' && node.type !== 'runner')
     .map((node) => ({
@@ -610,9 +611,18 @@ function snapshotNodes(nodes: FlowNode[]): StoredCanvasNode[] {
       role: node.data.role,
       modelId: node.data.modelId,
       flowId: node.data.flowId,
-      values: node.data.values,
+      values:
+        node.type === 'info'
+          ? stripFlowLibraryCanvasId(node.data.values)
+          : node.data.values,
       position: node.position,
     }));
+}
+
+function stripFlowLibraryCanvasId(values: Record<string, FieldValue>) {
+  const next = { ...values };
+  delete next[LIBRARY_CANVAS_ID_VALUE];
+  return next;
 }
 
 function restoreNodes(
@@ -763,6 +773,11 @@ function flowName(nodes: FlowNode[], flowId?: string): string {
     : createDefaultCanvasName();
 }
 
+function libraryFlowName(nodes: FlowNode[], flowId: string): string {
+  const name = flowName(nodes, flowId);
+  return isDefaultCanvasName(name) ? createDefaultCanvasName() : name;
+}
+
 function duplicateFlowName(name: string) {
   const base = normalizeCanvasTitle(name) || createDefaultCanvasName();
   const suffix = ' copy';
@@ -772,36 +787,6 @@ function duplicateFlowName(name: string) {
   }
 
   return `${base.slice(0, MAX_CANVAS_TITLE_LENGTH - suffix.length)}${suffix}`;
-}
-
-function flowLibraryCanvasId(nodes: FlowNode[], flowId: string) {
-  const infoNode = nodes.find(
-    (node) => node.type === 'info' && node.data.flowId === flowId,
-  );
-  const value = infoNode?.data.values[LIBRARY_CANVAS_ID_VALUE];
-
-  return typeof value === 'string' && value ? value : null;
-}
-
-function withFlowLibraryCanvasId(
-  nodes: FlowNode[],
-  flowId: string,
-  libraryCanvasId: string,
-) {
-  return nodes.map((node) =>
-    node.type === 'info' && node.data.flowId === flowId
-      ? {
-          ...node,
-          data: {
-            ...node.data,
-            values: {
-              ...node.data.values,
-              [LIBRARY_CANVAS_ID_VALUE]: libraryCanvasId,
-            },
-          },
-        }
-      : node,
-  );
 }
 
 // ----------------------------------------------------------------------------
@@ -1757,9 +1742,8 @@ function RunnerNodeComponent({ data }: NodeProps) {
           ) : (
             <>
               <RunnerActionLabel>Run only</RunnerActionLabel> keeps results
-              here. <RunnerActionLabel>Run and save</RunnerActionLabel>{' '}
-              publishes this flow to the Library, then updates the same card on
-              later runs.
+              here. <RunnerActionLabel>Run and save</RunnerActionLabel> creates
+              a new Library card for this flow.
             </>
           )}
         </p>
@@ -2089,7 +2073,11 @@ function normalizeInitialImageInputArrays(params: Record<string, unknown>) {
 }
 
 function shouldRenderFieldForRole(field: FieldSpec, role: StepRole) {
-  return role === 'image' || !isChainWiredSemanticFieldName(field.name);
+  return (
+    role === 'image' ||
+    !isChainWiredSemanticFieldName(field.name) ||
+    (field.name === 'generation_input_video_file' && field.required === true)
+  );
 }
 
 function buildFlowRunInput(
@@ -2119,9 +2107,14 @@ function buildFlowRunInput(
       normalizeInitialImageInputArrays(params);
     } else {
       for (const key of Object.keys(params)) {
+        if (key === 'generation_input_file') {
+          delete params[key];
+          continue;
+        }
+
         if (
-          key === 'generation_input_file' ||
-          isChainWiredSemanticFieldName(key)
+          isChainWiredSemanticFieldName(key) &&
+          !schemaFields.some((field) => field.name === key)
         ) {
           delete params[key];
         }
@@ -2210,8 +2203,6 @@ function CanvasInner(props: CanvasProps) {
   const buildDefaultFlow = useCallback(
     (y: number): FlowNode[] => {
       const flowId = genFlowId();
-      // The flow's Library identity is stored here after the first
-      // "Run and save" so later publishes update the same Library card.
       const infoNode: FlowNode = {
         id: `info_${flowId}`,
         type: 'info',
@@ -2684,8 +2675,8 @@ function CanvasInner(props: CanvasProps) {
         const last = flowNodes[flowNodes.length - 1];
         if (!first || !last) continue;
 
-        // Flow info card: persists the flow's Library identity (id +
-        // editable name). If a malformed stored flow is missing one, create it.
+        // Flow info card: persists the editable flow name. If a malformed
+        // stored flow is missing one, create it.
         const infoId = `info_${flowId}`;
         const existingInfo = auxById.get(infoId);
         if (existingInfo) {
@@ -2905,7 +2896,6 @@ function CanvasInner(props: CanvasProps) {
           ...(sourceInfo?.data.values ?? {}),
           name: duplicateFlowName(flowName(current, flowId)),
         };
-        delete infoValues[LIBRARY_CANVAS_ID_VALUE];
 
         const copiedNodes: FlowNode[] = [
           {
@@ -3188,23 +3178,10 @@ function CanvasInner(props: CanvasProps) {
       });
 
       let savedCanvasId: string | undefined;
-      let workingNodes = nodesRef.current;
+      const workingNodes = nodesRef.current;
 
       if (save) {
-        savedCanvasId =
-          canvasId ??
-          flowLibraryCanvasId(workingNodes, flowId) ??
-          createCanvasId();
-
-        if (!canvasId && !flowLibraryCanvasId(workingNodes, flowId)) {
-          workingNodes = withFlowLibraryCanvasId(
-            workingNodes,
-            flowId,
-            savedCanvasId,
-          );
-          nodesRef.current = workingNodes;
-          setNodes(workingNodes);
-        }
+        savedCanvasId = canvasId ?? createCanvasId();
       }
 
       // A run should never depend on the autosave interval having fired.
@@ -3233,9 +3210,9 @@ function CanvasInner(props: CanvasProps) {
 
       // "Run and save": snapshot THIS flow into the Library first, so the
       // saved canvas exists (and is linked to the run) before anything runs.
-      // On the workspace each flow gets one Library canvas id, persisted on
-      // the info card; later publishes update that same Library card. On a
-      // saved canvas page the page id is reused, so re-running updates in place.
+      // On the workspace every publish creates a fresh Library canvas card.
+      // On a saved canvas page the page id is reused, so re-running updates in
+      // place.
       if (save) {
         if (!savedCanvasId) {
           finishFlow(flowId);
@@ -3243,7 +3220,9 @@ function CanvasInner(props: CanvasProps) {
           return;
         }
 
-        const title = flowName(nodesRef.current, flowId);
+        const title = canvasId
+          ? flowName(nodesRef.current, flowId)
+          : libraryFlowName(nodesRef.current, flowId);
         const result = await saveCanvasAction({
           id: savedCanvasId,
           title,
@@ -3377,10 +3356,8 @@ function CanvasInner(props: CanvasProps) {
         }
       },
       renameCanvas: (flowId: string, title: string) => {
-        const targetCanvasId =
-          canvasId ?? flowLibraryCanvasId(nodesRef.current, flowId);
-        if (targetCanvasId) {
-          void renameCanvasAction(targetCanvasId, title).catch(() => undefined);
+        if (canvasId) {
+          void renameCanvasAction(canvasId, title).catch(() => undefined);
         }
       },
       addNodeToFlow,

@@ -13,6 +13,7 @@ import {
   isImageChainModel,
   isImageInputCapableModel,
   isImageToVideoChainModel,
+  isMediaDrivenImageToVideoChainModel,
   isTextToImageCapableModel,
   isVideoToVideoChainModel,
 } from '@/lib/models/semantic-schema';
@@ -440,6 +441,9 @@ function assertByokGenerationFieldsForSteps(input: ChainInput) {
     }
 
     assertByokGenerationFields(modelIdentifier, params ?? {}, paramsKey, {
+      allowInputVideoFile:
+        role === 'video' &&
+        isMediaDrivenImageToVideoChainModel(modelIdentifier),
       chainFieldMode: chainFieldModeForRole(role),
     });
   }
@@ -469,7 +473,7 @@ function requireImageToVideoModel(input: ChainInput) {
 
   throw new BabyChainError(
     'invalid_chain_input',
-    'The selected video_model does not support the image-to-video workflow required by the chain video step. Choose a prompt-driven image-to-video model.',
+    'The selected video_model does not support the image-to-video workflow required by the chain video step. Choose an image-to-video model or a media-driven transfer model with a reference video input.',
     400,
     { path: ['video_model'] },
   );
@@ -904,7 +908,13 @@ function rejectChainWiredImageInputs(input: ChainInput) {
     const params = input[paramsKey];
     const path =
       findProviderChainWiredOverrideParamPath(params) ??
-      findProviderChainWiredMediaParamPath(params);
+      findProviderChainWiredMediaParamPath(params, [], {
+        allowGenerationInputVideoFile:
+          paramsKey === 'video_model_input' &&
+          isMediaDrivenImageToVideoChainModel(
+            optionalString(input.video_model) ?? '',
+          ),
+      });
 
     if (!path) {
       continue;
@@ -968,6 +978,7 @@ function findProviderChainWiredOverrideParamPath(
 function findProviderChainWiredMediaParamPath(
   value: unknown,
   path: string[] = [],
+  options: { allowGenerationInputVideoFile?: boolean } = {},
 ): string[] | null {
   if (!value || typeof value !== 'object') {
     return null;
@@ -975,10 +986,11 @@ function findProviderChainWiredMediaParamPath(
 
   if (Array.isArray(value)) {
     for (const [index, item] of value.entries()) {
-      const nestedPath = findProviderChainWiredMediaParamPath(item, [
-        ...path,
-        String(index),
-      ]);
+      const nestedPath = findProviderChainWiredMediaParamPath(
+        item,
+        [...path, String(index)],
+        options,
+      );
 
       if (nestedPath) {
         return nestedPath;
@@ -993,13 +1005,22 @@ function findProviderChainWiredMediaParamPath(
       isProviderChainWiredMediaParamKey(key) &&
       hasProvidedInputValue(entryValue)
     ) {
+      if (
+        options.allowGenerationInputVideoFile === true &&
+        path.length === 0 &&
+        key === 'generation_input_video_file'
+      ) {
+        continue;
+      }
+
       return [...path, key];
     }
 
-    const nestedPath = findProviderChainWiredMediaParamPath(entryValue, [
-      ...path,
-      key,
-    ]);
+    const nestedPath = findProviderChainWiredMediaParamPath(
+      entryValue,
+      [...path, key],
+      options,
+    );
 
     if (nestedPath) {
       return nestedPath;

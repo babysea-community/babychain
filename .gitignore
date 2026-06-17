@@ -10,8 +10,6 @@ dist
 *.tsbuildinfo
 .vercel
 .env*.local
-coverage
-supabase/.temp
 .wrangler
 .open-next
 cloudflare-env.d.ts

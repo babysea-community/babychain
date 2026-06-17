@@ -25,6 +25,7 @@ import {
   getSemanticModelSchemaFields,
   isImageInputCapableModel,
   isImageToVideoChainModel,
+  isMediaDrivenImageToVideoChainModel,
   isVideoToVideoChainModel,
   semanticFieldJsonSchema,
 } from '@/lib/models/semantic-schema';
@@ -52,7 +53,7 @@ const PROVIDER_LABELS: Record<string, string> = {
   runway: 'Runway',
 };
 
-const INTERNAL_ROUTE_ORIGIN = 'https://babychain.internal';
+const INTERNAL_ROUTE_ORIGIN = 'http://localhost';
 type InternalRequestInit = ConstructorParameters<typeof NextRequest>[1];
 const PUBLIC_OUTPUT_ROUTE_PREFIX = '/api/v1/chains/get/';
 const DASHBOARD_OUTPUT_ROUTE_PREFIX = '/api/dashboard/chains/get/';
@@ -308,6 +309,8 @@ function defaultFieldValue(value: unknown): Pick<FieldSpec, 'default'> {
 
 function deriveSemanticFields(modelId: string, role: StepRole): FieldGroup {
   const schema = getSemanticModelSchemaFields(modelId, {
+    allowInputVideoFile:
+      role === 'video' && isMediaDrivenImageToVideoChainModel(modelId),
     chainFieldMode: chainFieldModeForRole(role),
   });
 

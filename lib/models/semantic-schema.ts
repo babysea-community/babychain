@@ -36,6 +36,7 @@ const CHAIN_LEVEL_GENERATION_KEYS = new Set(['generation_provider_order']);
 const UNKNOWN_KEY_DISPLAY_LIMIT = 100;
 
 export type SemanticRequestSchemaOptions = {
+  allowInputVideoFile?: boolean;
   chainFieldMode?: SemanticChainFieldMode;
 };
 
@@ -57,13 +58,21 @@ export function getSemanticModelSchemaFields(
   modelIdentifier: string,
   options: SemanticRequestSchemaOptions = {},
 ): readonly SemanticLadyField[] | null {
-  const fields = getSemanticModel(modelIdentifier)?.schema ?? null;
+  const model = getSemanticModel(modelIdentifier);
 
-  if (!fields || options.chainFieldMode !== 'downstream') {
+  if (!model) {
+    return null;
+  }
+
+  const fields = model.schema;
+
+  if (options.chainFieldMode !== 'downstream') {
     return fields;
   }
 
-  return filterChainSchemaFields(fields, 'video');
+  return filterChainSchemaFields(fields, 'video', {
+    allowInputVideoFile: options.allowInputVideoFile === true,
+  });
 }
 
 export type SemanticJsonObject = Record<string, unknown>;
@@ -159,11 +168,10 @@ function semanticJsonType(type: string) {
  *   - `video_model`  : kind `video` with the `image-to-video` workflow.
  *   - `modify_model` : kind `video` with the `video-to-video` workflow.
  *
- * Chain steps are prompt-driven (the BabyChain counterpart of a ComfyUI
- * prompt graph), so video roles additionally require the model to accept
- * `generation_prompt`. That requirement excludes performance-transfer models
- * (`runway/act-two`, `wan/2.2-animate-*`): they take no text prompt and need
- * reference media the chain cannot wire from a previous step.
+ * Prompt-driven video roles require the model to accept `generation_prompt`.
+ * Media-driven transfer models (`runway/act-two`, `wan/2.2-animate-*`) are
+ * also valid video steps when BabyChain can supply the generated image and the
+ * caller supplies the required reference video.
  */
 export function isImageChainModel(modelIdentifier: string): boolean {
   return getSemanticModel(modelIdentifier)?.kind === 'image';
@@ -186,9 +194,18 @@ export function isImageToVideoChainModel(modelIdentifier: string): boolean {
 
   return (
     model?.kind === 'video' &&
-    model.workflows.includes('image-to-video') &&
-    hasGenerationPromptField(model)
+    ((model.workflows.includes('image-to-video') &&
+      hasGenerationPromptField(model)) ||
+      isMediaDrivenImageToVideoModel(model))
   );
+}
+
+export function isMediaDrivenImageToVideoChainModel(
+  modelIdentifier: string,
+): boolean {
+  const model = getSemanticModel(modelIdentifier);
+
+  return model ? isMediaDrivenImageToVideoModel(model) : false;
 }
 
 export function isVideoToVideoChainModel(modelIdentifier: string): boolean {
@@ -203,6 +220,26 @@ export function isVideoToVideoChainModel(modelIdentifier: string): boolean {
 
 function hasGenerationPromptField(model: SemanticLadyModel): boolean {
   return model.schema.some((field) => field.name === 'generation_prompt');
+}
+
+function isMediaDrivenImageToVideoModel(model: SemanticLadyModel): boolean {
+  if (model.kind !== 'video') {
+    return false;
+  }
+
+  const acceptsImage = model.schema.some(
+    (field) => field.name === 'generation_input_image_file',
+  );
+  const requiresVideo = model.schema.some(
+    (field) => field.name === 'generation_input_video_file' && field.required,
+  );
+
+  return (
+    acceptsImage &&
+    requiresVideo &&
+    (model.workflows.includes('image-to-video') ||
+      model.workflows.includes('character-performance'))
+  );
 }
 
 export type ByokGenerationFieldIssue = {
@@ -263,7 +300,9 @@ export function findByokGenerationFieldIssue(
 
   const requiredFields =
     options.chainFieldMode === 'downstream'
-      ? filterChainSchemaFields(model.schema, 'video')
+      ? filterChainSchemaFields(model.schema, 'video', {
+          allowInputVideoFile: options.allowInputVideoFile === true,
+        })
       : model.schema;
 
   for (const field of requiredFields) {

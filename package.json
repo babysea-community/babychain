@@ -44,7 +44,6 @@
     "start": "next start",
     "test": "vitest",
     "test:run": "vitest run",
-    "test:coverage": "vitest run --coverage",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
@@ -73,7 +72,6 @@
     "@types/pg": "catalog:",
     "@types/react": "catalog:",
     "@types/react-dom": "catalog:",
-    "@vitest/coverage-v8": "catalog:",
     "babel-plugin-react-compiler": "catalog:",
     "eslint": "catalog:",
     "eslint-config-next": "catalog:",

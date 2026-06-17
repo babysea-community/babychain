@@ -27,10 +27,16 @@ export function isChainWiredSemanticFieldName(fieldName: string): boolean {
 export function filterChainSchemaFields<TField extends { name: string }>(
   fields: readonly TField[],
   role: ChainSchemaStepRole,
+  options: { allowInputVideoFile?: boolean } = {},
 ): TField[] {
   if (chainFieldModeForRole(role) === 'initial') {
     return [...fields];
   }
 
-  return fields.filter((field) => !isChainWiredSemanticFieldName(field.name));
+  return fields.filter(
+    (field) =>
+      !isChainWiredSemanticFieldName(field.name) ||
+      (options.allowInputVideoFile === true &&
+        field.name === 'generation_input_video_file'),
+  );
 }

@@ -6,12 +6,12 @@ import { useEffect, useState } from 'react';
 import { FontAwesomeIcon } from '@/components/icons/font-awesome-icon';
 import {
   InlineCloudflare,
-  InlineCloudFormation,
-  InlineCloudRun,
+  InlineAwsCloudFormation,
+  InlineGoogleCloudRun,
   InlineCoolify,
   InlineDigitalOcean,
   InlineDocker,
-  InlineEc2,
+  InlineAwsEc2,
   InlineFlyIo,
   InlineNetlify,
   InlineRailwayLight,
@@ -159,9 +159,9 @@ function renderDeployIcon(label: string) {
     case 'Deploy on Cloudflare':
       return <InlineCloudflare className={iconClassName} />;
     case 'Deploy with CloudFormation':
-      return <InlineCloudFormation className={iconClassName} />;
+      return <InlineAwsCloudFormation className={iconClassName} />;
     case 'Deploy on Cloud Run':
-      return <InlineCloudRun className={iconClassName} />;
+      return <InlineGoogleCloudRun className={iconClassName} />;
     case 'Deploy with Coolify':
       return <InlineCoolify className={iconClassName} />;
     case 'Deploy on DigitalOcean':
@@ -169,7 +169,7 @@ function renderDeployIcon(label: string) {
     case 'Deploy with Docker':
       return <InlineDocker className={iconClassName} />;
     case 'Run on EC2':
-      return <InlineEc2 className={iconClassName} />;
+      return <InlineAwsEc2 className={iconClassName} />;
     case 'Deploy on Fly.io':
       return <InlineFlyIo className={iconClassName} />;
     case 'Deploy on Netlify':

@@ -52,6 +52,16 @@ export function createDefaultCanvasName(): string {
   return name.slice(0, MAX_DEFAULT_CANVAS_NAME_LENGTH);
 }
 
+export function isDefaultCanvasName(name: string): boolean {
+  const [left, right, extra] = name.trim().split('-');
+
+  return (
+    extra === undefined &&
+    CANVAS_NAME_LEFT.includes(left as (typeof CANVAS_NAME_LEFT)[number]) &&
+    CANVAS_NAME_RIGHT.includes(right as (typeof CANVAS_NAME_RIGHT)[number])
+  );
+}
+
 function pick(items: readonly string[]): string {
   const index = randomIndex(items.length);
   return items[index] ?? items[0] ?? 'canvas';

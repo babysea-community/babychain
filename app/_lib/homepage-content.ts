@@ -10,7 +10,7 @@ const Database = createFontAwesomeIcon('database');
 const Fingerprint = createFontAwesomeIcon('fingerprint');
 const Key = createFontAwesomeIcon('key');
 const Lock = createFontAwesomeIcon('lock');
-const PlugCircleCheck = createFontAwesomeIcon('plug-circle-check');
+const Rocket = createFontAwesomeIcon('rocket');
 const ShieldHalved = createFontAwesomeIcon('shield-halved');
 const Terminal = createFontAwesomeIcon('terminal');
 
@@ -25,8 +25,6 @@ export const siteNavigation = {
       variant: 'outline' as const,
     },
     {
-      className:
-        'border-[#48d1cc] bg-[#48d1cc]/10 text-[#168f8b] hover:border-[#48d1cc] hover:bg-[#48d1cc]/20 hover:text-[#168f8b]',
       href: 'https://babychain.babysea.live/login',
       icon: Cloud,
       label: 'Launch on Cloud',
@@ -43,7 +41,7 @@ export const homepageHero = {
   actions: [
     {
       href: '/templates',
-      icon: PlugCircleCheck,
+      icon: Rocket,
       label: 'Explore templates',
       variant: 'outline' as const,
     },

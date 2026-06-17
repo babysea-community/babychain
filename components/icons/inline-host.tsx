@@ -6,53 +6,47 @@ import { cn } from '../../lib/utils';
 // -------------------------------------------------------
 // HOSTING PROVIDERS
 // -------------------------------------------------------
-// 1. Cloudflare
-// 2. CloudFormation
-// 3. Cloud Run
-// 4. Coolify
-// 5. DigitalOcean
-// 6. Docker
-// 7. EC2
-// 8. Fly.io
-// 9. Netlify
-// 10. Railway
-// 11. Render
-// 12. Vercel
-// 13. Amplify
-// 14. Cloudflare Workers
-// 15. Heroku
+// 1. AWS Amplify
+// 2. AWS CloudFormation
+// 3. AWS EC2
+// 4. Cloudflare
+// 5. Cloudflare Workers
+// 6. Coolify
+// 7. DigitalOcean
+// 8. Docker
+// 9. Fly.io
+// 10. Google Cloud Run
+// 11. Heroku
+// 12. Netlify
+// 13. Railway
+// 14. Render
+// 15. Vercel
 // -------------------------------------------------------
 
-export function InlineCloudflare({
+export function InlineAwsAmplify({
   className,
   ...props
 }: React.SVGProps<SVGSVGElement>) {
   return (
     <svg
       xmlns="http://www.w3.org/2000/svg"
-      width="482"
-      height="482"
-      viewBox="0 0 122.88 55.57"
+      width="279.2003"
+      height="215.7368"
+      viewBox="0 0 279.2003 215.7368"
       className={cn(className)}
       {...props}
     >
-      <polygon
-        fill="#FFFFFF"
-        points="112.65,33.03 97.2,24.17 94.54,23.01 31.33,23.45 31.33,55.53 112.65,55.53 112.65,33.03"
-      />
       <path
-        fill="#F48120"
-        d="M84.52,52.58c0.76-2.59,0.47-4.97-0.79-6.73c-1.15-1.62-3.1-2.56-5.44-2.67L33.96,42.6 c-0.29,0-0.54-0.14-0.68-0.36c-0.14-0.21-0.18-0.5-0.11-0.79c0.14-0.43,0.58-0.76,1.04-0.79l44.73-0.58 c5.29-0.25,11.06-4.54,13.07-9.8l2.56-6.66c0.11-0.29,0.14-0.58,0.07-0.86C91.76,9.72,80.13,0,66.23,0 c-12.82,0-23.7,8.28-27.59,19.77c-2.52-1.87-5.73-2.88-9.18-2.56c-6.16,0.61-11.09,5.55-11.7,11.7c-0.14,1.58-0.04,3.13,0.32,4.57 C8.03,33.78,0,41.99,0,52.11c0,0.9,0.07,1.8,0.18,2.7c0.07,0.43,0.43,0.76,0.86,0.76h81.82c0.47,0,0.9-0.32,1.04-0.79L84.52,52.58 L84.52,52.58z"
-      />
-      <path
-        fill="#FAAD3F"
-        d="M98.64,24.09c-0.4,0-0.83,0-1.22,0.04c-0.29,0-0.54,0.22-0.65,0.5l-1.73,6.01c-0.76,2.59-0.47,4.97,0.79,6.73 c1.15,1.62,3.1,2.56,5.44,2.67l9.44,0.58c0.29,0,0.54,0.14,0.68,0.36c0.14,0.22,0.18,0.54,0.11,0.79 c-0.14,0.43-0.58,0.76-1.04,0.79l-9.83,0.58c-5.33,0.25-11.06,4.54-13.07,9.79l-0.72,1.84c-0.14,0.36,0.11,0.72,0.5,0.72h33.78 c0.4,0,0.76-0.25,0.86-0.65c0.58-2.09,0.9-4.29,0.9-6.55C122.88,34.97,112,24.09,98.64,24.09L98.64,24.09z"
+        transform="matrix(1,0,0,-1,1,214.7368)"
+        d="M235.6753 9.9009 136.1594 203.838H164.6269L264.1482 9.9009ZM276.6512 7.2122 172.0559 211.0445C171.216 212.6985 169.5135 213.7368 167.6557 213.7368H128.0568C126.328 213.7368 124.7304 212.8405 123.8287 211.3662 122.9323 209.8959 122.8632 208.0604 123.6509 206.5246L228.2443 2.6887C229.0915 1.0403 230.794 0 232.6501 0H272.251C273.9739 0 275.5774 .8963 276.4735 2.3706 277.3735 3.8409 277.4426 5.6727 276.6512 7.2122ZM176.2149 9.9009 100.0627 152.6936 115.662 178.4874 204.6373 9.9009ZM120.3338 190.8485C119.4973 192.4274 117.883 193.4376 116.1017 193.4864 114.3899 193.591 112.6463 192.6258 111.7202 191.101L90.1397 155.4066C89.2324 153.9116 89.1836 152.0558 90.0011 150.516L168.8794 2.6192C169.74 1.0103 171.4238 0 173.2496 0H212.8504C214.583 0 216.1919 .9113 217.0879 2.3947 217.9843 3.8803 218.0384 5.7268 217.2266 7.2609ZM13.7254 9.9009 83.5804 125.4294 97.812 98.7525 65.0117 42.0797C64.1271 40.5456 64.1271 38.66 65.0081 37.1259 65.893 35.5955 67.5264 34.6507 69.3 34.6507H132.0007L145.1976 9.9009ZM139.3381 41.9321C138.4756 43.541 136.7938 44.5496 134.966 44.5496H77.8836L107.7559 96.1744C108.6165 97.6544 108.6463 99.4708 107.8455 100.9809L88.2238 137.7734C87.3819 139.3432 85.7673 140.3442 83.9863 140.3926 82.0854 140.4768 80.5365 139.5264 79.6195 138.0073L.7115 7.5135C-.2089 5.9794-.2387 4.0731 .6367 2.5203 1.5143 .9598 3.1569 0 4.9493 0H153.4501C155.1864 0 156.7953 .9113 157.6913 2.4004 158.5877 3.8954 158.6381 5.7475 157.8149 7.2816Z"
+        fill="#e02f36"
+        fillRule="evenodd"
       />
     </svg>
   );
 }
 
-export function InlineCloudFormation({
+export function InlineAwsCloudFormation({
   className,
   ...props
 }: React.SVGProps<SVGSVGElement>) {
@@ -93,38 +87,225 @@ export function InlineCloudFormation({
   );
 }
 
-export function InlineCloudRun({
+export function InlineAwsEc2({
+  className,
+  ...props
+}: React.SVGProps<SVGSVGElement>) {
+  const gradientId = useId().replace(/:/g, '');
+  const ec2GradientId = `${gradientId}-ec2`;
+
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width="80"
+      height="80"
+      viewBox="0 0 80 80"
+      className={cn(className)}
+      {...props}
+    >
+      <defs>
+        <linearGradient id={ec2GradientId} x1="0%" x2="100%" y1="100%" y2="0%">
+          <stop offset="0%" stopColor="#C8511B" />
+          <stop offset="100%" stopColor="#FF9900" />
+        </linearGradient>
+      </defs>
+      <g stroke="none" strokeWidth="1" fill="none" fillRule="evenodd">
+        <g fill={`url(#${ec2GradientId})`}>
+          <rect x="0" y="0" width="80" height="80" />
+        </g>
+        <path
+          d="M27,53 L52,53 L52,28 L27,28 L27,53 Z M54,28 L58,28 L58,30 L54,30 L54,34 L58,34 L58,36 L54,36 L54,39 L58,39 L58,41 L54,41 L54,45 L58,45 L58,47 L54,47 L54,51 L58,51 L58,53 L54,53 L54,53.136 C54,54.164 53.164,55 52.136,55 L52,55 L52,59 L50,59 L50,55 L46,55 L46,59 L44,59 L44,55 L41,55 L41,59 L39,59 L39,55 L35,55 L35,59 L33,59 L33,55 L29,55 L29,59 L27,59 L27,55 L26.864,55 C25.836,55 25,54.164 25,53.136 L25,53 L22,53 L22,51 L25,51 L25,47 L22,47 L22,45 L25,45 L25,41 L22,41 L22,39 L25,39 L25,36 L22,36 L22,34 L25,34 L25,30 L22,30 L22,28 L25,28 L25,27.864 C25,26.836 25.836,26 26.864,26 L27,26 L27,22 L29,22 L29,26 L33,26 L33,22 L35,22 L35,26 L39,26 L39,22 L41,22 L41,26 L44,26 L44,22 L46,22 L46,26 L50,26 L50,22 L52,22 L52,26 L52.136,26 C53.164,26 54,26.836 54,27.864 L54,28 Z M41,65.876 C41,65.944 40.944,66 40.876,66 L14.124,66 C14.056,66 14,65.944 14,65.876 L14,39.124 C14,39.056 14.056,39 14.124,39 L20,39 L20,37 L14.124,37 C12.953,37 12,37.953 12,39.124 L12,65.876 C12,67.047 12.953,68 14.124,68 L40.876,68 C42.047,68 43,67.047 43,65.876 L43,61 L41,61 L41,65.876 Z M68,14.124 L68,40.876 C68,42.047 67.047,43 65.876,43 L60,43 L60,41 L65.876,41 C65.944,41 66,40.944 66,40.876 L66,14.124 C66,14.056 65.944,14 65.876,14 L39.124,14 C39.056,14 39,14.056 39,14.124 L39,20 L37,20 L37,14.124 C37,12.953 37.953,12 39.124,12 L65.876,12 C67.047,12 68,12.953 68,14.124 L68,14.124 Z"
+          fill="#FFFFFF"
+        />
+      </g>
+    </svg>
+  );
+}
+
+export function InlineCloudflare({
   className,
   ...props
 }: React.SVGProps<SVGSVGElement>) {
   return (
     <svg
       xmlns="http://www.w3.org/2000/svg"
-      viewBox="0 0 24 24"
+      width="482"
+      height="482"
+      viewBox="0 0 122.88 55.57"
       className={cn(className)}
       {...props}
     >
-      <path
-        d="M7,13c-.4,0-.79-.25-.94-.65l-2.99-8c-.19-.52.07-1.09.59-1.29.52-.19,1.09.07,1.29.59l2.99,8c.19.52-.07,1.09-.59,1.29-.12.04-.23.06-.35.06Z"
-        fill="#fbbc04"
-        strokeWidth="0"
-      />
-      <g id="cloud-run-red-segment">
-        <path
-          d="M20,13c-.2,0-.41-.06-.59-.19l-8.3-6.04,1.82,4.88c.19.52-.07,1.09-.59,1.29s-1.09-.07-1.29-.59l-2.98-8c-.15-.41-.02-.88.33-1.15.35-.27.84-.27,1.19-.01l10.99,8c.45.33.54.95.22,1.4-.2.27-.5.41-.81.41Z"
-          fill="#ea4335"
-          strokeWidth="0"
-        />
-      </g>
-      <path
-        d="M18.3,12l-7.2,5.24,1.83-4.89c.04-.12.06-.23.06-.35h-2.07l-2.86,7.65c-.15.41-.02.88.33,1.15.18.14.39.2.6.2s.41-.06.59-.19l11-8c.27-.2.41-.5.41-.81h-2.7Z"
-        fill="#4285f4"
-        strokeWidth="0"
+      <polygon
+        fill="#FFFFFF"
+        points="112.65,33.03 97.2,24.17 94.54,23.01 31.33,23.45 31.33,55.53 112.65,55.53 112.65,33.03"
       />
       <path
-        d="M5.93,12l-2.87,7.65c-.19.52.07,1.09.59,1.29.12.04.23.06.35.06.4,0,.79-.25.94-.65l3-8c.04-.12.06-.24.06-.35h-2.07Z"
-        fill="#34a853"
-        strokeWidth="0"
+        fill="#F48120"
+        d="M84.52,52.58c0.76-2.59,0.47-4.97-0.79-6.73c-1.15-1.62-3.1-2.56-5.44-2.67L33.96,42.6 c-0.29,0-0.54-0.14-0.68-0.36c-0.14-0.21-0.18-0.5-0.11-0.79c0.14-0.43,0.58-0.76,1.04-0.79l44.73-0.58 c5.29-0.25,11.06-4.54,13.07-9.8l2.56-6.66c0.11-0.29,0.14-0.58,0.07-0.86C91.76,9.72,80.13,0,66.23,0 c-12.82,0-23.7,8.28-27.59,19.77c-2.52-1.87-5.73-2.88-9.18-2.56c-6.16,0.61-11.09,5.55-11.7,11.7c-0.14,1.58-0.04,3.13,0.32,4.57 C8.03,33.78,0,41.99,0,52.11c0,0.9,0.07,1.8,0.18,2.7c0.07,0.43,0.43,0.76,0.86,0.76h81.82c0.47,0,0.9-0.32,1.04-0.79L84.52,52.58 L84.52,52.58z"
+      />
+      <path
+        fill="#FAAD3F"
+        d="M98.64,24.09c-0.4,0-0.83,0-1.22,0.04c-0.29,0-0.54,0.22-0.65,0.5l-1.73,6.01c-0.76,2.59-0.47,4.97,0.79,6.73 c1.15,1.62,3.1,2.56,5.44,2.67l9.44,0.58c0.29,0,0.54,0.14,0.68,0.36c0.14,0.22,0.18,0.54,0.11,0.79 c-0.14,0.43-0.58,0.76-1.04,0.79l-9.83,0.58c-5.33,0.25-11.06,4.54-13.07,9.79l-0.72,1.84c-0.14,0.36,0.11,0.72,0.5,0.72h33.78 c0.4,0,0.76-0.25,0.86-0.65c0.58-2.09,0.9-4.29,0.9-6.55C122.88,34.97,112,24.09,98.64,24.09L98.64,24.09z"
+      />
+    </svg>
+  );
+}
+
+export function InlineCloudflareWorkers({
+  className,
+  ...props
+}: React.SVGProps<SVGSVGElement>) {
+  const gradientId = useId().replace(/:/g, '');
+  const gradientA = `${gradientId}-cloudflare-workers-a`;
+  const gradientB = `${gradientId}-cloudflare-workers-b`;
+  const gradientC = `${gradientId}-cloudflare-workers-c`;
+  const gradientD = `${gradientId}-cloudflare-workers-d`;
+  const gradientE = `${gradientId}-cloudflare-workers-e`;
+  const gradientF = `${gradientId}-cloudflare-workers-f`;
+  const gradientG = `${gradientId}-cloudflare-workers-g`;
+  const gradientH = `${gradientId}-cloudflare-workers-h`;
+
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width="128"
+      height="128"
+      viewBox="0 0 128 128"
+      className={cn(className)}
+      {...props}
+    >
+      <linearGradient
+        id={gradientA}
+        x1="-.556"
+        x2="-.628"
+        y1="128.705"
+        y2="128.977"
+        gradientTransform="matrix(155.9359 0 0 -364.3 119.128 47001.098)"
+        gradientUnits="userSpaceOnUse"
+      >
+        <stop offset="0" stopColor="#eb6f07" />
+        <stop offset="1" stopColor="#fab743" />
+      </linearGradient>
+      <path
+        fill={`url(#${gradientA})`}
+        d="M33.882 9.694 48.491 36.05 35.075 60.199a7.75 7.75 0 0 0 0 7.543l13.416 24.209-14.609 26.356a15.501 15.501 0 0 1-6.559-6.172L4.068 71.737a15.563 15.563 0 0 1 0-15.503l23.255-40.398a15.501 15.501 0 0 1 6.559-6.142z"
+      />
+      <linearGradient
+        id={gradientB}
+        x1="-.594"
+        x2="-.715"
+        y1="129.358"
+        y2="129.519"
+        gradientTransform="matrix(149.7049 0 0 -194.8 131.59 25305.098)"
+        gradientUnits="userSpaceOnUse"
+      >
+        <stop offset="0" stopColor="#d96504" />
+        <stop offset="1" stopColor="#d96504" stopOpacity="0" />
+      </linearGradient>
+      <path
+        fill={`url(#${gradientB})`}
+        d="M35.075 60.229a7.75 7.75 0 0 0 0 7.513l13.416 24.209-14.609 26.356a15.501 15.501 0 0 1-6.559-6.172L4.068 71.737c-1.848-3.19 8.497-7.006 31.007-11.478v-.03z"
+        opacity=".7"
+      />
+      <linearGradient
+        id={gradientC}
+        x1="-2.234"
+        x2="-2.109"
+        y1="128.901"
+        y2="128.689"
+        gradientTransform="matrix(95.8 0 0 -101.1 239.4 13048.3)"
+        gradientUnits="userSpaceOnUse"
+      >
+        <stop offset="0" stopColor="#eb6f07" />
+        <stop offset="1" stopColor="#eb720a" stopOpacity="0" />
+      </linearGradient>
+      <path
+        fill={`url(#${gradientC})`}
+        d="m35.373 12.347 13.118 23.702-2.176 3.786-11.568-19.587c-3.339-5.456-8.437-2.624-14.818 8.408l.954-1.64 6.44-11.18a15.51 15.51 0 0 1 6.499-6.142l1.521 2.653h.03z"
+        opacity=".5"
+      />
+      <linearGradient
+        id={gradientD}
+        x1="-.847"
+        x2="-.919"
+        y1="128.688"
+        y2="128.96"
+        gradientTransform="matrix(207.975 0 0 -375 275.025 48376)"
+        gradientUnits="userSpaceOnUse"
+      >
+        <stop offset="0" stopColor="#ee6f05" />
+        <stop offset="1" stopColor="#fab743" />
+      </linearGradient>
+      <path
+        fill={`url(#${gradientD})`}
+        d="m100.665 15.835 23.255 40.398a15.485 15.485 0 0 1 0 15.503l-23.255 40.398a15.504 15.504 0 0 1-13.416 7.752H63.994l28.92-52.145a7.75 7.75 0 0 0 0-7.513L63.994 8.084h23.255a15.502 15.502 0 0 1 13.416 7.751z"
+      />
+      <linearGradient
+        id={gradientE}
+        x1="-2.602"
+        x2="-2.229"
+        y1="128.679"
+        y2="128.977"
+        gradientTransform="matrix(118.9101 0 0 -375.1 361.09 48388.902)"
+        gradientUnits="userSpaceOnUse"
+      >
+        <stop offset="0" stopColor="#d96504" stopOpacity=".8" />
+        <stop offset=".498" stopColor="#d96504" stopOpacity=".2" />
+        <stop offset="1" stopColor="#d96504" stopOpacity="0" />
+      </linearGradient>
+      <path
+        fill={`url(#${gradientE})`}
+        d="m86.057 119.708-22.957.208 27.787-52.413a8.053 8.053 0 0 0 0-7.573L63.1 8.084h5.247l29.158 51.608a8.048 8.048 0 0 1-.03 7.99 4670.283 4670.283 0 0 0-18.693 32.796c-5.665 9.957-3.22 16.367 7.275 19.23z"
+      />
+      <linearGradient
+        id={gradientF}
+        x1="-.561"
+        x2="-.634"
+        y1="128.688"
+        y2="128.96"
+        gradientTransform="matrix(201.2571 0 0 -375 180.743 48376)"
+        gradientUnits="userSpaceOnUse"
+      >
+        <stop offset="0" stopColor="#ffa95f" />
+        <stop offset="1" stopColor="#ffebc8" />
+      </linearGradient>
+      <path
+        fill={`url(#${gradientF})`}
+        d="M40.739 119.886c-2.385 0-4.77-.566-6.857-1.58l28.681-51.727a5.353 5.353 0 0 0 0-5.188L33.882 9.694a15.492 15.492 0 0 1 6.857-1.61h23.255l28.92 52.145a7.75 7.75 0 0 1 0 7.513l-28.92 52.145H40.739z"
+      />
+      <linearGradient
+        id={gradientG}
+        x1="-2.816"
+        x2="-2.552"
+        y1="128.861"
+        y2="128.719"
+        gradientTransform="matrix(109.2571 0 0 -375 364.743 48376)"
+        gradientUnits="userSpaceOnUse"
+      >
+        <stop offset="0" stopColor="#fff" stopOpacity=".5" />
+        <stop offset="1" stopColor="#fff" stopOpacity=".1" />
+      </linearGradient>
+      <path
+        fill={`url(#${gradientG})`}
+        d="M90.886 61.391 61.311 8.084h2.683l28.92 52.145a7.75 7.75 0 0 1 0 7.513l-28.92 52.145h-2.683l29.576-53.308a5.35 5.35 0 0 0-.001-5.188z"
+        opacity=".6"
+      />
+      <linearGradient
+        id={gradientH}
+        x1="-2.34"
+        x2="-2.001"
+        y1="128.779"
+        y2="128.952"
+        gradientTransform="matrix(107.2571 0 0 -371.4 274.743 47913.2)"
+        gradientUnits="userSpaceOnUse"
+      >
+        <stop offset="0" stopColor="#fff" stopOpacity=".5" />
+        <stop offset="1" stopColor="#fff" stopOpacity=".1" />
+      </linearGradient>
+      <path
+        fill={`url(#${gradientH})`}
+        d="M62.563 61.391 33.882 9.694c.894-.477 1.968-.835 2.981-1.133 6.321 11.359 15.652 28.592 28.025 51.668a7.75 7.75 0 0 1 0 7.513L36.416 119.29c-1.014-.298-1.55-.507-2.504-.954l28.622-51.727a5.353 5.353 0 0 0 0-5.188l.029-.03z"
+        opacity=".6"
       />
     </svg>
   );
@@ -169,7 +350,7 @@ export function InlineDigitalOcean({
   return (
     <svg
       xmlns="http://www.w3.org/2000/svg"
-      viewBox="0 0 128 128"
+      viewBox="17 17 94 94"
       className={cn(className)}
       {...props}
     >
@@ -206,72 +387,6 @@ export function InlineDocker({
         <path
           fill="#2560FF"
           d="M334,110.1c-8.3-5.6-30.2-8-46.1-3.7-.9-15.8-9-29.2-24-40.8l-5.5-3.7-3.7,5.6c-7.2,11-10.3,25.7-9.2,39,.8,8.2,3.7,17.4,9.2,24.1-20.7,12-39.8,9.3-124.3,9.3H0c-.4,19.1,2.7,55.8,26,85.6,2.6,3.3,5.4,6.5,8.5,9.6,19,19,47.6,32.9,90.5,33,65.4,0,121.4-35.3,155.5-120.8,11.2.2,40.8,2,55.3-26,.4-.5,3.7-7.4,3.7-7.4l-5.5-3.7h0ZM85.2,92.7h-36.7v36.7h36.7v-36.7ZM132.6,92.7h-36.7v36.7h36.7v-36.7ZM179.9,92.7h-36.7v36.7h36.7v-36.7ZM227.3,92.7h-36.7v36.7h36.7v-36.7ZM37.8,92.7H1.1v36.7h36.7v-36.7ZM85.2,46.3h-36.7v36.7h36.7v-36.7ZM132.6,46.3h-36.7v36.7h36.7v-36.7ZM179.9,46.3h-36.7v36.7h36.7v-36.7ZM179.9,0h-36.7v36.7h36.7V0Z"
-        />
-      </g>
-    </svg>
-  );
-}
-
-export function InlineDockerLight({
-  className,
-  ...props
-}: React.SVGProps<SVGSVGElement>) {
-  const clipPathId = useId().replace(/:/g, '');
-  const dockerClipPathId = `${clipPathId}-docker-light`;
-
-  return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      width="340"
-      height="268"
-      viewBox="0 0 340 268"
-      className={cn(className)}
-      {...props}
-    >
-      <defs>
-        <clipPath id={dockerClipPathId}>
-          <rect fill="none" width="339.5" height="268" />
-        </clipPath>
-      </defs>
-      <g clipPath={`url(#${dockerClipPathId})`}>
-        <path
-          fill="#D9E5FC"
-          d="M334,110.1c-8.3-5.6-30.2-8-46.1-3.7-.9-15.8-9-29.2-24-40.8l-5.5-3.7-3.7,5.6c-7.2,11-10.3,25.7-9.2,39,.8,8.2,3.7,17.4,9.2,24.1-20.7,12-39.8,9.3-124.3,9.3H0c-.4,19.1,2.7,55.8,26,85.6,2.6,3.3,5.4,6.5,8.5,9.6,19,19,47.6,32.9,90.5,33,65.4,0,121.4-35.3,155.5-120.8,11.2.2,40.8,2,55.3-26,.4-.5,3.7-7.4,3.7-7.4l-5.5-3.7h0ZM85.2,92.7h-36.7v36.7h36.7v-36.7ZM132.6,92.7h-36.7v36.7h36.7v-36.7ZM179.9,92.7h-36.7v36.7h36.7v-36.7ZM227.3,92.7h-36.7v36.7h36.7v-36.7ZM37.8,92.7H1.1v36.7h36.7v-36.7ZM85.2,46.3h-36.7v36.7h36.7v-36.7ZM132.6,46.3h-36.7v36.7h36.7v-36.7ZM179.9,46.3h-36.7v36.7h36.7v-36.7ZM179.9,0h-36.7v36.7h36.7V0Z"
-        />
-      </g>
-    </svg>
-  );
-}
-
-export function InlineEc2({
-  className,
-  ...props
-}: React.SVGProps<SVGSVGElement>) {
-  const gradientId = useId().replace(/:/g, '');
-  const ec2GradientId = `${gradientId}-ec2`;
-
-  return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      width="80"
-      height="80"
-      viewBox="0 0 80 80"
-      className={cn(className)}
-      {...props}
-    >
-      <defs>
-        <linearGradient id={ec2GradientId} x1="0%" x2="100%" y1="100%" y2="0%">
-          <stop offset="0%" stopColor="#C8511B" />
-          <stop offset="100%" stopColor="#FF9900" />
-        </linearGradient>
-      </defs>
-      <g stroke="none" strokeWidth="1" fill="none" fillRule="evenodd">
-        <g fill={`url(#${ec2GradientId})`}>
-          <rect x="0" y="0" width="80" height="80" />
-        </g>
-        <path
-          d="M27,53 L52,53 L52,28 L27,28 L27,53 Z M54,28 L58,28 L58,30 L54,30 L54,34 L58,34 L58,36 L54,36 L54,39 L58,39 L58,41 L54,41 L54,45 L58,45 L58,47 L54,47 L54,51 L58,51 L58,53 L54,53 L54,53.136 C54,54.164 53.164,55 52.136,55 L52,55 L52,59 L50,59 L50,55 L46,55 L46,59 L44,59 L44,55 L41,55 L41,59 L39,59 L39,55 L35,55 L35,59 L33,59 L33,55 L29,55 L29,59 L27,59 L27,55 L26.864,55 C25.836,55 25,54.164 25,53.136 L25,53 L22,53 L22,51 L25,51 L25,47 L22,47 L22,45 L25,45 L25,41 L22,41 L22,39 L25,39 L25,36 L22,36 L22,34 L25,34 L25,30 L22,30 L22,28 L25,28 L25,27.864 C25,26.836 25.836,26 26.864,26 L27,26 L27,22 L29,22 L29,26 L33,26 L33,22 L35,22 L35,26 L39,26 L39,22 L41,22 L41,26 L44,26 L44,22 L46,22 L46,26 L50,26 L50,22 L52,22 L52,26 L52.136,26 C53.164,26 54,26.836 54,27.864 L54,28 Z M41,65.876 C41,65.944 40.944,66 40.876,66 L14.124,66 C14.056,66 14,65.944 14,65.876 L14,39.124 C14,39.056 14.056,39 14.124,39 L20,39 L20,37 L14.124,37 C12.953,37 12,37.953 12,39.124 L12,65.876 C12,67.047 12.953,68 14.124,68 L40.876,68 C42.047,68 43,67.047 43,65.876 L43,61 L41,61 L41,65.876 Z M68,14.124 L68,40.876 C68,42.047 67.047,43 65.876,43 L60,43 L60,41 L65.876,41 C65.944,41 66,40.944 66,40.876 L66,14.124 C66,14.056 65.944,14 65.876,14 L39.124,14 C39.056,14 39,14.056 39,14.124 L39,20 L37,20 L37,14.124 C37,12.953 37.953,12 39.124,12 L65.876,12 C67.047,12 68,12.953 68,14.124 L68,14.124 Z"
-          fill="#FFFFFF"
         />
       </g>
     </svg>
@@ -322,6 +437,89 @@ export function InlineFlyIo({
           <stop offset="1" stopColor="#5046E4" />
         </radialGradient>
       </defs>
+    </svg>
+  );
+}
+
+export function InlineGoogleCloudRun({
+  className,
+  ...props
+}: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="2.8 2.8 18.4 18.4"
+      className={cn(className)}
+      {...props}
+    >
+      <path
+        d="M7,13c-.4,0-.79-.25-.94-.65l-2.99-8c-.19-.52.07-1.09.59-1.29.52-.19,1.09.07,1.29.59l2.99,8c.19.52-.07,1.09-.59,1.29-.12.04-.23.06-.35.06Z"
+        fill="#fbbc04"
+        strokeWidth="0"
+      />
+      <g id="cloud-run-red-segment">
+        <path
+          d="M20,13c-.2,0-.41-.06-.59-.19l-8.3-6.04,1.82,4.88c.19.52-.07,1.09-.59,1.29s-1.09-.07-1.29-.59l-2.98-8c-.15-.41-.02-.88.33-1.15.35-.27.84-.27,1.19-.01l10.99,8c.45.33.54.95.22,1.4-.2.27-.5.41-.81.41Z"
+          fill="#ea4335"
+          strokeWidth="0"
+        />
+      </g>
+      <path
+        d="M18.3,12l-7.2,5.24,1.83-4.89c.04-.12.06-.23.06-.35h-2.07l-2.86,7.65c-.15.41-.02.88.33,1.15.18.14.39.2.6.2s.41-.06.59-.19l11-8c.27-.2.41-.5.41-.81h-2.7Z"
+        fill="#4285f4"
+        strokeWidth="0"
+      />
+      <path
+        d="M5.93,12l-2.87,7.65c-.19.52.07,1.09.59,1.29.12.04.23.06.35.06.4,0,.79-.25.94-.65l3-8c.04-.12.06-.24.06-.35h-2.07Z"
+        fill="#34a853"
+        strokeWidth="0"
+      />
+    </svg>
+  );
+}
+
+export function InlineHeroku({
+  className,
+  ...props
+}: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width="720"
+      height="720"
+      viewBox="300 294 120 132"
+      className={cn(className)}
+      {...props}
+    >
+      <g fill="#5a1ba9">
+        <path d="M405.32,297.05h-90.64c-6.26,0-11.33,5.07-11.33,11.33v103.23c0,6.26,5.07,11.33,11.33,11.33h90.64c6.26,0,11.33-5.07,11.33-11.33v-103.23c0-6.26-5.07-11.33-11.33-11.33ZM410.36,411.62c0,2.78-2.26,5.04-5.04,5.04h-90.64c-2.78,0-5.04-2.26-5.04-5.04v-103.23c0-2.78,2.26-5.04,5.04-5.04h90.64c2.78,0,5.04,2.26,5.04,5.04v103.23Z" />
+        <polygon points="331.67 404.06 345.84 391.47 331.67 378.88 331.67 404.06" />
+        <path d="M382.85,353.04c-2.54-2.57-7.2-5.63-14.98-5.63-8.53,0-17.32,2.22-23.61,4.27v-35.74h-12.59v54.59l8.89-4.03c.14-.07,14.5-6.5,27.3-6.5,6.39,0,7.81,3.53,7.87,6.47v37.6h12.59v-37.77c0-.81-.07-7.78-5.48-13.26Z" />
+        <path d="M366.29,336.39h12.59c5.69-6.45,8.59-13.31,9.44-20.46h-12.59c-1.39,7.14-4.49,13.97-9.44,20.46Z" />
+      </g>
+    </svg>
+  );
+}
+
+export function InlineHerokuLight({
+  className,
+  ...props
+}: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width="720"
+      height="720"
+      viewBox="300 294 120 132"
+      className={cn(className)}
+      {...props}
+    >
+      <g fill="#d7bff2">
+        <path d="M405.32,297.05h-90.64c-6.26,0-11.33,5.07-11.33,11.33v103.23c0,6.26,5.07,11.33,11.33,11.33h90.64c6.26,0,11.33-5.07,11.33-11.33v-103.23c0-6.26-5.07-11.33-11.33-11.33ZM410.36,411.62c0,2.78-2.26,5.04-5.04,5.04h-90.64c-2.78,0-5.04-2.26-5.04-5.04v-103.23c0-2.78,2.26-5.04,5.04-5.04h90.64c2.78,0,5.04,2.26,5.04,5.04v103.23Z" />
+        <polygon points="331.67 404.06 345.84 391.47 331.67 378.88 331.67 404.06" />
+        <path d="M382.85,353.04c-2.54-2.57-7.2-5.63-14.98-5.63-8.53,0-17.32,2.22-23.61,4.27v-35.74h-12.59v54.59l8.89-4.03c.14-.07,14.5-6.5,27.3-6.5,6.39,0,7.81,3.53,7.87,6.47v37.6h12.59v-37.77c0-.81-.07-7.78-5.48-13.26Z" />
+        <path d="M366.29,336.39h12.59c5.69-6.45,8.59-13.31,9.44-20.46h-12.59c-1.39,7.14-4.49,13.97-9.44,20.46Z" />
+      </g>
     </svg>
   );
 }
@@ -517,235 +715,6 @@ export function InlineVercelLight({
       {...props}
     >
       <path d="M577.344 0L1154.69 1000H0L577.344 0Z" fill="#ffffff" />
-    </svg>
-  );
-}
-
-export function InlineAmplify({
-  className,
-  ...props
-}: React.SVGProps<SVGSVGElement>) {
-  return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      width="279.2003"
-      height="215.7368"
-      viewBox="0 0 279.2003 215.7368"
-      className={cn(className)}
-      {...props}
-    >
-      <path
-        transform="matrix(1,0,0,-1,1,214.7368)"
-        d="M235.6753 9.9009 136.1594 203.838H164.6269L264.1482 9.9009ZM276.6512 7.2122 172.0559 211.0445C171.216 212.6985 169.5135 213.7368 167.6557 213.7368H128.0568C126.328 213.7368 124.7304 212.8405 123.8287 211.3662 122.9323 209.8959 122.8632 208.0604 123.6509 206.5246L228.2443 2.6887C229.0915 1.0403 230.794 0 232.6501 0H272.251C273.9739 0 275.5774 .8963 276.4735 2.3706 277.3735 3.8409 277.4426 5.6727 276.6512 7.2122ZM176.2149 9.9009 100.0627 152.6936 115.662 178.4874 204.6373 9.9009ZM120.3338 190.8485C119.4973 192.4274 117.883 193.4376 116.1017 193.4864 114.3899 193.591 112.6463 192.6258 111.7202 191.101L90.1397 155.4066C89.2324 153.9116 89.1836 152.0558 90.0011 150.516L168.8794 2.6192C169.74 1.0103 171.4238 0 173.2496 0H212.8504C214.583 0 216.1919 .9113 217.0879 2.3947 217.9843 3.8803 218.0384 5.7268 217.2266 7.2609ZM13.7254 9.9009 83.5804 125.4294 97.812 98.7525 65.0117 42.0797C64.1271 40.5456 64.1271 38.66 65.0081 37.1259 65.893 35.5955 67.5264 34.6507 69.3 34.6507H132.0007L145.1976 9.9009ZM139.3381 41.9321C138.4756 43.541 136.7938 44.5496 134.966 44.5496H77.8836L107.7559 96.1744C108.6165 97.6544 108.6463 99.4708 107.8455 100.9809L88.2238 137.7734C87.3819 139.3432 85.7673 140.3442 83.9863 140.3926 82.0854 140.4768 80.5365 139.5264 79.6195 138.0073L.7115 7.5135C-.2089 5.9794-.2387 4.0731 .6367 2.5203 1.5143 .9598 3.1569 0 4.9493 0H153.4501C155.1864 0 156.7953 .9113 157.6913 2.4004 158.5877 3.8954 158.6381 5.7475 157.8149 7.2816Z"
-        fill="#e02f36"
-        fillRule="evenodd"
-      />
-    </svg>
-  );
-}
-
-export function InlineCloudflareWorkers({
-  className,
-  ...props
-}: React.SVGProps<SVGSVGElement>) {
-  const gradientId = useId().replace(/:/g, '');
-  const gradientA = `${gradientId}-cloudflare-workers-a`;
-  const gradientB = `${gradientId}-cloudflare-workers-b`;
-  const gradientC = `${gradientId}-cloudflare-workers-c`;
-  const gradientD = `${gradientId}-cloudflare-workers-d`;
-  const gradientE = `${gradientId}-cloudflare-workers-e`;
-  const gradientF = `${gradientId}-cloudflare-workers-f`;
-  const gradientG = `${gradientId}-cloudflare-workers-g`;
-  const gradientH = `${gradientId}-cloudflare-workers-h`;
-
-  return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      width="128"
-      height="128"
-      viewBox="0 0 128 128"
-      className={cn(className)}
-      {...props}
-    >
-      <linearGradient
-        id={gradientA}
-        x1="-.556"
-        x2="-.628"
-        y1="128.705"
-        y2="128.977"
-        gradientTransform="matrix(155.9359 0 0 -364.3 119.128 47001.098)"
-        gradientUnits="userSpaceOnUse"
-      >
-        <stop offset="0" stopColor="#eb6f07" />
-        <stop offset="1" stopColor="#fab743" />
-      </linearGradient>
-      <path
-        fill={`url(#${gradientA})`}
-        d="M33.882 9.694 48.491 36.05 35.075 60.199a7.75 7.75 0 0 0 0 7.543l13.416 24.209-14.609 26.356a15.501 15.501 0 0 1-6.559-6.172L4.068 71.737a15.563 15.563 0 0 1 0-15.503l23.255-40.398a15.501 15.501 0 0 1 6.559-6.142z"
-      />
-      <linearGradient
-        id={gradientB}
-        x1="-.594"
-        x2="-.715"
-        y1="129.358"
-        y2="129.519"
-        gradientTransform="matrix(149.7049 0 0 -194.8 131.59 25305.098)"
-        gradientUnits="userSpaceOnUse"
-      >
-        <stop offset="0" stopColor="#d96504" />
-        <stop offset="1" stopColor="#d96504" stopOpacity="0" />
-      </linearGradient>
-      <path
-        fill={`url(#${gradientB})`}
-        d="M35.075 60.229a7.75 7.75 0 0 0 0 7.513l13.416 24.209-14.609 26.356a15.501 15.501 0 0 1-6.559-6.172L4.068 71.737c-1.848-3.19 8.497-7.006 31.007-11.478v-.03z"
-        opacity=".7"
-      />
-      <linearGradient
-        id={gradientC}
-        x1="-2.234"
-        x2="-2.109"
-        y1="128.901"
-        y2="128.689"
-        gradientTransform="matrix(95.8 0 0 -101.1 239.4 13048.3)"
-        gradientUnits="userSpaceOnUse"
-      >
-        <stop offset="0" stopColor="#eb6f07" />
-        <stop offset="1" stopColor="#eb720a" stopOpacity="0" />
-      </linearGradient>
-      <path
-        fill={`url(#${gradientC})`}
-        d="m35.373 12.347 13.118 23.702-2.176 3.786-11.568-19.587c-3.339-5.456-8.437-2.624-14.818 8.408l.954-1.64 6.44-11.18a15.51 15.51 0 0 1 6.499-6.142l1.521 2.653h.03z"
-        opacity=".5"
-      />
-      <linearGradient
-        id={gradientD}
-        x1="-.847"
-        x2="-.919"
-        y1="128.688"
-        y2="128.96"
-        gradientTransform="matrix(207.975 0 0 -375 275.025 48376)"
-        gradientUnits="userSpaceOnUse"
-      >
-        <stop offset="0" stopColor="#ee6f05" />
-        <stop offset="1" stopColor="#fab743" />
-      </linearGradient>
-      <path
-        fill={`url(#${gradientD})`}
-        d="m100.665 15.835 23.255 40.398a15.485 15.485 0 0 1 0 15.503l-23.255 40.398a15.504 15.504 0 0 1-13.416 7.752H63.994l28.92-52.145a7.75 7.75 0 0 0 0-7.513L63.994 8.084h23.255a15.502 15.502 0 0 1 13.416 7.751z"
-      />
-      <linearGradient
-        id={gradientE}
-        x1="-2.602"
-        x2="-2.229"
-        y1="128.679"
-        y2="128.977"
-        gradientTransform="matrix(118.9101 0 0 -375.1 361.09 48388.902)"
-        gradientUnits="userSpaceOnUse"
-      >
-        <stop offset="0" stopColor="#d96504" stopOpacity=".8" />
-        <stop offset=".498" stopColor="#d96504" stopOpacity=".2" />
-        <stop offset="1" stopColor="#d96504" stopOpacity="0" />
-      </linearGradient>
-      <path
-        fill={`url(#${gradientE})`}
-        d="m86.057 119.708-22.957.208 27.787-52.413a8.053 8.053 0 0 0 0-7.573L63.1 8.084h5.247l29.158 51.608a8.048 8.048 0 0 1-.03 7.99 4670.283 4670.283 0 0 0-18.693 32.796c-5.665 9.957-3.22 16.367 7.275 19.23z"
-      />
-      <linearGradient
-        id={gradientF}
-        x1="-.561"
-        x2="-.634"
-        y1="128.688"
-        y2="128.96"
-        gradientTransform="matrix(201.2571 0 0 -375 180.743 48376)"
-        gradientUnits="userSpaceOnUse"
-      >
-        <stop offset="0" stopColor="#ffa95f" />
-        <stop offset="1" stopColor="#ffebc8" />
-      </linearGradient>
-      <path
-        fill={`url(#${gradientF})`}
-        d="M40.739 119.886c-2.385 0-4.77-.566-6.857-1.58l28.681-51.727a5.353 5.353 0 0 0 0-5.188L33.882 9.694a15.492 15.492 0 0 1 6.857-1.61h23.255l28.92 52.145a7.75 7.75 0 0 1 0 7.513l-28.92 52.145H40.739z"
-      />
-      <linearGradient
-        id={gradientG}
-        x1="-2.816"
-        x2="-2.552"
-        y1="128.861"
-        y2="128.719"
-        gradientTransform="matrix(109.2571 0 0 -375 364.743 48376)"
-        gradientUnits="userSpaceOnUse"
-      >
-        <stop offset="0" stopColor="#fff" stopOpacity=".5" />
-        <stop offset="1" stopColor="#fff" stopOpacity=".1" />
-      </linearGradient>
-      <path
-        fill={`url(#${gradientG})`}
-        d="M90.886 61.391 61.311 8.084h2.683l28.92 52.145a7.75 7.75 0 0 1 0 7.513l-28.92 52.145h-2.683l29.576-53.308a5.35 5.35 0 0 0-.001-5.188z"
-        opacity=".6"
-      />
-      <linearGradient
-        id={gradientH}
-        x1="-2.34"
-        x2="-2.001"
-        y1="128.779"
-        y2="128.952"
-        gradientTransform="matrix(107.2571 0 0 -371.4 274.743 47913.2)"
-        gradientUnits="userSpaceOnUse"
-      >
-        <stop offset="0" stopColor="#fff" stopOpacity=".5" />
-        <stop offset="1" stopColor="#fff" stopOpacity=".1" />
-      </linearGradient>
-      <path
-        fill={`url(#${gradientH})`}
-        d="M62.563 61.391 33.882 9.694c.894-.477 1.968-.835 2.981-1.133 6.321 11.359 15.652 28.592 28.025 51.668a7.75 7.75 0 0 1 0 7.513L36.416 119.29c-1.014-.298-1.55-.507-2.504-.954l28.622-51.727a5.353 5.353 0 0 0 0-5.188l.029-.03z"
-        opacity=".6"
-      />
-    </svg>
-  );
-}
-
-export function InlineHeroku({
-  className,
-  ...props
-}: React.SVGProps<SVGSVGElement>) {
-  return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      width="720"
-      height="720"
-      viewBox="300 294 120 132"
-      className={cn(className)}
-      {...props}
-    >
-      <g fill="#5a1ba9">
-        <path d="M405.32,297.05h-90.64c-6.26,0-11.33,5.07-11.33,11.33v103.23c0,6.26,5.07,11.33,11.33,11.33h90.64c6.26,0,11.33-5.07,11.33-11.33v-103.23c0-6.26-5.07-11.33-11.33-11.33ZM410.36,411.62c0,2.78-2.26,5.04-5.04,5.04h-90.64c-2.78,0-5.04-2.26-5.04-5.04v-103.23c0-2.78,2.26-5.04,5.04-5.04h90.64c2.78,0,5.04,2.26,5.04,5.04v103.23Z" />
-        <polygon points="331.67 404.06 345.84 391.47 331.67 378.88 331.67 404.06" />
-        <path d="M382.85,353.04c-2.54-2.57-7.2-5.63-14.98-5.63-8.53,0-17.32,2.22-23.61,4.27v-35.74h-12.59v54.59l8.89-4.03c.14-.07,14.5-6.5,27.3-6.5,6.39,0,7.81,3.53,7.87,6.47v37.6h12.59v-37.77c0-.81-.07-7.78-5.48-13.26Z" />
-        <path d="M366.29,336.39h12.59c5.69-6.45,8.59-13.31,9.44-20.46h-12.59c-1.39,7.14-4.49,13.97-9.44,20.46Z" />
-      </g>
-    </svg>
-  );
-}
-
-export function InlineHerokuLight({
-  className,
-  ...props
-}: React.SVGProps<SVGSVGElement>) {
-  return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      width="720"
-      height="720"
-      viewBox="300 294 120 132"
-      className={cn(className)}
-      {...props}
-    >
-      <g fill="#d7bff2">
-        <path d="M405.32,297.05h-90.64c-6.26,0-11.33,5.07-11.33,11.33v103.23c0,6.26,5.07,11.33,11.33,11.33h90.64c6.26,0,11.33-5.07,11.33-11.33v-103.23c0-6.26-5.07-11.33-11.33-11.33ZM410.36,411.62c0,2.78-2.26,5.04-5.04,5.04h-90.64c-2.78,0-5.04-2.26-5.04-5.04v-103.23c0-2.78,2.26-5.04,5.04-5.04h90.64c2.78,0,5.04,2.26,5.04,5.04v103.23Z" />
-        <polygon points="331.67 404.06 345.84 391.47 331.67 378.88 331.67 404.06" />
-        <path d="M382.85,353.04c-2.54-2.57-7.2-5.63-14.98-5.63-8.53,0-17.32,2.22-23.61,4.27v-35.74h-12.59v54.59l8.89-4.03c.14-.07,14.5-6.5,27.3-6.5,6.39,0,7.81,3.53,7.87,6.47v37.6h12.59v-37.77c0-.81-.07-7.78-5.48-13.26Z" />
-        <path d="M366.29,336.39h12.59c5.69-6.45,8.59-13.31,9.44-20.46h-12.59c-1.39,7.14-4.49,13.97-9.44,20.46Z" />
-      </g>
     </svg>
   );
 }

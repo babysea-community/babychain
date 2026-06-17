@@ -112,7 +112,11 @@ function shouldValidateFieldForRole(
   field: CanvasRunValidationField,
   role: ChainSchemaStepRole,
 ) {
-  return role === 'image' || !isChainWiredSemanticFieldName(field.name);
+  return (
+    role === 'image' ||
+    !isChainWiredSemanticFieldName(field.name) ||
+    (field.name === 'generation_input_video_file' && field.required === true)
+  );
 }
 
 function isRequiredRunField(field: CanvasRunValidationField) {
