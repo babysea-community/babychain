@@ -55,12 +55,12 @@ Canvas studio and durable chain API for image and video model workflows with one
 
 <strong>Custom deploy</strong>
 
-[![Deploy with AWS CloudFormation](public/deploy-button/aws-cloudformation.svg)](#aws-cloudformation)
-[![Run on AWS EC2](public/deploy-button/aws-ec2.svg)](#aws-ec2)
-[![Deploy with Coolify](public/deploy-button/coolify.svg)](#coolify)
-[![Deploy with Docker](public/deploy-button/docker.svg)](#docker)
-[![Deploy on Fly.io](public/deploy-button/flyio.svg)](#flyio)
-[![Deploy on Google Cloud Run](public/deploy-button/google-cloud-run.svg)](#google-cloud-run)
+[![Deploy with AWS CloudFormation](public/deploy-button/aws-cloudformation.svg)](docs/deployment/aws-cloudformation.md)
+[![Run on AWS EC2](public/deploy-button/aws-ec2.svg)](docs/deployment/aws-ec2.md)
+[![Deploy with Coolify](public/deploy-button/coolify.svg)](docs/deployment/coolify.md)
+[![Deploy with Docker](public/deploy-button/docker.svg)](docs/deployment/docker.md)
+[![Deploy on Fly.io](public/deploy-button/flyio.svg)](docs/deployment/fly-io.md)
+[![Deploy on Google Cloud Run](public/deploy-button/google-cloud-run.svg)](docs/deployment/google-cloud-run.md)
 
 <br/>
 
@@ -531,37 +531,37 @@ BabyChain still needs a reachable PostgreSQL database. Follow [Database (AWS Aur
 
 ### AWS CloudFormation
 
-[![Deploy with AWS CloudFormation](public/deploy-button/aws-cloudformation.svg)](#aws-cloudformation)
+[![Deploy with AWS CloudFormation](public/deploy-button/aws-cloudformation.svg)](docs/deployment/aws-cloudformation.md)
 
 AWS CloudFormation is not a native one-click host for BabyChain. It needs AWS account setup, VPC/subnet choices, retained Secrets Manager values, an ECR image build, an ECS service update, and optional EventBridge queued-run recovery. Full end-to-end guide: [docs/deployment/aws-cloudformation.md](docs/deployment/aws-cloudformation.md).
 
 ### AWS EC2
 
-[![Run on AWS EC2](public/deploy-button/aws-ec2.svg)](#aws-ec2)
+[![Run on AWS EC2](public/deploy-button/aws-ec2.svg)](docs/deployment/aws-ec2.md)
 
 AWS EC2 is not a native one-click host for BabyChain. It needs an Elastic IP or final domain before build, an ECR image, Systems Manager Parameter Store values, IAM instance profile setup, security group and key pair setup, rendered user data, SSH inspection, updates, and cleanup. Full end-to-end guide: [docs/deployment/aws-ec2.md](docs/deployment/aws-ec2.md).
 
 ### Coolify
 
-[![Deploy with Coolify](public/deploy-button/coolify.svg)](#coolify)
+[![Deploy with Coolify](public/deploy-button/coolify.svg)](docs/deployment/coolify.md)
 
 Coolify is not a native one-click host for BabyChain. It uses the included Docker Compose file, final `NEXT_PUBLIC_*` build values, runtime environment secrets, domain/TLS routing, and a scheduled task for queued-run recovery. Full end-to-end guide: [docs/deployment/coolify.md](docs/deployment/coolify.md).
 
 ### Docker
 
-[![Deploy with Docker](public/deploy-button/docker.svg)](#docker)
+[![Deploy with Docker](public/deploy-button/docker.svg)](docs/deployment/docker.md)
 
 Docker is not a native one-click host for BabyChain. It needs a build with final public Next.js values, runtime secret injection, port/TLS setup, a host scheduler for `/api/cron/process-runs`, and optional Docker Hub publishing through GitHub Actions. Full end-to-end guide: [docs/deployment/docker.md](docs/deployment/docker.md).
 
 ### Fly.io
 
-[![Deploy on Fly.io](public/deploy-button/flyio.svg)](#flyio)
+[![Deploy on Fly.io](public/deploy-button/flyio.svg)](docs/deployment/fly-io.md)
 
 Fly.io is not a native one-click host for BabyChain. It uses the included Fly app config, final `NEXT_PUBLIC_*` build values, Fly secrets, a long-running machine, and an external scheduler for queued-run recovery. Full end-to-end guide: [docs/deployment/fly-io.md](docs/deployment/fly-io.md).
 
 ### Google Cloud Run
 
-[![Deploy on Google Cloud Run](public/deploy-button/google-cloud-run.svg)](#google-cloud-run)
+[![Deploy on Google Cloud Run](public/deploy-button/google-cloud-run.svg)](docs/deployment/google-cloud-run.md)
 
 Google Cloud Run is not a native one-click host for BabyChain. It needs Artifact Registry, Secret Manager values, a Docker build with final public Next.js values, a Cloud Run service, and Cloud Scheduler queued-run recovery. Full end-to-end guide: [docs/deployment/google-cloud-run.md](docs/deployment/google-cloud-run.md).
 

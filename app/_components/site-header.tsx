@@ -4,6 +4,7 @@ import type { ComponentType, SVGProps } from 'react';
 import { InlineBabyChain } from '@/components/icons/inline-babychain';
 
 import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 
 import type { DeployLink } from './deployment-links';
 import { SiteHeaderDeployMenu } from './site-header-deploy-menu';
@@ -12,6 +13,7 @@ type HeaderAction = {
   href: string;
   icon: ComponentType<SVGProps<SVGSVGElement>>;
   label: string;
+  tone?: 'sponsor';
   variant?: 'default' | 'outline' | 'ghost';
 };
 
@@ -50,11 +52,16 @@ export function SiteHeader({
 
           {actions.map((action) => {
             const Icon = action.icon;
+            const isSponsor = action.tone === 'sponsor';
 
             return (
               <Button
                 asChild
-                className="h-full w-12 border-y-0 border-l-0 border-r border-border px-0 last:border-r-0 sm:w-44 sm:px-4"
+                className={cn(
+                  'h-full w-12 border-y-0 border-l-0 border-r border-border px-0 last:border-r-0 sm:w-44 sm:px-4',
+                  isSponsor &&
+                    'border-[#ec4899] bg-[#ec4899] text-white hover:border-[#db2777] hover:bg-[#db2777] hover:text-white',
+                )}
                 key={`${action.label}-${action.href}`}
                 size="sm"
                 variant={action.variant ?? 'outline'}

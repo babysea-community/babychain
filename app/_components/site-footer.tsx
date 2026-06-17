@@ -62,12 +62,6 @@ export function SiteFooter({
             <p className="mt-5 text-xs leading-6 text-muted-foreground xl:text-sm">
               {description}
             </p>
-            <Button asChild className="mt-5" size="sm" variant="outline">
-              <a href={sponsor.href} rel="noopener noreferrer" target="_blank">
-                <FontAwesomeIcon icon="heart" />
-                {sponsor.label}
-              </a>
-            </Button>
           </div>
 
           <a
@@ -137,6 +131,23 @@ export function SiteFooter({
               <h2 className="font-mono text-xs uppercase tracking-[0.18em] text-muted-foreground">
                 {group.title}
               </h2>
+              {index === 0 ? (
+                <Button
+                  asChild
+                  className="mt-4 border-[#ec4899]/50 text-foreground hover:border-[#ec4899] hover:bg-[#ec4899]/10 hover:text-foreground"
+                  size="sm"
+                  variant="outline"
+                >
+                  <a
+                    href={sponsor.href}
+                    rel="noopener noreferrer"
+                    target="_blank"
+                  >
+                    <FontAwesomeIcon className="text-[#ec4899]" icon="heart" />
+                    {sponsor.label}
+                  </a>
+                </Button>
+              ) : null}
               <nav className="mt-5 grid gap-3" aria-label={group.title}>
                 {group.links.map((link) => (
                   <a
