@@ -8,6 +8,7 @@ const Cloud = createFontAwesomeIcon('cloud');
 const CodeFork = createFontAwesomeIcon('code-fork');
 const Database = createFontAwesomeIcon('database');
 const Fingerprint = createFontAwesomeIcon('fingerprint');
+const Heart = createFontAwesomeIcon('heart');
 const Key = createFontAwesomeIcon('key');
 const Lock = createFontAwesomeIcon('lock');
 const Rocket = createFontAwesomeIcon('rocket');
@@ -18,6 +19,12 @@ export const siteNavigation = {
   brand: 'BabyChain',
   homeHref: '/',
   actions: [
+    {
+      href: 'https://github.com/sponsors/babysea-community',
+      icon: Heart,
+      label: 'Sponsor',
+      variant: 'default' as const,
+    },
     {
       href: 'https://github.com/babysea-community/babychain',
       icon: InlineGitHub,
@@ -217,6 +224,10 @@ export const siteFooter = {
   brand: 'BabyChain',
   description:
     'Canvas studio and durable chain API for image and video model workflows with one final callback.',
+  sponsor: {
+    href: 'https://github.com/sponsors/babysea-community',
+    label: 'Sponsor BabySea OSS',
+  },
   githubPipeline: {
     eyebrow: 'Repository CI/CD',
     href: 'https://github.com/babysea-community/babychain/actions',

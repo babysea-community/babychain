@@ -1,6 +1,7 @@
 import { FontAwesomeIcon } from '@/components/icons/font-awesome-icon';
 import { InlineBabyChain } from '@/components/icons/inline-babychain';
 import { InlineGitHub, InlineGitLab } from '@/components/icons/inline-git';
+import { Button } from '@/components/ui/button';
 
 type FooterLink = {
   href: string;
@@ -29,6 +30,10 @@ type SiteFooterProps = {
     label: string;
     text: string;
   };
+  sponsor: {
+    href: string;
+    label: string;
+  };
 };
 
 export function SiteFooter({
@@ -38,6 +43,7 @@ export function SiteFooter({
   githubPipeline,
   linkGroups,
   pipeline,
+  sponsor,
 }: SiteFooterProps) {
   return (
     <footer>
@@ -56,6 +62,12 @@ export function SiteFooter({
             <p className="mt-5 text-xs leading-6 text-muted-foreground xl:text-sm">
               {description}
             </p>
+            <Button asChild className="mt-5" size="sm" variant="outline">
+              <a href={sponsor.href} rel="noopener noreferrer" target="_blank">
+                <FontAwesomeIcon icon="heart" />
+                {sponsor.label}
+              </a>
+            </Button>
           </div>
 
           <a
