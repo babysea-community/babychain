@@ -63,6 +63,10 @@ import {
   type StoredCanvasNode,
 } from '@/lib/canvas/canvas-library';
 import {
+  validateCanvasFlowRun,
+  type CanvasFlowRunValidation,
+} from '@/lib/canvas/run-validation';
+import {
   createCancelRunCurl,
   createGetRunCurl,
   createChainRunCurl,
@@ -831,6 +835,7 @@ type CanvasContextValue = {
   byokProviders: ByokProviderKey[];
   models: CanvasModel[];
   fieldsByModel: Record<string, FieldGroup | undefined>;
+  runValidationByFlow: Record<string, CanvasFlowRunValidation | undefined>;
   statusByNode: Record<string, NodeStatus | undefined>;
   runningFlowIds: ReadonlySet<string>;
   runIdsByFlow: ReadonlyMap<string, string>;
@@ -1699,8 +1704,15 @@ function RunnerNodeComponent({ data }: NodeProps) {
     duplicateFlow,
     flowCount,
     isSavedCanvas,
+    runValidationByFlow,
   } = useCanvas();
   const running = runningFlowIds.has(flowId);
+  const runValidation = runValidationByFlow[flowId] ?? {
+    ok: false,
+    reason: 'Loading this flow.',
+  };
+  const runDisabledReason = runValidation.ok ? null : runValidation.reason;
+  const runDisabled = running || runDisabledReason !== null;
   // The last flow on the workspace cannot be removed (Reset canvas is the
   // explicit wipe), and saved canvases are deleted from the Library instead.
   const removeDisabledReason = isSavedCanvas
@@ -1751,25 +1763,39 @@ function RunnerNodeComponent({ data }: NodeProps) {
             </>
           )}
         </p>
-        <Button
-          className="nodrag w-full"
-          size="sm"
-          variant="outline"
-          disabled={running}
-          onClick={() => runFlow(flowId, false)}
-        >
-          <FontAwesomeIcon icon="play" />
-          Run only
-        </Button>
-        <Button
-          className="nodrag w-full"
-          size="sm"
-          disabled={running}
-          onClick={() => runFlow(flowId, true)}
-        >
-          <FontAwesomeIcon icon="floppy-disk" />
-          Run and save
-        </Button>
+        <span className="group relative block">
+          <Button
+            className="nodrag w-full"
+            size="sm"
+            variant="outline"
+            disabled={runDisabled}
+            onClick={() => runFlow(flowId, false)}
+          >
+            <FontAwesomeIcon icon="play" />
+            Run only
+          </Button>
+          {runDisabledReason && !running ? (
+            <span className="pointer-events-none absolute left-1/2 top-full z-20 mt-1.5 hidden w-64 -translate-x-1/2 border border-border bg-card px-2.5 py-1.5 text-center text-[0.65rem] leading-4 text-foreground shadow-xl group-hover:block">
+              {runDisabledReason}
+            </span>
+          ) : null}
+        </span>
+        <span className="group relative block">
+          <Button
+            className="nodrag w-full"
+            size="sm"
+            disabled={runDisabled}
+            onClick={() => runFlow(flowId, true)}
+          >
+            <FontAwesomeIcon icon="floppy-disk" />
+            Run and save
+          </Button>
+          {runDisabledReason && !running ? (
+            <span className="pointer-events-none absolute left-1/2 top-full z-20 mt-1.5 hidden w-64 -translate-x-1/2 border border-border bg-card px-2.5 py-1.5 text-center text-[0.65rem] leading-4 text-foreground shadow-xl group-hover:block">
+              {runDisabledReason}
+            </span>
+          ) : null}
+        </span>
         <span className="group relative block">
           <Button
             className="nodrag w-full"
@@ -2066,11 +2092,6 @@ function shouldRenderFieldForRole(field: FieldSpec, role: StepRole) {
   return role === 'image' || !isChainWiredSemanticFieldName(field.name);
 }
 
-function promptValue(values: Record<string, FieldValue>) {
-  const value = values.generation_prompt;
-  return typeof value === 'string' && value.trim() ? value : undefined;
-}
-
 function buildFlowRunInput(
   nodes: FlowNode[],
   flowId: string,
@@ -2159,30 +2180,6 @@ function firstAvailableModelForRole(models: CanvasModel[], role: StepRole) {
     models.find((model) => model.available && model.roles.includes(role)) ??
     models.find((model) => model.roles.includes(role))
   );
-}
-
-function unavailableModelForFlow(flowNodes: FlowNode[], models: CanvasModel[]) {
-  for (const node of flowNodes) {
-    const model = models.find((entry) => entry.id === node.data.modelId);
-
-    if (!model) {
-      return {
-        label: node.data.modelId || `${node.data.role}_model`,
-        reason: 'This model is no longer in the catalog.',
-      };
-    }
-
-    if (!model.available) {
-      return {
-        label: model.label,
-        reason:
-          model.unavailableReason ??
-          'This model is not available for the configured inference mode/API keys.',
-      };
-    }
-  }
-
-  return null;
 }
 
 function CanvasInner(props: CanvasProps) {
@@ -2590,6 +2587,20 @@ function CanvasInner(props: CanvasProps) {
     }
     return meta;
   }, [flows, nodes]);
+
+  const runValidationByFlow = useMemo(() => {
+    const result: Record<string, CanvasFlowRunValidation | undefined> = {};
+
+    for (const [flowId, flowNodes] of flows) {
+      result[flowId] = validateCanvasFlowRun({
+        fieldsByModel,
+        flowNodes,
+        models,
+      });
+    }
+
+    return result;
+  }, [fieldsByModel, flows, models]);
 
   const edges = useMemo(() => {
     // Edges referencing nodes that are not (yet) in the state are dropped by
@@ -3153,26 +3164,15 @@ function CanvasInner(props: CanvasProps) {
         );
         return;
       }
-      const unavailableModel = unavailableModelForFlow(flowNodes, models);
+      const runValidation = validateCanvasFlowRun({
+        fieldsByModel: fieldsRef.current,
+        flowNodes,
+        models,
+      });
 
-      if (unavailableModel) {
-        toast.error(
-          `${unavailableModel.label} is unavailable. ${unavailableModel.reason}`,
-        );
+      if (!runValidation.ok) {
+        toast.error(runValidation.reason);
         return;
-      }
-
-      const roles = new Set(flowNodes.map((node) => node.data.role));
-
-      if (!roles.has('image') || !roles.has('video')) {
-        toast.error('A flow needs an image_model and a video_model to run.');
-        return;
-      }
-      for (const node of flowNodes) {
-        if (!promptValue(node.data.values)) {
-          toast.error(`Add a prompt to the ${node.data.role}_model node.`);
-          return;
-        }
       }
 
       // Mark running and clear this flow's previous statuses only.
@@ -3351,6 +3351,7 @@ function CanvasInner(props: CanvasProps) {
       byokProviders,
       models,
       fieldsByModel,
+      runValidationByFlow,
       statusByNode,
       runningFlowIds: runningFlows,
       runIdsByFlow,
@@ -3390,6 +3391,7 @@ function CanvasInner(props: CanvasProps) {
       byokProviders,
       models,
       fieldsByModel,
+      runValidationByFlow,
       statusByNode,
       runningFlows,
       runIdsByFlow,

@@ -5,14 +5,14 @@ import type { ModelCatalogEntry } from '@/lib/models/model-catalog';
 
 const ChartLine = createFontAwesomeIcon('chart-line');
 const Cloud = createFontAwesomeIcon('cloud');
-const LayerGroup = createFontAwesomeIcon('layer-group');
-const Terminal = createFontAwesomeIcon('terminal');
-const Database = createFontAwesomeIcon('database');
 const CodeFork = createFontAwesomeIcon('code-fork');
+const Database = createFontAwesomeIcon('database');
 const Fingerprint = createFontAwesomeIcon('fingerprint');
-const ShieldHalved = createFontAwesomeIcon('shield-halved');
 const Key = createFontAwesomeIcon('key');
 const Lock = createFontAwesomeIcon('lock');
+const PlugCircleCheck = createFontAwesomeIcon('plug-circle-check');
+const ShieldHalved = createFontAwesomeIcon('shield-halved');
+const Terminal = createFontAwesomeIcon('terminal');
 
 export const siteNavigation = {
   brand: 'BabyChain',
@@ -36,15 +36,15 @@ export const siteNavigation = {
 };
 
 export const homepageHero = {
-  eyebrow: 'Canvas studio + chain API',
+  eyebrow: 'Canvas studio + Chain API',
   title: 'Every output becomes the next input.',
   description:
     'Compose image and video model chains on a visual canvas, then run the same flows through a durable self-hosted API with one final callback.',
   actions: [
     {
       href: '/templates',
-      icon: LayerGroup,
-      label: 'Chain templates',
+      icon: PlugCircleCheck,
+      label: 'Explore templates',
       variant: 'outline' as const,
     },
   ],
