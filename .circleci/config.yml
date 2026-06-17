@@ -208,48 +208,9 @@ jobs:
               npm audit --omit=dev --audit-level=high
             fi
 
-  codecov-upload:
-    docker:
-      - image: cimg/base:stable
-    working_directory: ~/project
-    steps:
-      - attach_workspace:
-          at: ~/project
-      - run:
-          name: Upload coverage to Codecov
-          command: |
-            set -eu
-            if [ ! -f coverage/lcov.info ]; then
-              echo 'No coverage/lcov.info was produced; skipping CircleCI Codecov upload.'
-              exit 0
-            fi
-            if [ -z "${CODECOV_TOKEN:-}" ]; then
-              echo 'CODECOV_TOKEN is not configured in CircleCI; skipping trusted main coverage upload.'
-              exit 0
-            fi
-            if [ -z "${CODECOV_UPLOADER_SHA256:-}" ]; then
-              echo 'CODECOV_UPLOADER_SHA256 is not configured in CircleCI; skipping trusted main coverage upload.'
-              exit 0
-            fi
-            curl --fail --location --retry 3 --retry-delay 2 --output codecov "${CODECOV_UPLOADER_URL:-https://uploader.codecov.io/latest/linux/codecov}"
-            printf '%s  codecov\n' "$CODECOV_UPLOADER_SHA256" | sha256sum -c -
-            chmod +x codecov
-            ./codecov --auto-load-params-from CircleCI upload-process \
-              -Z \
-              -t "$CODECOV_TOKEN" \
-              -C "$CIRCLE_SHA1" \
-              -f coverage/lcov.info \
-              --disable-search
-
 workflows:
   package-check:
     jobs:
       - javascript-package
       - python-package
       - dependency-audit
-      - codecov-upload:
-          requires:
-            - javascript-package
-          filters:
-            branches:
-              only: main

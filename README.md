@@ -27,7 +27,6 @@ Canvas studio and durable chain API for image and video model workflows with one
 [![Vercel Status](https://img.shields.io/github/deployments/babysea-community/babychain/production?style=for-the-badge&label=vercel&logo=vercel&logoColor=white&color=000000)](https://babychain.vercel.app)
 [![GitLabCI](https://img.shields.io/gitlab/pipeline-status/babysea/babychain?branch=main&style=for-the-badge&label=gitlabci&logo=gitlab&logoColor=white&color=FC6D26)](https://gitlab.com/babysea/babychain/-/commits/main)
 [![CircleCI](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fcircleci.com%2Fapi%2Fv1.1%2Fproject%2Fcircleci%2F2uTLcwc4naeNuKDP41es88%2FLkDoyyGhqLz6j1Wi6mUHWd%2Ftree%2Fmain%3Flimit%3D1&query=%24%5B0%5D.status&style=for-the-badge&logo=circleci&logoColor=white&label=circleci&color=003740)](https://dl.circleci.com/status-badge/redirect/circleci/2uTLcwc4naeNuKDP41es88/LkDoyyGhqLz6j1Wi6mUHWd/tree/main)
-[![Codecov](https://img.shields.io/codecov/c/github/babysea-community/babychain?style=for-the-badge&label=codecov&logo=codecov&logoColor=white&color=FF0077&token=tBym3Zfrhk)](https://codecov.io/github/babysea-community/babychain)
 [![Sentry](https://img.shields.io/github/actions/workflow/status/babysea-community/babychain/sentry-check.yml?style=for-the-badge&label=sentry&logo=sentry&logoColor=white&color=181225)](https://github.com/babysea-community/babychain/actions/workflows/sentry-check.yml)
 [![CodeQL](https://img.shields.io/github/actions/workflow/status/babysea-community/babychain/codeql.yml?style=for-the-badge&label=codeql&logo=github&logoColor=white)](https://github.com/babysea-community/babychain/actions/workflows/codeql.yml)
 [![Package](https://img.shields.io/github/actions/workflow/status/babysea-community/babychain/package-check.yml?style=for-the-badge&label=package&logo=npm&logoColor=white)](https://github.com/babysea-community/babychain/actions/workflows/package-check.yml)
@@ -39,8 +38,8 @@ Canvas studio and durable chain API for image and video model workflows with one
 [![Next.js](https://img.shields.io/badge/next_js-000000?style=for-the-badge&logo=nextdotjs&logoColor=white)](https://nextjs.org)
 [![React](https://img.shields.io/badge/react-53C1DE?style=for-the-badge&logo=react&logoColor=white)](https://react.dev)
 [![React Flow](https://custom-icon-badges.demolab.com/badge/react_flow-FF0073?style=for-the-badge&logo=react-flow-1)](https://reactflow.dev)
-[![BabySea](https://custom-icon-badges.demolab.com/badge/babysea-14B8A6?style=for-the-badge&logo=babysea&logoColor=white)](https://babysea.ai)
 [![Semantic Lady](https://custom-icon-badges.demolab.com/badge/semantic_lady-EC4899?style=for-the-badge&logo=semantic-lady)](https://github.com/babysea-community/semantic-lady)
+[![BabySea](https://custom-icon-badges.demolab.com/badge/babysea-14B8A6?style=for-the-badge&logo=babysea&logoColor=white)](https://babysea.ai)
 [![AWS Aurora](https://custom-icon-badges.demolab.com/badge/aws_aurora-3B46CA?style=for-the-badge&logo=aws-aurora&logoColor=white)](https://aws.amazon.com/rds/aurora)
 [![Vercel](https://custom-icon-badges.demolab.com/badge/vercel-000000?style=for-the-badge&logo=vercel&logoColor=white)](https://vercel.com)
 [![Inference Providers](https://custom-icon-badges.demolab.com/badge/inference_providers-0EA5E9?style=for-the-badge&logo=cpu&logoColor=white)](SUPPORTED_MODELS.md)
@@ -96,11 +95,23 @@ See [`CHANGELOG.md`](CHANGELOG.md) to track releases and public contract changes
 
 ---
 
-## Overview
+## Contents
 
-BabyChain is a visual studio for chaining generative media models, backed by a durable HTTP API. Owners compose multi-flow image → video chains on a canvas, every edit persists automatically to Aurora, and the exact same chain contract is callable from product code through authenticated API routes. There is no local model/GPU runtime requirement and no caller-side provider keys: deploy BabyChain, configure server-side credentials, design flows on the canvas, run them in place, and let products call the same durable API.
+- [1. Overview](#1-overview)
+- [2. Architecture](#2-architecture)
+- [3. Quickstart](#3-quickstart)
+- [4. Deployment](#4-deployment)
+- [5. Security and Compliance](#5-security-and-compliance)
+- [6. Community](#6-community)
+- [7. License](#7-license)
 
-## Why BabyChain
+---
+
+## 1. Overview
+
+BabyChain is a visual studio for chaining generative media models, backed by a durable HTTP API. Owners compose multi-flow image → video chains on a canvas; every edit persists automatically to Aurora, and the exact same chain contract is callable from product code through authenticated API routes. Deploy BabyChain, configure server-side credentials, design flows on the canvas, run them in place, and call the same durable API from any product. No local model runtime is required and no provider keys belong in the caller.
+
+### Why BabyChain
 
 BabyChain turns model-to-model media workflows into durable backend runs. Compose flows on the canvas or send one API request. Either way, BabyChain starts the chain, persists every step, hands generated media from one model to the next, and sends one signed callback when the final result is ready.
 
@@ -113,11 +124,11 @@ BabyChain turns model-to-model media workflows into durable backend runs. Compos
 - **Product-ready callbacks**: return a public run resource from create/get routes and send the same resource through one final signed webhook.
 - **Schema-true node cards**: canvas fields are generated from each model's Semantic Lady schema, including exact fields, enum options, ranges, and defaults, so the UI can never offer a parameter the run API would reject.
 
-Semantic Lady is a core part of that last point. BabyChain uses the published Semantic Lady `generation_*` schema as the single source of truth for BYOK model cards, validation, defaults, provider routing metadata, and chain compatibility before any provider request is sent.
+[Semantic Lady](https://github.com/babysea-community/semantic-lady) powers the last point. BabyChain uses the published Semantic Lady `generation_*` schema as the single source of truth for BYOK model cards, field validation, defaults, provider routing metadata, and chain compatibility, all evaluated before any provider request is sent.
 
-## BabyChain and canvas workflow tools
+### BabyChain and canvas workflow tools
 
-BabyChain has a canvas of its own, so the difference is not "canvas versus no canvas." The difference is where the workflow becomes production infrastructure. Local graph tools are strong creative workbenches. BabyChain is a deployable control plane: the canvas is a persistent, multi-flow studio on top of the same authenticated API, durable Aurora state, provider credentials, callbacks, and run timeline that product code uses.
+BabyChain provides a canvas too. The distinction is where the workflow becomes production infrastructure. Canvas workflow tools are strong creative workbenches. BabyChain is a deployable control plane: the canvas is a persistent, multi-flow studio built on top of the same authenticated API, durable Aurora state, server-side credentials, callbacks, and run timeline that product code uses directly.
 
 | Area              | Canvas workflow tools                              | BabyChain                                                              |
 | :---------------- | :------------------------------------------------- | :--------------------------------------------------------------------- |
@@ -130,13 +141,19 @@ BabyChain has a canvas of its own, so the difference is not "canvas versus no ca
 
 Use BabyChain when a visual generative workflow is ready to become infrastructure: design and test visually, then expose a stable API contract that product code can call repeatedly without exposing inference credentials or asking every user to operate a model UI.
 
-## Use cases
+### Use cases
 
-BabyChain runs workflow-driven chains for product backends that need generated media without embedding provider logic into every application. Common patterns include prompt-to-video features, image-to-video campaigns, avatar or product motion pipelines, internal media automation, and API products that need one stable callback after several provider calls.
+BabyChain targets product backends that need generated media without embedding inference provider logic into every application. Common patterns:
 
-The built-in `chain` template starts with an image model, runs an image-to-video model, and can optionally modify the video with a compatible video-to-video model. Select models under `input.chain_models`, then put each model request body inside `image_model_input`, `refine_model_input`, `video_model_input`, or `modify_model_input`. BabyChain does not flatten model fields at the top level. In both BabySea mode and BYOK mode, those model input objects use normalized `generation_*` fields; BYOK field metadata comes from Semantic Lady via `GET /api/v1/models` or `GET /api/v1/models/{modelId}`. Add `refine_model` and `refine_model_input` when one image model should feed a second image model before video. Add `modify_model` and `modify_model_input` when the video result should feed a compatible video-to-video model. See [`SUPPORTED_MODELS.md`](SUPPORTED_MODELS.md) for the supported model names and mode availability.
+- Prompt-to-video pipelines from a text prompt through image generation to video synthesis
+- Image-to-video campaigns that transform stored or uploaded images into motion assets
+- Avatar and product motion pipelines for consistent character or product animation
+- Internal media automation for batch generation without direct provider integration
+- API products that expose one stable endpoint and signed callback after several provider calls
 
-Those model schema routes are powered by Semantic Lady. BYOK callers and canvas users get accurate fields, exact enums, valid defaults, and provider model ids from the SDK, while the server keeps provider credentials and execution adapters behind BabyChain.
+### Chain template
+
+The built-in `chain` template orchestrates up to four model steps. Select models under `input.chain_models` and provide model inputs as nested objects. BabyChain does not flatten model fields at the top level.
 
 | Chain   | Model input objects                                                                  | Model flow                                                      |
 | :------ | :----------------------------------------------------------------------------------- | :-------------------------------------------------------------- |
@@ -145,7 +162,11 @@ Those model schema routes are powered by Semantic Lady. BYOK callers and canvas 
 | `chain` | `image_model_input`, `video_model_input`, `modify_model_input`                       | image model → `image-to-video` → `video-to-video`               |
 | `chain` | `image_model_input`, `refine_model_input`, `video_model_input`, `modify_model_input` | image model → image model → `image-to-video` → `video-to-video` |
 
-## Architecture
+In both `byok` and `babysea` modes, model input objects use normalized `generation_*` fields. In BYOK mode, field metadata (exact fields, enum options, ranges, defaults, and provider model IDs) is served by Semantic Lady via `GET /api/v1/models` or `GET /api/v1/models/{modelId}`.
+
+See [`SUPPORTED_MODELS.md`](SUPPORTED_MODELS.md) for supported model names and mode availability.
+
+## 2. Architecture
 
 ```mermaid
 flowchart LR
@@ -190,7 +211,9 @@ flowchart LR
 
 Aurora is the system of record: every run, step, output URL, API key hash, audit event, callback delivery, inbound BabySea webhook delivery, and saved canvas lives in the `babychain_private` schema. Vercel hosts the stateless control plane; any function instance can pick up a run mid-chain because all state round-trips through Aurora. Polling `GET /api/v1/chains/get/{runId}` (or the cron route) advances in-flight runs, so long chains survive serverless function time limits.
 
-## Quickstart
+## 3. Quickstart
+
+Prerequisites: Node.js 24+, pnpm, and an accessible PostgreSQL database (AWS Aurora or local). See [Database](#database-aws-aurora--postgresql) for cluster setup.
 
 Run locally:
 
@@ -208,13 +231,13 @@ pnpm run aurora:migrate   # creates the babychain_private schema + tables
 pnpm dev
 ```
 
-Open <http://localhost:3011>. The owner dashboard lives at `/dashboard/canvas`; login with `OWNER_EMAIL` / `OWNER_PASSWORD`, build a chain on the canvas, and click **Run chain** to submit through the same `POST /api/v1/chains/runs` route used by API callers.
+Open <http://localhost:3011>. The owner dashboard lives at `/dashboard/canvas`; login with `OWNER_EMAIL` / `OWNER_PASSWORD`, build a chain on the canvas, and run chain to submit through the same `POST /api/v1/chains/runs` route used by API callers.
 
 > `pnpm run aurora:migrate` reads `DATABASE_URL` from `.env.local` and applies [`scripts/aurora-migrate.mjs`](scripts/aurora-migrate.mjs). It is idempotent (`create … if not exists`), so it is safe to re-run after schema changes.
 
-## Database (AWS Aurora / PostgreSQL)
+### Database (AWS Aurora / PostgreSQL)
 
-BabyChain stores all durable runtime state in a private `babychain_private` schema on **AWS Aurora PostgreSQL**: API keys, chain runs, ordered steps, saved canvases, webhook deliveries, callbacks, and audit events. `DATABASE_URL` is the only required database value.
+BabyChain stores all durable runtime state in a private `babychain_private` schema on AWS Aurora PostgreSQL: API keys, chain runs, ordered steps, saved canvases, webhook deliveries, callbacks, and audit events. `DATABASE_URL` is the only required database value.
 
 ```bash
 # Aurora cluster writer endpoint (sslmode=require enables TLS)
@@ -223,7 +246,7 @@ DATABASE_URL=postgresql://USER:PASSWORD@CLUSTER.cluster-xxxxxxxxxxxx.REGION.rds.
 
 Aurora presents an Amazon RDS CA that is not in the Node.js trust store. For Aurora/RDS endpoints, include `?sslmode=require` in `DATABASE_URL` so the connection clearly requests TLS. BabyChain's pool strips `sslmode`/`ssl` query params and connects with TLS using `rejectUnauthorized: false`, so no manual CA bundle is required. To connect to a local PostgreSQL instead, point `DATABASE_URL` at `localhost` (TLS is auto-disabled for `localhost`/`127.0.0.1`).
 
-### Quick start: create the cluster in the AWS Console
+### Create the cluster in the AWS Console
 
 The fastest path is **RDS → Create database** in the AWS Console. These are the selections used by the BabyChain demo deployment. They create an Aurora PostgreSQL Serverless v2 cluster that works with the checked-in `pg` connection code after you allow network access to port `5432` and run `pnpm run aurora:migrate`.
 
@@ -272,7 +295,9 @@ Once the cluster is **Available**, copy the **writer endpoint** from the Connect
 
 The steps below create an Aurora PostgreSQL cluster reachable from your app (Vercel functions, a Codespace, or your laptop). Replace `REGION`, IDs, and the CIDR/IP placeholders.
 
-**1. VPC and subnets.** Aurora must live in a VPC across at least two Availability Zones. The default VPC works; for production create a dedicated VPC (e.g. `10.0.0.0/16`) with two private subnets for the DB and (optionally) two public subnets for a bastion/NAT.
+**1. VPC and subnets**
+
+Aurora must live in a VPC across at least two Availability Zones. The default VPC works; for production create a dedicated VPC (e.g. `10.0.0.0/16`) with two private subnets for the DB and (optionally) two public subnets for a bastion/NAT.
 
 ```bash
 # Use the default VPC + its subnets, or note your own IDs:
@@ -282,7 +307,9 @@ aws ec2 describe-subnets --filters Name=vpc-id,Values=<VPC_ID> \
   --query 'Subnets[].SubnetId' --output text
 ```
 
-**2. DB subnet group** (tells Aurora which subnets to span; needs ≥2 AZs):
+**2. DB subnet group**
+
+Tells Aurora which subnets to span; needs ≥2 AZs):
 
 ```bash
 aws rds create-db-subnet-group \
@@ -291,7 +318,9 @@ aws rds create-db-subnet-group \
   --subnet-ids <SUBNET_A> <SUBNET_B>
 ```
 
-**3. Security group** (the VPC firewall). Open **TCP 5432** only to the sources that must reach the database:
+**3. Security group**
+
+The VPC firewall. Open **TCP 5432** only to the sources that must reach the database:
 
 ```bash
 aws ec2 create-security-group \
@@ -309,7 +338,9 @@ aws ec2 authorize-security-group-ingress \
 
 > Security: never leave `5432` open to `0.0.0.0/0` for a real deployment. Prefer a private subnet + RDS Proxy, AWS PrivateLink, or a bastion/VPN. `0.0.0.0/0` is acceptable only for a short-lived throwaway demo, and rotate the password afterward.
 
-**4. Create the Aurora PostgreSQL cluster + a writer instance:**
+**4. Cluster and instance**
+
+Create the Aurora PostgreSQL cluster + a writer instance:
 
 ```bash
 aws rds create-db-cluster \
@@ -329,16 +360,20 @@ aws rds create-db-instance \
   --db-instance-class db.serverless   # or db.r6g.large for provisioned
 ```
 
-For **Aurora Serverless v2**, also set capacity on the cluster:
+For Aurora Serverless v2, also set capacity on the cluster:
 
 ```bash
 aws rds modify-db-cluster --db-cluster-identifier babychain \
   --serverless-v2-scaling-configuration MinCapacity=0.5,MaxCapacity=4
 ```
 
-**5. Public reachability (only if connecting from outside the VPC).** To reach Aurora from your laptop or a Codespace, the instance needs `--publicly-accessible`, the subnets need a route to an internet gateway, and your IP must be allowed in the security group (step 3). For Vercel/production, keep the cluster private and connect from within the VPC (VPC peering / PrivateLink) or via RDS Proxy.
+**5. Public reachability**
 
-**6. Get the writer endpoint and build `DATABASE_URL`:**
+Only if connecting from outside the VPC. To reach Aurora from your laptop or a Codespace, the instance needs `--publicly-accessible`, the subnets need a route to an internet gateway, and your IP must be allowed in the security group (step 3). For Vercel/production, keep the cluster private and connect from within the VPC (VPC peering / PrivateLink) or via RDS Proxy.
+
+**6. Endpoint and build database**
+
+Get the writer endpoint and build `DATABASE_URL`:
 
 ```bash
 aws rds describe-db-clusters --db-cluster-identifier babychain \
@@ -346,7 +381,7 @@ aws rds describe-db-clusters --db-cluster-identifier babychain \
 # DATABASE_URL=postgresql://postgres:<PASSWORD>@<ENDPOINT>:5432/postgres?sslmode=require
 ```
 
-**7. Apply the schema:**
+**7. Apply the schema**
 
 ```bash
 pnpm run aurora:migrate
@@ -354,7 +389,7 @@ pnpm run aurora:migrate
 
 > Aurora Serverless v2 can scale to zero / pause; the first connection after idle may take 10–30s to wake the cluster. BabyChain's pool uses a 30s connection timeout to absorb this cold start so the first run does not fail.
 
-**Troubleshooting connectivity**
+**Connectivity troubleshooting**
 
 | Symptom                                                | Fix                                                                                                                                                                                                                                |
 | :----------------------------------------------------- | :--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -394,7 +429,7 @@ For a temporary public demo, the least-broad inbound rule is:
 
 Remove that broad rule after the demo/judging window and replace it with static egress IPs, private networking, or an AWS runtime inside the VPC.
 
-## Models and modes
+### Models and modes
 
 Set `BABYCHAIN_PROVIDER_MODE=byok` for direct inference provider execution or `BABYCHAIN_PROVIDER_MODE=babysea` for BabySea SDK execution.
 
@@ -411,7 +446,7 @@ BabySea mode relies on the BabySea SDK's normalized `generation_*` contract. BYO
 
 All modes keep caller applications on BabyChain API keys. Provider credentials never belong in frontend code or caller requests.
 
-## API
+### API
 
 | Action       | Method and path                      | Example                           |
 | :----------- | :----------------------------------- | :-------------------------------- |
@@ -420,9 +455,16 @@ All modes keep caller applications on BabyChain API keys. Provider credentials n
 | Get run      | `GET /api/v1/chains/get/{runId}`     |                                   |
 | Cancel run   | `POST /api/v1/chains/cancel/{runId}` |                                   |
 
-Send caller requests with `Authorization: Bearer <caller API key>`, using a key configured from [`.env.example`](.env.example) or created in the private API key table. The linked chain example uses the same normalized `generation_*` request params that BYOK callers should read from the Semantic Lady model schema routes. Run resources include a `timeline` array so callers can render ordered step status, timing, provider, output count, and error details without reshaping the `steps` payload. Actionable errors include a `guidance.what_to_try_next` list for common provider, model, credential, and chaining failures.
+All requests require `Authorization: Bearer <API key>`. Keys are bootstrapped from [`.env.example`](.env.example) or provisioned in the `babychain_private.api_key` table.
 
-## Runtime
+BYOK callers should read request field definitions from Semantic Lady model schema routes (`GET /api/v1/models` or `GET /api/v1/models/{modelId}`) before constructing `generation_*` input objects.
+
+**Response details:**
+
+- `timeline`: ordered array of step status, timing, provider, output count, and error details. Renders the full run history without reshaping the raw `steps` payload.
+- `guidance.what_to_try_next`: actionable list on error responses covering provider failures, invalid model fields, missing credentials, and chain incompatibilities.
+
+### Runtime
 
 - Each invocation starts or polls one provider step.
 - Step output URLs are supplied to dependent steps by BabyChain, while generated media is exposed in run and step responses.
@@ -430,7 +472,7 @@ Send caller requests with `Authorization: Bearer <caller API key>`, using a key 
 - Provider credentials stay server-side.
 - Step submit idempotency keys are deterministic per run, step, and chain version, helping retries avoid duplicate provider submits when the downstream provider honors idempotency.
 
-## Tests
+### Tests
 
 Provider adapter contract coverage lives with the provider adapter suite:
 
@@ -440,23 +482,7 @@ pnpm test:run -- test/provider-adapters.test.ts
 
 The shared contract checks that each adapter returns zero-cost direct estimates and accepts best-effort cancel contexts. Provider-specific cases below it guard Semantic Lady field translation, output extraction, and failure normalization.
 
-## Deployment
-
-### Vercel
-
-For free-plan, keep the checked-in settings: `maxDuration = 300` on long-running routes and the daily cron schedule in [`vercel.json`](vercel.json). For pro-plan, to implement one-minute recovery, change the cron schedule in [`vercel.json`](vercel.json) to `* * * * *`. Raise long-running route `maxDuration` values only where your Vercel plan supports the higher budget.
-
-Set every value from [`.env.example`](.env.example) in the Vercel project (notably `DATABASE_URL`, `OWNER_EMAIL`, `OWNER_PASSWORD`, `OWNER_SESSION_SECRET`, and the `BABYCHAIN_*` secrets). Apply the schema once with `pnpm run aurora:migrate` (locally, pointed at the production `DATABASE_URL`) before the first deploy.
-
-**Reaching Aurora from Vercel.** Vercel functions have dynamic egress IPs, so allowing a single IP in the Aurora security group is not reliable. Use one of:
-
-- **RDS Proxy** in front of Aurora with a publicly resolvable endpoint, scoped by security group. Recommended; it also pools connections for serverless functions.
-- **AWS PrivateLink / VPC peering** to keep Aurora private and connect over private networking.
-- A short-lived demo only: a publicly accessible cluster with the security group scoped to the VPC CIDR.
-
-See [Database (AWS Aurora / PostgreSQL)](#database-aws-aurora--postgresql) above for the full VPC + security-group walkthrough.
-
-## Customize
+### Customize
 
 | Change     | Files                                                                                                   |
 | :--------- | :------------------------------------------------------------------------------------------------------ |
@@ -469,7 +495,7 @@ See [Database (AWS Aurora / PostgreSQL)](#database-aws-aurora--postgresql) above
 | Monitoring | `instrumentation.ts`, `instrumentation-client.ts`, `lib/monitoring`, `scripts/sentry-project-check.mjs` |
 | Deploy     | `.env.example`, `vercel.json`, `scripts/doctor.mjs`                                                     |
 
-## Troubleshooting
+### Troubleshooting
 
 | Symptom                     | Fix                                                                                                                                                                                      |
 | :-------------------------- | :--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -480,23 +506,30 @@ See [Database (AWS Aurora / PostgreSQL)](#database-aws-aurora--postgresql) above
 | Run stays queued            | Check provider credentials, webhook reachability, and scheduler execution.                                                                                                               |
 | Callback is missing         | Check `webhook_url`, callback host DNS, receiver status codes, and callback delivery records.                                                                                            |
 
-## Security and compliance
+## 4. Deployment
 
-BabyChain publishes its trust signals through public GitLab and GitHub checks so contributors can inspect the actual CI configuration, jobs, and reports.
+### Vercel
 
-| Signal                      | Coverage                                                                                                                                                          |
-| :-------------------------- | :---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| GitLab application security | SAST, Advanced SAST, IaC scanning, Dependency Scanning, Secret Detection, Code Quality, guarded Container Scanning, package audit, and redacted Gitleaks.         |
-| Runtime scan                | Scheduled/manual GitLab DAST runs against the public demo target.                                                                                                 |
-| License compliance          | Dependency license inventory is reviewed against [LICENSES.md](LICENSES.md); approval policies are deferred until the GitLab group has enough eligible reviewers. |
-| Repository guards           | GitHub CodeQL, Package Check, Sentry Project Check, CircleCI, and Codecov stay public for cross-provider verification.                                            |
+For free-plan, keep the checked-in settings: `maxDuration = 300` on long-running routes and the daily cron schedule in [`vercel.json`](vercel.json). For pro-plan, to implement one-minute recovery, change the cron schedule in [`vercel.json`](vercel.json) to `* * * * *`. Raise long-running route `maxDuration` values only where your Vercel plan supports the higher budget.
 
-Container scanning is present in CI but only runs when `CS_IMAGE` is configured for a repository that publishes a container image.
+Set every value from [`.env.example`](.env.example) in the Vercel project (notably `DATABASE_URL`, `OWNER_EMAIL`, `OWNER_PASSWORD`, `OWNER_SESSION_SECRET`, and the `BABYCHAIN_*` secrets). Apply the schema once with `pnpm run aurora:migrate` (locally, pointed at the production `DATABASE_URL`) before the first deploy.
 
-## Community
+Reaching Aurora from Vercel. Vercel functions have dynamic egress IPs, so allowing a single IP in the Aurora security group is not reliable. Use one of:
 
-BabyChain is an Apache-2.0 open-source starter in [`babysea-community/babychain`](https://github.com/babysea-community/babychain). Issues, pull requests, design discussion, and security reports should follow [`CONTRIBUTING.md`](CONTRIBUTING.md), [`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md), and [`SECURITY.md`](SECURITY.md).
+- **RDS Proxy** in front of Aurora with a publicly resolvable endpoint, scoped by security group. Recommended; it also pools connections for serverless functions.
+- **AWS PrivateLink / VPC peering** to keep Aurora private and connect over private networking.
+- A short-lived demo only: a publicly accessible cluster with the security group scoped to the VPC CIDR.
 
-## License
+See [Database (AWS Aurora / PostgreSQL)](#database-aws-aurora--postgresql) above for the full VPC + security-group walkthrough.
 
-[Apache License 2.0](LICENSE). Use it, fork it, ship it.
+## 5. Security and Compliance
+
+The project publishes its trust signals through public GitHub, GitLab, or other CI provider checks so contributors can inspect the actual CI configuration, jobs, and reports.
+
+## 6. Community
+
+Issues, pull requests, design discussion, and security reports should follow [`CONTRIBUTING.md`](CONTRIBUTING.md), [`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md), and [`SECURITY.md`](SECURITY.md).
+
+## 7. License
+
+[Apache License 2.0](LICENSE).
