@@ -26,17 +26,17 @@ export const siteNavigation = {
       variant: 'outline' as const,
     },
     {
-      href: 'https://babychain.babysea.live/login',
-      icon: Cloud,
-      label: 'Launch on Cloud',
-      variant: 'outline' as const,
-    },
-    {
       href: 'https://github.com/sponsors/babysea-community',
       icon: Heart,
       label: 'Sponsor',
       tone: 'sponsor' as const,
       variant: 'default' as const,
+    },
+    {
+      href: 'https://babychain.babysea.live/login',
+      icon: Cloud,
+      label: 'Launch on Cloud',
+      variant: 'outline' as const,
     },
   ],
 };
@@ -225,10 +225,6 @@ export const siteFooter = {
   brand: 'BabyChain',
   description:
     'Canvas studio and durable chain API for image and video model workflows with one final callback.',
-  sponsor: {
-    href: 'https://github.com/sponsors/babysea-community',
-    label: 'Sponsor BabySea OSS',
-  },
   githubPipeline: {
     eyebrow: 'Repository CI/CD',
     href: 'https://github.com/babysea-community/babychain/actions',

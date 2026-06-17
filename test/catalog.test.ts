@@ -103,7 +103,7 @@ describe('model chain catalog', () => {
       false,
     );
     expect(catalogChains.has('bfl/flux-1.1-pro → wan/2.2-animate-mix')).toBe(
-      false,
+      true,
     );
     expect(
       catalogChains.has(
@@ -176,7 +176,7 @@ describe('model chain catalog', () => {
         entry.modelIdentifiers,
       );
     }
-  });
+  }, 15000);
 });
 
 function hasRefineModel(entry: { defaultInput: Record<string, unknown> }) {

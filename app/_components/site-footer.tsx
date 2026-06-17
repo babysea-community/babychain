@@ -1,7 +1,6 @@
 import { FontAwesomeIcon } from '@/components/icons/font-awesome-icon';
 import { InlineBabyChain } from '@/components/icons/inline-babychain';
 import { InlineGitHub, InlineGitLab } from '@/components/icons/inline-git';
-import { Button } from '@/components/ui/button';
 
 type FooterLink = {
   href: string;
@@ -30,10 +29,6 @@ type SiteFooterProps = {
     label: string;
     text: string;
   };
-  sponsor: {
-    href: string;
-    label: string;
-  };
 };
 
 export function SiteFooter({
@@ -43,7 +38,6 @@ export function SiteFooter({
   githubPipeline,
   linkGroups,
   pipeline,
-  sponsor,
 }: SiteFooterProps) {
   return (
     <footer>
@@ -131,23 +125,6 @@ export function SiteFooter({
               <h2 className="font-mono text-xs uppercase tracking-[0.18em] text-muted-foreground">
                 {group.title}
               </h2>
-              {index === 0 ? (
-                <Button
-                  asChild
-                  className="mt-4 border-[#ec4899]/50 text-foreground hover:border-[#ec4899] hover:bg-[#ec4899]/10 hover:text-foreground"
-                  size="sm"
-                  variant="outline"
-                >
-                  <a
-                    href={sponsor.href}
-                    rel="noopener noreferrer"
-                    target="_blank"
-                  >
-                    <FontAwesomeIcon className="text-[#ec4899]" icon="heart" />
-                    {sponsor.label}
-                  </a>
-                </Button>
-              ) : null}
               <nav className="mt-5 grid gap-3" aria-label={group.title}>
                 {group.links.map((link) => (
                   <a

@@ -2,6 +2,7 @@
 
 FROM node:24-bookworm-slim AS base
 ENV PNPM_HOME=/pnpm
+ENV PNPM_CONFIG_MINIMUM_RELEASE_AGE=0
 ENV PATH="$PNPM_HOME:$PATH"
 WORKDIR /app
 RUN corepack enable

@@ -31,12 +31,12 @@ export type DeployLinkGroup = {
 };
 
 const ONE_CLICK_DEPLOY_LABELS = new Set([
-  'Deploy on Cloudflare',
-  'Deploy on DigitalOcean',
-  'Deploy on Netlify',
-  'Deploy on Railway',
-  'Deploy on Render',
-  'Deploy on Vercel',
+  'Cloudflare',
+  'DigitalOcean',
+  'Netlify',
+  'Railway',
+  'Render',
+  'Vercel',
 ]);
 
 const TOAST_MESSAGE = 'Under development';
@@ -156,29 +156,29 @@ function renderDeployIcon(label: string) {
   const iconClassName = 'size-4';
 
   switch (label) {
-    case 'Deploy with AWS CloudFormation':
+    case 'AWS CloudFormation':
       return <InlineAwsCloudFormation className={iconClassName} />;
-    case 'Run on AWS EC2':
+    case 'AWS EC2':
       return <InlineAwsEc2 className={iconClassName} />;
-    case 'Deploy on Cloudflare':
+    case 'Cloudflare':
       return <InlineCloudflare className={iconClassName} />;
-    case 'Deploy with Coolify':
+    case 'Coolify':
       return <InlineCoolify className={iconClassName} />;
-    case 'Deploy on DigitalOcean':
+    case 'DigitalOcean':
       return <InlineDigitalOcean className={iconClassName} />;
-    case 'Deploy with Docker':
+    case 'Docker':
       return <InlineDocker className={iconClassName} />;
-    case 'Deploy on Fly.io':
+    case 'Fly.io':
       return <InlineFlyIo className={iconClassName} />;
-    case 'Deploy on Google Cloud Run':
+    case 'Google Cloud Run':
       return <InlineGoogleCloudRun className={iconClassName} />;
-    case 'Deploy on Netlify':
+    case 'Netlify':
       return <InlineNetlify className={iconClassName} />;
-    case 'Deploy on Railway':
+    case 'Railway':
       return <InlineRailwayLight className={iconClassName} />;
-    case 'Deploy on Render':
+    case 'Render':
       return <InlineRenderLight className={iconClassName} />;
-    case 'Deploy on Vercel':
+    case 'Vercel':
       return <InlineVercelLight className={iconClassName} />;
     default:
       return (
