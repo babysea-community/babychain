@@ -4,14 +4,14 @@ import { useEffect, useId, useRef, useState } from 'react';
 
 import { FontAwesomeIcon } from '@/components/icons/font-awesome-icon';
 import {
-  InlineCloudflare,
   InlineAwsCloudFormation,
-  InlineGoogleCloudRun,
+  InlineAwsEc2,
+  InlineCloudflare,
   InlineCoolify,
   InlineDigitalOcean,
   InlineDocker,
-  InlineAwsEc2,
   InlineFlyIo,
+  InlineGoogleCloudRun,
   InlineNetlify,
   InlineRailwayLight,
   InlineRenderLight,
@@ -163,16 +163,14 @@ function renderHostIcon(label: string) {
   const hostLabel = deployHostLabel(label);
 
   switch (hostLabel) {
-    case 'Cloudflare':
-      return <InlineCloudflare className={iconClassName} aria-hidden="true" />;
-    case 'CloudFormation':
+    case 'AWS CloudFormation':
       return (
         <InlineAwsCloudFormation className={iconClassName} aria-hidden="true" />
       );
-    case 'Cloud Run':
-      return (
-        <InlineGoogleCloudRun className={iconClassName} aria-hidden="true" />
-      );
+    case 'AWS EC2':
+      return <InlineAwsEc2 className={iconClassName} aria-hidden="true" />;
+    case 'Cloudflare':
+      return <InlineCloudflare className={iconClassName} aria-hidden="true" />;
     case 'Coolify':
       return <InlineCoolify className={iconClassName} aria-hidden="true" />;
     case 'DigitalOcean':
@@ -181,10 +179,12 @@ function renderHostIcon(label: string) {
       );
     case 'Docker':
       return <InlineDocker className={iconClassName} aria-hidden="true" />;
-    case 'EC2':
-      return <InlineAwsEc2 className={iconClassName} aria-hidden="true" />;
     case 'Fly.io':
       return <InlineFlyIo className={iconClassName} aria-hidden="true" />;
+    case 'Google Cloud Run':
+      return (
+        <InlineGoogleCloudRun className={iconClassName} aria-hidden="true" />
+      );
     case 'Netlify':
       return <InlineNetlify className={iconClassName} aria-hidden="true" />;
     case 'Railway':

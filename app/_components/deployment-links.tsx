@@ -5,14 +5,14 @@ import { useEffect, useState } from 'react';
 
 import { FontAwesomeIcon } from '@/components/icons/font-awesome-icon';
 import {
-  InlineCloudflare,
   InlineAwsCloudFormation,
-  InlineGoogleCloudRun,
+  InlineAwsEc2,
+  InlineCloudflare,
   InlineCoolify,
   InlineDigitalOcean,
   InlineDocker,
-  InlineAwsEc2,
   InlineFlyIo,
+  InlineGoogleCloudRun,
   InlineNetlify,
   InlineRailwayLight,
   InlineRenderLight,
@@ -156,22 +156,22 @@ function renderDeployIcon(label: string) {
   const iconClassName = 'size-4';
 
   switch (label) {
+    case 'Deploy with AWS CloudFormation':
+      return <InlineAwsCloudFormation className={iconClassName} />;
+    case 'Run on AWS EC2':
+      return <InlineAwsEc2 className={iconClassName} />;
     case 'Deploy on Cloudflare':
       return <InlineCloudflare className={iconClassName} />;
-    case 'Deploy with CloudFormation':
-      return <InlineAwsCloudFormation className={iconClassName} />;
-    case 'Deploy on Cloud Run':
-      return <InlineGoogleCloudRun className={iconClassName} />;
     case 'Deploy with Coolify':
       return <InlineCoolify className={iconClassName} />;
     case 'Deploy on DigitalOcean':
       return <InlineDigitalOcean className={iconClassName} />;
     case 'Deploy with Docker':
       return <InlineDocker className={iconClassName} />;
-    case 'Run on EC2':
-      return <InlineAwsEc2 className={iconClassName} />;
     case 'Deploy on Fly.io':
       return <InlineFlyIo className={iconClassName} />;
+    case 'Deploy on Google Cloud Run':
+      return <InlineGoogleCloudRun className={iconClassName} />;
     case 'Deploy on Netlify':
       return <InlineNetlify className={iconClassName} />;
     case 'Deploy on Railway':

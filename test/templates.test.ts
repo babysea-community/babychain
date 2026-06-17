@@ -10,6 +10,8 @@ import {
   resolveStepModel,
   selectChainTemplateSteps,
 } from '@/lib/chains/templates';
+import { createModelRequestSchemas } from '@/app/templates/page';
+import { modelSchemaCacheKey } from '@/lib/models/chain-schema';
 import {
   isImageInputCapableModel,
   isImageToVideoChainModel,
@@ -447,6 +449,16 @@ describe('chain templates', () => {
     const template = getChainTemplate('chain');
 
     expect(() =>
+      parseTemplateInput(template!, {
+        image_model: TEXT_IMAGE_MODEL,
+        video_model: 'runway/act-two',
+        video_model_input: {
+          generation_duration: 4,
+        },
+      }),
+    ).toThrow('generation_input_video_file is required');
+
+    expect(() =>
       parseTemplateInput(
         template!,
         {
@@ -493,6 +505,27 @@ describe('chain templates', () => {
         { byokMode: true },
       ),
     ).not.toThrow();
+  });
+
+  it('includes media-driven reference video fields in template page schemas', () => {
+    const schemas = createModelRequestSchemas();
+    const videoSchema = schemas[
+      modelSchemaCacheKey('video', 'runway/act-two')
+    ] as { properties?: Record<string, unknown>; required?: string[] };
+    const modifySchema = schemas[
+      modelSchemaCacheKey('modify', 'runway/act-two')
+    ] as { properties?: Record<string, unknown>; required?: string[] };
+
+    expect(videoSchema.required).toContain('generation_input_video_file');
+    expect(videoSchema.properties).toHaveProperty(
+      'generation_input_video_file',
+    );
+    expect(modifySchema.required ?? []).not.toContain(
+      'generation_input_video_file',
+    );
+    expect(modifySchema.properties ?? {}).not.toHaveProperty(
+      'generation_input_video_file',
+    );
   });
 
   it('requires the modify_model to accept video input', () => {

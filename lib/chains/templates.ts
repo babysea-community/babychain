@@ -344,6 +344,7 @@ export function assertChainInputRequirements(
   }
 
   requireImageToVideoModel(input);
+  requireMediaDrivenReferenceVideo(input);
   requireModifyVideoToVideoModel(input);
 
   rejectCallerHandoffInputs(input);
@@ -476,6 +477,34 @@ function requireImageToVideoModel(input: ChainInput) {
     'The selected video_model does not support the image-to-video workflow required by the chain video step. Choose an image-to-video model or a media-driven transfer model with a reference video input.',
     400,
     { path: ['video_model'] },
+  );
+}
+
+function requireMediaDrivenReferenceVideo(input: ChainInput) {
+  const modelIdentifier = optionalString(input.video_model);
+
+  if (
+    !modelIdentifier ||
+    !isMediaDrivenImageToVideoChainModel(modelIdentifier)
+  ) {
+    return;
+  }
+
+  const params = input.video_model_input;
+  const referenceVideo =
+    params && typeof params === 'object' && !Array.isArray(params)
+      ? (params as Record<string, unknown>).generation_input_video_file
+      : undefined;
+
+  if (hasProvidedInputValue(referenceVideo)) {
+    return;
+  }
+
+  throw new BabyChainError(
+    'invalid_chain_input',
+    'video_model_input.generation_input_video_file is required for media-driven video models such as runway/act-two and wan/2.2-animate-*.',
+    400,
+    { path: ['video_model_input', 'generation_input_video_file'] },
   );
 }
 

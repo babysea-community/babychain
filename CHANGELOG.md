@@ -8,9 +8,11 @@ All notable changes will be documented here. The format follows [Keep a Changelo
 
 - Updated the BYOK schema source to `semantic-lady@0.4.3`, including published provider model ids, corrected provider defaults for direct BYOK routing, and removal of the unsupported Google Veo 3.1 `generation_audio` request field.
 - Removed BabyChain's hand-maintained model schema catalog and provider-side size/ratio conversion tables; model fields, defaults, enums, and provider model ids now come from Semantic Lady.
-- Renaming a workspace flow that already has a Library card now updates that saved canvas title immediately by using the flow's persisted Library canvas id.
+- Workspace `Run and save` now creates a fresh Library card for each run, while saved canvas pages still update the opened canvas in place; untouched auto-generated flow names are refreshed when new Library cards are created.
+- Deployment docs, Docker/Cloud Run/CloudFormation/EC2/Coolify/Fly examples, and host deploy menus now use the Aurora/PostgreSQL `DATABASE_URL` runtime model, the canonical BabyChain env order, and explicit AWS/Google host labels instead of the old Supabase-era wording.
 - Added a Duplicate button to each workspace runner card so users can clone a flow's current models and inputs into a new unsaved flow without overwriting the original Library card.
 - Canvas node cards now expose the selected model's Semantic Lady fields more completely, preserve documented defaults, and render numeric enums or small bounded integer ranges as dropdowns instead of free number inputs.
+- Canvas run buttons now stay disabled until required fields are filled and schema-invalid zero numeric values are corrected, with defensive validation repeated before run creation.
 - Each canvas model node now includes a collapsible JSON Schema view for the effective node inputs, matching the schema inspection pattern used on the templates page.
 - Each canvas flow now includes a separate API card in the final utility column beside the runner controls, using the current flow input and the same scroll-safe highlighted request styling.
 - Library canvas cards now show the real `run_id` above the Canvas ID and Created metadata; canvas API and runner cards stay focused on requests and controls.
@@ -27,12 +29,18 @@ All notable changes will be documented here. The format follows [Keep a Changelo
 ### Added
 
 - Added authenticated run-output URLs under `GET /api/v1/chains/get/:runId/outputs/:stepKey/:outputIndex` and dashboard preview URLs under `/api/dashboard/chains/get/:runId/outputs/:stepKey/:outputIndex` so inline provider media can be fetched separately without embedding base64 payloads inside run JSON.
+- Added media-driven image-to-video support for `runway/act-two` and `wan/2.2-animate-*`: BabyChain supplies the generated image output and accepts the caller's required `generation_input_video_file` reference video on the `video_model` step.
 
 ### Fixed
 
 - `GET /api/v1/chains/get/:runId`, create-run responses, and terminal callbacks no longer serialize provider `data:*;base64,...` outputs directly in `generation_output_file`; inline media is returned as clean authenticated output URLs while normal provider URLs stay unchanged.
 - Removed duplicated local schema-example builders from the canvas and templates page so JSON Schema display, cURL examples, and run payloads all use the same Semantic Lady-backed request shape.
 - Backend run creation now strips legacy empty full-shape cURL placeholders from no-default model inputs before provider submission while preserving real model defaults such as `""`, `null`, `false`, and numeric defaults.
+- Google Veo 3.1 BYOK submissions no longer forward the unsupported `generateAudio` request parameter.
+
+### Removed
+
+- Removed Codecov/coverage handling from BabyChain CI workflows and the unused Vitest coverage dependency from the starter lockfile.
 
 ## [0.1.1] - 2026-06-13
 

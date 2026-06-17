@@ -75,24 +75,21 @@ export const homepageHero = {
     ],
     deployLinks: [
       {
+        href: 'https://github.com/babysea-community/babychain/blob/main/docs/deployment/aws-cloudformation.md',
+        label: 'Deploy with AWS CloudFormation',
+      },
+      {
+        href: 'https://github.com/babysea-community/babychain/blob/main/docs/deployment/aws-ec2.md',
+        label: 'Run on AWS EC2',
+      },
+      {
         href: 'https://deploy.workers.cloudflare.com/?url=https://github.com/babysea-community/babychain',
         label: 'Deploy on Cloudflare',
         status: 'under-development' as const,
       },
       {
-        href: 'https://github.com/babysea-community/babychain/blob/main/docs/deployment/cloudformation.md',
-        label: 'Deploy with CloudFormation',
-        status: 'under-development' as const,
-      },
-      {
-        href: 'https://github.com/babysea-community/babychain/blob/main/docs/deployment/cloud-run.md',
-        label: 'Deploy on Cloud Run',
-        status: 'under-development' as const,
-      },
-      {
         href: 'https://github.com/babysea-community/babychain/blob/main/docs/deployment/coolify.md',
         label: 'Deploy with Coolify',
-        status: 'under-development' as const,
       },
       {
         href: 'https://cloud.digitalocean.com/apps/new?repo=https://github.com/babysea-community/babychain/tree/main',
@@ -102,17 +99,14 @@ export const homepageHero = {
       {
         href: 'https://github.com/babysea-community/babychain/blob/main/docs/deployment/docker.md',
         label: 'Deploy with Docker',
-        status: 'under-development' as const,
       },
       {
-        href: 'https://github.com/babysea-community/babychain/blob/main/docs/deployment/ec2.md',
-        label: 'Run on EC2',
-        status: 'under-development' as const,
-      },
-      {
-        href: 'https://github.com/babysea-community/babychain/blob/main/docs/deployment/flyio.md',
+        href: 'https://github.com/babysea-community/babychain/blob/main/docs/deployment/fly-io.md',
         label: 'Deploy on Fly.io',
-        status: 'under-development' as const,
+      },
+      {
+        href: 'https://github.com/babysea-community/babychain/blob/main/docs/deployment/google-cloud-run.md',
+        label: 'Deploy on Google Cloud Run',
       },
       {
         href: 'https://app.netlify.com/start/deploy?repository=https://github.com/babysea-community/babychain',
@@ -130,7 +124,7 @@ export const homepageHero = {
         status: 'under-development' as const,
       },
       {
-        href: 'https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fbabysea-community%2Fbabychain&project-name=babychain&repository-name=babychain&env=NEXT_PUBLIC_SITE_URL,OWNER_EMAIL,OWNER_PASSWORD,OWNER_SESSION_SECRET,DATABASE_URL,BABYCHAIN_API_KEY,BABYCHAIN_CRON_SECRET,BABYCHAIN_CALLBACK_SECRET,BABYCHAIN_PROVIDER_MODE,BFL_API_KEY,BFL_REGION,BFL_API_BASE_URL,ARK_API_KEY,DASHSCOPE_API_KEY,GEMINI_API_KEY,OPENAI_API_KEY,RUNWAYML_API_SECRET',
+        href: 'https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fbabysea-community%2Fbabychain&project-name=babychain&repository-name=babychain&env=NEXT_PUBLIC_SITE_URL,OWNER_EMAIL,OWNER_PASSWORD,OWNER_SESSION_SECRET,DATABASE_URL,BABYCHAIN_API_KEY,BABYCHAIN_CRON_SECRET,BABYCHAIN_CALLBACK_SECRET,BABYCHAIN_PROVIDER_MODE,DASHSCOPE_API_KEY,BFL_API_KEY,BFL_REGION,BFL_API_BASE_URL,ARK_API_KEY,GEMINI_API_KEY,OPENAI_API_KEY,RUNWAYML_API_SECRET',
         label: 'Deploy on Vercel',
       },
     ],

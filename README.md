@@ -521,29 +521,21 @@ The shared contract checks that each adapter returns zero-cost direct estimates 
 
 ### Vercel
 
-For free-plan, keep the checked-in settings: `maxDuration = 300` on long-running routes and the daily cron schedule in [`vercel.json`](vercel.json). For pro-plan, to implement one-minute recovery, change the cron schedule in [`vercel.json`](vercel.json) to `* * * * *`. Raise long-running route `maxDuration` values only where your Vercel plan supports the higher budget.
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fbabysea-community%2Fbabychain&project-name=babychain&repository-name=babychain&env=NEXT_PUBLIC_SITE_URL,OWNER_EMAIL,OWNER_PASSWORD,OWNER_SESSION_SECRET,DATABASE_URL,BABYCHAIN_API_KEY,BABYCHAIN_CRON_SECRET,BABYCHAIN_CALLBACK_SECRET,BABYCHAIN_PROVIDER_MODE,DASHSCOPE_API_KEY,BFL_API_KEY,BFL_REGION,BFL_API_BASE_URL,ARK_API_KEY,GEMINI_API_KEY,OPENAI_API_KEY,RUNWAYML_API_SECRET)
 
-Set every value from [`.env.example`](.env.example) in the Vercel project (notably `DATABASE_URL`, `OWNER_EMAIL`, `OWNER_PASSWORD`, `OWNER_SESSION_SECRET`, and the `BABYCHAIN_*` secrets). Apply the schema once with `pnpm run aurora:migrate` (locally, pointed at the production `DATABASE_URL`) before the first deploy.
+Use the Vercel button to clone the starter and create the project. Then set every value from [`.env.example`](.env.example) in the Vercel project, especially `NEXT_PUBLIC_SITE_URL`, `DATABASE_URL`, the `OWNER_*` dashboard credentials, the `BABYCHAIN_*` secrets, and the provider keys for your chosen mode.
 
-Reaching Aurora from Vercel. Vercel functions have dynamic egress IPs, so allowing a single IP in the Aurora security group is not reliable. Use one of:
+BabyChain still needs a reachable PostgreSQL database. Follow [Database (AWS Aurora / PostgreSQL)](#database-aws-aurora--postgresql) to create the database, build `DATABASE_URL`, allow Vercel to reach port `5432`, and run `pnpm run aurora:migrate` once against the production database before the first real run.
 
-- **RDS Proxy** in front of Aurora with a publicly resolvable endpoint, scoped by security group. Recommended; it also pools connections for serverless functions.
-- **AWS PrivateLink / VPC peering** to keep Aurora private and connect over private networking.
-- A short-lived demo only: a publicly accessible cluster with the security group scoped to the VPC CIDR.
-
-See [Database (AWS Aurora / PostgreSQL)](#database-aws-aurora--postgresql) above for the full VPC + security-group walkthrough.
+**Cron and function limits.** The checked-in [`vercel.json`](vercel.json) uses `maxDuration = 300` on long-running routes and a daily recovery cron, which is the safe default. On plans that support it, you can change the cron schedule to `* * * * *` for one-minute recovery and raise route `maxDuration` only where your Vercel plan allows the higher budget.
 
 ### AWS CloudFormation
 
-AWS CloudFormation is not a native one-click host for BabyChain. It needs AWS account setup, VPC/subnet choices, retained Secrets Manager values, an ECR image build, an ECS service update, and optional EventBridge queued-run recovery. Full end-to-end guide: [docs/deployment/cloudformation.md](docs/deployment/aws-cloudformation.md).
+AWS CloudFormation is not a native one-click host for BabyChain. It needs AWS account setup, VPC/subnet choices, retained Secrets Manager values, an ECR image build, an ECS service update, and optional EventBridge queued-run recovery. Full end-to-end guide: [docs/deployment/aws-cloudformation.md](docs/deployment/aws-cloudformation.md).
 
 ### AWS EC2
 
-AWS EC2 is not a native one-click host for BabyChain. It needs an Elastic IP or final domain before build, an ECR image, Systems Manager Parameter Store values, IAM instance profile setup, security group and key pair setup, rendered user data, SSH inspection, updates, and cleanup. Full end-to-end guide: [docs/deployment/ec2.md](docs/deployment/aws-ec2.md).
-
-### Google Cloud Run
-
-Google Cloud Run is not a native one-click host for BabyChain. It needs Artifact Registry, Secret Manager values, a Docker build with final public Next.js values, a Cloud Run service, and Cloud Scheduler queued-run recovery. Full end-to-end guide: [docs/deployment/cloud-run.md](docs/deployment/google-cloud-run.md).
+AWS EC2 is not a native one-click host for BabyChain. It needs an Elastic IP or final domain before build, an ECR image, Systems Manager Parameter Store values, IAM instance profile setup, security group and key pair setup, rendered user data, SSH inspection, updates, and cleanup. Full end-to-end guide: [docs/deployment/aws-ec2.md](docs/deployment/aws-ec2.md).
 
 ### Coolify
 
@@ -556,6 +548,10 @@ Docker is not a native one-click host for BabyChain. It needs a build with final
 ### Fly.io
 
 Fly.io is not a native one-click host for BabyChain. It uses the included Fly app config, final `NEXT_PUBLIC_*` build values, Fly secrets, a long-running machine, and an external scheduler for queued-run recovery. Full end-to-end guide: [docs/deployment/fly-io.md](docs/deployment/fly-io.md).
+
+### Google Cloud Run
+
+Google Cloud Run is not a native one-click host for BabyChain. It needs Artifact Registry, Secret Manager values, a Docker build with final public Next.js values, a Cloud Run service, and Cloud Scheduler queued-run recovery. Full end-to-end guide: [docs/deployment/google-cloud-run.md](docs/deployment/google-cloud-run.md).
 
 ## 5. Security and Compliance
 
