@@ -313,7 +313,8 @@ describe('provider adapters', () => {
 
   it('routes every registered Runway model through BYOK when enabled', () => {
     const runwayRoutes = [
-      ['runway/act-two', 'runway/act_two'],
+      ['runway/act-two-image', 'runway/act_two'],
+      ['runway/act-two-video', 'runway/act_two'],
       ['runway/aleph-2', 'runway/aleph2'],
       ['runway/gen-4.5', 'runway/gen4.5'],
       ['runway/gen-4-aleph', 'runway/gen4_aleph'],
@@ -423,7 +424,7 @@ describe('provider adapters', () => {
         model.modelIdentifier.startsWith('alibabacloud/'),
       ),
     ).toBe(false);
-    expect(alibabaCloudModelIds).toHaveLength(25);
+    expect(alibabaCloudModelIds).toHaveLength(27);
     expect(alibabaCloudModelIds).toContain('qwen/image');
     expect(alibabaCloudModelIds).toContain('qwen/image-plus');
     expect(alibabaCloudModelIds).toEqual(
@@ -435,6 +436,10 @@ describe('provider adapters', () => {
         'z/image-turbo',
         'wan/2.7-image-pro',
         'wan/2.7-t2v',
+        'wan/2.2-animate-mix-image',
+        'wan/2.2-animate-mix-video',
+        'wan/2.2-animate-move-image',
+        'wan/2.2-animate-move-video',
         'wan/2.1-imageedit',
         'happyhorse/1.0-t2v',
       ]),
@@ -470,11 +475,15 @@ describe('provider adapters', () => {
     }
 
     for (const modelIdentifier of [
-      'wan/2.2-animate-mix',
-      'wan/2.2-animate-move',
+      'wan/2.2-animate-mix-image',
+      'wan/2.2-animate-mix-video',
+      'wan/2.2-animate-move-image',
+      'wan/2.2-animate-move-video',
     ]) {
       expect(resolveProvider(modelIdentifier, { byokMode: true })).toEqual({
-        modelIdentifier: `alibabacloud/${modelIdentifier.replace('wan/', 'wan')}`,
+        modelIdentifier: `alibabacloud/${modelIdentifier
+          .replace('wan/', 'wan')
+          .replace(/-(image|video)$/, '')}`,
         provider: 'alibabacloud',
       });
     }
@@ -1387,6 +1396,108 @@ describe('provider adapters', () => {
         providerOrder: ['alibabacloud'],
       });
     }
+  });
+
+  it('maps Alibaba Cloud animate video variants with previous video and caller image', async () => {
+    let submittedBody: Record<string, unknown> = {};
+    const fetchImpl = vi.fn(async (_url: string | URL | Request, init) => {
+      submittedBody = JSON.parse(String(init?.body));
+
+      return new Response(
+        JSON.stringify({
+          output: { task_id: 'dashscope_task_animate_video' },
+          request_id: 'dashscope_request_123',
+        }),
+        { status: 200 },
+      );
+    }) as typeof fetch;
+    const provider = createAlibabaCloudProvider({
+      apiKey: 'dashscope_test_key',
+      fetchImpl,
+    });
+
+    await provider.submit({
+      idempotencyKey: 'idem_alibaba_animate_video',
+      modelIdentifier: 'alibabacloud/wan2.2-animate-mix',
+      params: {
+        generation_input_file: ['https://cdn.example.com/source-video.mp4'],
+        generation_input_image_file: ['https://cdn.example.com/reference.png'],
+        generation_mode: 'wan-std',
+      },
+      sourceModelIdentifier: 'wan/2.2-animate-mix-video',
+      stepKind: 'video',
+    });
+
+    expect(submittedBody).toMatchObject({
+      model: 'wan2.2-animate-mix',
+      input: {
+        image_url: 'https://cdn.example.com/reference.png',
+        video_url: 'https://cdn.example.com/source-video.mp4',
+      },
+      parameters: { mode: 'wan-std' },
+    });
+  });
+
+  it('maps Runway Act-Two variants to image and video character media', async () => {
+    const submittedBodies: Record<string, unknown>[] = [];
+    const fetchImpl = vi.fn(async (_url: string | URL | Request, init) => {
+      submittedBodies.push(JSON.parse(String(init?.body)));
+
+      return new Response(JSON.stringify({ id: 'runway_task_act_two' }), {
+        status: 200,
+      });
+    }) as typeof fetch;
+    const provider = createRunwayProvider({
+      apiKey: 'runway_test_key',
+      fetchImpl,
+    });
+
+    await provider.submit({
+      idempotencyKey: 'idem_runway_act_two_image',
+      modelIdentifier: 'runway/act_two',
+      params: {
+        generation_input_file: ['https://cdn.example.com/character.png'],
+        generation_input_video_file: [
+          'https://cdn.example.com/performance.mp4',
+        ],
+      },
+      sourceModelIdentifier: 'runway/act-two-image',
+      stepKind: 'video',
+    });
+
+    await provider.submit({
+      idempotencyKey: 'idem_runway_act_two_video',
+      modelIdentifier: 'runway/act_two',
+      params: {
+        generation_input_file: ['https://cdn.example.com/character.mp4'],
+        generation_input_video_file: [
+          'https://cdn.example.com/performance.mp4',
+        ],
+      },
+      sourceModelIdentifier: 'runway/act-two-video',
+      stepKind: 'video',
+    });
+
+    expect(submittedBodies[0]).toMatchObject({
+      character: {
+        type: 'image',
+        uri: 'https://cdn.example.com/character.png',
+      },
+      reference: {
+        type: 'video',
+        uri: 'https://cdn.example.com/performance.mp4',
+      },
+    });
+    expect(submittedBodies[1]).toMatchObject({
+      character: {
+        type: 'video',
+        uri: 'https://cdn.example.com/character.mp4',
+      },
+      reference: {
+        type: 'video',
+        uri: 'https://cdn.example.com/performance.mp4',
+      },
+    });
   });
 
   it('submits Alibaba Cloud video-edit models with chained video media', async () => {

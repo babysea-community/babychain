@@ -2,6 +2,7 @@ import 'server-only';
 
 import { lookupAllowedNetworkAddress } from '@/lib/security/network-safety';
 import type { JsonObject, JsonValue } from '@/lib/chains/types';
+import { getMediaDrivenModelVariant } from '@/lib/models/media-driven-variants';
 import { BabyChainError } from '@/lib/utils/errors';
 
 import type {
@@ -61,6 +62,7 @@ export function createRunwayProvider(config: RunwayProviderConfig): Provider {
       const body = buildSubmitBody({
         model,
         params: input.params as Record<string, unknown>,
+        sourceModelIdentifier: input.sourceModelIdentifier,
         stepKey: input.stepKey,
         stepKind: input.stepKind,
       });
@@ -175,14 +177,16 @@ function endpointForModel(
 function buildSubmitBody(args: {
   model: string;
   params: Record<string, unknown>;
+  sourceModelIdentifier?: string;
   stepKey?: string;
   stepKind: 'image' | 'video';
 }): JsonObject {
   const body: JsonObject = { model: args.model };
-  const inputFiles = [
-    ...collectStringValues(args.params.generation_input_file),
-    ...collectStringValues(args.params.generation_input_image_file),
-  ];
+  const handoffFiles = collectStringValues(args.params.generation_input_file);
+  const imageFiles = collectStringValues(
+    args.params.generation_input_image_file,
+  );
+  const inputFiles = [...handoffFiles, ...imageFiles];
   const videoFiles = collectStringValues(
     args.params.generation_input_video_file,
   );
@@ -268,10 +272,16 @@ function buildSubmitBody(args: {
   }
 
   if (RUNWAY_CHARACTER_MODELS.has(args.model)) {
-    if (inputFiles.length > 0 && body.character === undefined) {
+    const variant = args.sourceModelIdentifier
+      ? getMediaDrivenModelVariant(args.sourceModelIdentifier)
+      : null;
+    const characterFiles =
+      variant?.inputKind === 'video' ? handoffFiles : inputFiles;
+
+    if (characterFiles.length > 0 && body.character === undefined) {
       body.character = {
-        type: 'image',
-        uri: inputFiles[0] ?? '',
+        type: variant?.inputKind === 'video' ? 'video' : 'image',
+        uri: characterFiles[0] ?? '',
       };
     }
 

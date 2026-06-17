@@ -115,7 +115,10 @@ function shouldValidateFieldForRole(
   return (
     role === 'image' ||
     !isChainWiredSemanticFieldName(field.name) ||
-    (field.name === 'generation_input_video_file' && field.required === true)
+    (field.name === 'generation_input_video_file' && field.required === true) ||
+    (role === 'modify' &&
+      field.name === 'generation_input_image_file' &&
+      field.required === true)
   );
 }
 

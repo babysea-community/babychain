@@ -546,6 +546,7 @@ async function startStep(
       stepKind: stepTemplate.kind,
       params,
       idempotencyKey: createStepIdempotencyKey(record, claimedStep),
+      sourceModelIdentifier: modelIdentifier,
     });
 
     const updatedStep = await store.updateRunningStep(

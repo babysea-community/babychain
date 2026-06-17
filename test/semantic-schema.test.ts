@@ -15,7 +15,7 @@ describe('semantic-lady BYOK schema core', () => {
   it('covers every registered BabyChain model', () => {
     const models = listRegisteredModels();
 
-    expect(models).toHaveLength(57);
+    expect(models).toHaveLength(60);
 
     for (const modelIdentifier of models) {
       expect(getSemanticModel(modelIdentifier), modelIdentifier).not.toBeNull();

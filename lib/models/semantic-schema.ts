@@ -9,9 +9,16 @@ import {
 
 import {
   filterChainSchemaFields,
+  type ChainSchemaStepRole,
   type SemanticChainFieldMode,
 } from '@/lib/models/chain-schema';
 import { BabyChainError } from '@/lib/utils/errors';
+
+import {
+  getMediaDrivenModelVariant,
+  getMediaDrivenRequiredCallerField,
+  resolveSemanticModelIdentifier,
+} from './media-driven-variants';
 
 /**
  * Semantic Lady is the `generation_*` schema core for BYOK mode. BabyChain
@@ -36,6 +43,7 @@ const CHAIN_LEVEL_GENERATION_KEYS = new Set(['generation_provider_order']);
 const UNKNOWN_KEY_DISPLAY_LIMIT = 100;
 
 export type SemanticRequestSchemaOptions = {
+  allowInputImageFile?: boolean;
   allowInputVideoFile?: boolean;
   chainFieldMode?: SemanticChainFieldMode;
 };
@@ -45,13 +53,18 @@ const SEMANTIC_MODEL_NAMES: ReadonlySet<string> = new Set(
 );
 
 export function hasSemanticModel(modelIdentifier: string): boolean {
-  return SEMANTIC_MODEL_NAMES.has(modelIdentifier);
+  return SEMANTIC_MODEL_NAMES.has(
+    resolveSemanticModelIdentifier(modelIdentifier),
+  );
 }
 
 export function getSemanticModel(
   modelIdentifier: string,
 ): SemanticLadyModel | null {
-  return getSemanticLadyModel(modelIdentifier) ?? null;
+  return (
+    getSemanticLadyModel(resolveSemanticModelIdentifier(modelIdentifier)) ??
+    null
+  );
 }
 
 export function getSemanticModelSchemaFields(
@@ -71,8 +84,33 @@ export function getSemanticModelSchemaFields(
   }
 
   return filterChainSchemaFields(fields, 'video', {
+    allowInputImageFile: options.allowInputImageFile === true,
     allowInputVideoFile: options.allowInputVideoFile === true,
   });
+}
+
+export function getMediaDrivenSchemaOptionsForRole(
+  modelIdentifier: string,
+  role: ChainSchemaStepRole,
+): Pick<
+  SemanticRequestSchemaOptions,
+  'allowInputImageFile' | 'allowInputVideoFile'
+> {
+  if (role !== 'video' && role !== 'modify') {
+    return {};
+  }
+
+  const field = getMediaDrivenRequiredCallerField(modelIdentifier, role);
+
+  if (field === 'generation_input_image_file') {
+    return { allowInputImageFile: true };
+  }
+
+  if (field === 'generation_input_video_file') {
+    return { allowInputVideoFile: true };
+  }
+
+  return {};
 }
 
 export type SemanticJsonObject = Record<string, unknown>;
@@ -169,9 +207,9 @@ function semanticJsonType(type: string) {
  *   - `modify_model` : kind `video` with the `video-to-video` workflow.
  *
  * Prompt-driven video roles require the model to accept `generation_prompt`.
- * Media-driven transfer models (`runway/act-two`, `wan/2.2-animate-*`) are
- * also valid video steps when BabyChain can supply the generated image and the
- * caller supplies the required reference video.
+ * Media-driven transfer models are exposed as BabyChain-specific variants:
+ * `(Image)` variants run as video steps, and `(Video)` variants run as modify
+ * steps.
  */
 export function isImageChainModel(modelIdentifier: string): boolean {
   return getSemanticModel(modelIdentifier)?.kind === 'image';
@@ -190,25 +228,36 @@ export function isTextToImageCapableModel(modelIdentifier: string): boolean {
 }
 
 export function isImageToVideoChainModel(modelIdentifier: string): boolean {
+  const variant = getMediaDrivenModelVariant(modelIdentifier);
+
+  if (variant) {
+    return variant.role === 'video';
+  }
+
   const model = getSemanticModel(modelIdentifier);
 
   return (
     model?.kind === 'video' &&
-    ((model.workflows.includes('image-to-video') &&
-      hasGenerationPromptField(model)) ||
-      isMediaDrivenImageToVideoModel(model))
+    model.workflows.includes('image-to-video') &&
+    hasGenerationPromptField(model)
   );
 }
 
 export function isMediaDrivenImageToVideoChainModel(
   modelIdentifier: string,
 ): boolean {
-  const model = getSemanticModel(modelIdentifier);
+  const variant = getMediaDrivenModelVariant(modelIdentifier);
 
-  return model ? isMediaDrivenImageToVideoModel(model) : false;
+  return variant?.role === 'video';
 }
 
 export function isVideoToVideoChainModel(modelIdentifier: string): boolean {
+  const variant = getMediaDrivenModelVariant(modelIdentifier);
+
+  if (variant) {
+    return variant.role === 'modify';
+  }
+
   const model = getSemanticModel(modelIdentifier);
 
   return (
@@ -220,26 +269,6 @@ export function isVideoToVideoChainModel(modelIdentifier: string): boolean {
 
 function hasGenerationPromptField(model: SemanticLadyModel): boolean {
   return model.schema.some((field) => field.name === 'generation_prompt');
-}
-
-function isMediaDrivenImageToVideoModel(model: SemanticLadyModel): boolean {
-  if (model.kind !== 'video') {
-    return false;
-  }
-
-  const acceptsImage = model.schema.some(
-    (field) => field.name === 'generation_input_image_file',
-  );
-  const requiresVideo = model.schema.some(
-    (field) => field.name === 'generation_input_video_file' && field.required,
-  );
-
-  return (
-    acceptsImage &&
-    requiresVideo &&
-    (model.workflows.includes('image-to-video') ||
-      model.workflows.includes('character-performance'))
-  );
 }
 
 export type ByokGenerationFieldIssue = {
@@ -301,6 +330,7 @@ export function findByokGenerationFieldIssue(
   const requiredFields =
     options.chainFieldMode === 'downstream'
       ? filterChainSchemaFields(model.schema, 'video', {
+          allowInputImageFile: options.allowInputImageFile === true,
           allowInputVideoFile: options.allowInputVideoFile === true,
         })
       : model.schema;

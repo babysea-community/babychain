@@ -16,9 +16,9 @@ import { formatPublicModelName } from '@/lib/models/display';
 import { listModelCatalog } from '@/lib/models/model-library';
 import {
   createSemanticRequestSchema,
+  getMediaDrivenSchemaOptionsForRole,
   isImageInputCapableModel,
   isImageToVideoChainModel,
-  isMediaDrivenImageToVideoChainModel,
   isVideoToVideoChainModel,
 } from '@/lib/models/semantic-schema';
 
@@ -85,15 +85,13 @@ export default function TemplatesPage() {
   );
 }
 
-export function createModelRequestSchemas() {
+function createModelRequestSchemas() {
   return Object.fromEntries(
     listModelCatalog().flatMap((model) =>
       CHAIN_STEP_ROLES.map((role) => [
         modelSchemaCacheKey(role, model.modelIdentifier),
         createSemanticRequestSchema(model.modelIdentifier, {
-          allowInputVideoFile:
-            role === 'video' &&
-            isMediaDrivenImageToVideoChainModel(model.modelIdentifier),
+          ...getMediaDrivenSchemaOptionsForRole(model.modelIdentifier, role),
           chainFieldMode: chainFieldModeForRole(role),
         }),
       ]),

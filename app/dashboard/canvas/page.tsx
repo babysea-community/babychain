@@ -22,10 +22,10 @@ import { chainFieldModeForRole } from '@/lib/models/chain-schema';
 import type { ModelProvider } from '@/lib/models/model-catalog';
 import { listModelCatalog } from '@/lib/models/model-library';
 import {
+  getMediaDrivenSchemaOptionsForRole,
   getSemanticModelSchemaFields,
   isImageInputCapableModel,
   isImageToVideoChainModel,
-  isMediaDrivenImageToVideoChainModel,
   isVideoToVideoChainModel,
   semanticFieldJsonSchema,
 } from '@/lib/models/semantic-schema';
@@ -309,8 +309,7 @@ function defaultFieldValue(value: unknown): Pick<FieldSpec, 'default'> {
 
 function deriveSemanticFields(modelId: string, role: StepRole): FieldGroup {
   const schema = getSemanticModelSchemaFields(modelId, {
-    allowInputVideoFile:
-      role === 'video' && isMediaDrivenImageToVideoChainModel(modelId),
+    ...getMediaDrivenSchemaOptionsForRole(modelId, role),
     chainFieldMode: chainFieldModeForRole(role),
   });
 

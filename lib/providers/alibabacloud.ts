@@ -2,6 +2,7 @@ import 'server-only';
 
 import { lookupAllowedNetworkAddress } from '@/lib/security/network-safety';
 import type { JsonObject, JsonValue } from '@/lib/chains/types';
+import { getMediaDrivenModelVariant } from '@/lib/models/media-driven-variants';
 import { BabyChainError } from '@/lib/utils/errors';
 
 import type {
@@ -159,6 +160,7 @@ export function createAlibabaCloudProvider(
         model,
         params: input.params as Record<string, unknown>,
         route,
+        sourceModelIdentifier: input.sourceModelIdentifier,
         stepKey: input.stepKey,
       });
       const url = `${baseUrl}${route.path}`;
@@ -347,6 +349,7 @@ function buildSubmitBody(args: {
   model: string;
   params: Record<string, unknown>;
   route: AlibabaCloudRoute;
+  sourceModelIdentifier?: string;
   stepKey?: string;
 }): JsonObject {
   const input: JsonObject = {};
@@ -391,8 +394,12 @@ function buildSubmitBody(args: {
     });
   } else if (args.route.protocol === 'animate_image_to_video') {
     mergeAnimateImageToVideoInput({
+      handoffFiles,
+      imageFiles,
       input,
       inputFiles,
+      sourceModelIdentifier: args.sourceModelIdentifier,
+      videoFiles,
     });
   } else {
     mergeImageTaskInput({
@@ -436,10 +443,27 @@ function mergeMultimodalInput(
 }
 
 function mergeAnimateImageToVideoInput(args: {
+  handoffFiles: string[];
+  imageFiles: string[];
   input: JsonObject;
   inputFiles: string[];
+  sourceModelIdentifier?: string;
+  videoFiles: string[];
 }) {
-  const [imageFile, videoFile] = args.inputFiles;
+  const variant = args.sourceModelIdentifier
+    ? getMediaDrivenModelVariant(args.sourceModelIdentifier)
+    : null;
+  const imageFile =
+    variant?.inputKind === 'video'
+      ? args.imageFiles[0]
+      : (args.handoffFiles[0] ?? args.imageFiles[0] ?? args.inputFiles[0]);
+  const videoFile =
+    variant?.inputKind === 'video'
+      ? (args.handoffFiles[0] ?? args.videoFiles[0])
+      : (args.videoFiles[0] ??
+        args.handoffFiles[1] ??
+        args.imageFiles[1] ??
+        args.inputFiles[1]);
 
   if (args.input.image_url === undefined && imageFile) {
     args.input.image_url = imageFile;

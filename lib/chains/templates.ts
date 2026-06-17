@@ -5,15 +5,17 @@ import { BabyChainError } from '@/lib/utils/errors';
 import {
   chainFieldModeForRole,
   isChainWiredSemanticFieldName,
+  type ChainSchemaStepRole,
 } from '@/lib/models/chain-schema';
+import { getMediaDrivenRequiredCallerField } from '@/lib/models/media-driven-variants';
 import {
   assertByokGenerationFields,
+  getMediaDrivenSchemaOptionsForRole,
   getSemanticModel,
   getSemanticModelSchemaFields,
   isImageChainModel,
   isImageInputCapableModel,
   isImageToVideoChainModel,
-  isMediaDrivenImageToVideoChainModel,
   isTextToImageCapableModel,
   isVideoToVideoChainModel,
 } from '@/lib/models/semantic-schema';
@@ -344,8 +346,9 @@ export function assertChainInputRequirements(
   }
 
   requireImageToVideoModel(input);
-  requireMediaDrivenReferenceVideo(input);
+  requireMediaDrivenStepInput(input, 'video');
   requireModifyVideoToVideoModel(input);
+  requireMediaDrivenStepInput(input, 'modify');
 
   rejectCallerHandoffInputs(input);
 
@@ -375,6 +378,7 @@ function normalizeEmptyModelInputPlaceholders(input: ChainInput) {
     }
 
     const fields = getSemanticModelSchemaFields(modelIdentifier, {
+      ...getMediaDrivenSchemaOptionsForRole(modelIdentifier, role),
       chainFieldMode: chainFieldModeForRole(role),
     });
 
@@ -442,9 +446,7 @@ function assertByokGenerationFieldsForSteps(input: ChainInput) {
     }
 
     assertByokGenerationFields(modelIdentifier, params ?? {}, paramsKey, {
-      allowInputVideoFile:
-        role === 'video' &&
-        isMediaDrivenImageToVideoChainModel(modelIdentifier),
+      ...getMediaDrivenSchemaOptionsForRole(modelIdentifier, role),
       chainFieldMode: chainFieldModeForRole(role),
     });
   }
@@ -480,31 +482,43 @@ function requireImageToVideoModel(input: ChainInput) {
   );
 }
 
-function requireMediaDrivenReferenceVideo(input: ChainInput) {
-  const modelIdentifier = optionalString(input.video_model);
+function requireMediaDrivenStepInput(
+  input: ChainInput,
+  role: Extract<ChainSchemaStepRole, 'video' | 'modify'>,
+) {
+  const modelKey = role === 'video' ? 'video_model' : 'modify_model';
+  const paramsKey =
+    role === 'video' ? 'video_model_input' : 'modify_model_input';
+  const modelIdentifier = optionalString(input[modelKey]);
 
-  if (
-    !modelIdentifier ||
-    !isMediaDrivenImageToVideoChainModel(modelIdentifier)
-  ) {
+  if (!modelIdentifier) {
     return;
   }
 
-  const params = input.video_model_input;
-  const referenceVideo =
+  const requiredField = getMediaDrivenRequiredCallerField(
+    modelIdentifier,
+    role,
+  );
+
+  if (!requiredField) {
+    return;
+  }
+
+  const params = input[paramsKey];
+  const callerMedia =
     params && typeof params === 'object' && !Array.isArray(params)
-      ? (params as Record<string, unknown>).generation_input_video_file
+      ? (params as Record<string, unknown>)[requiredField]
       : undefined;
 
-  if (hasProvidedInputValue(referenceVideo)) {
+  if (hasProvidedInputValue(callerMedia)) {
     return;
   }
 
   throw new BabyChainError(
     'invalid_chain_input',
-    'video_model_input.generation_input_video_file is required for media-driven video models such as runway/act-two and wan/2.2-animate-*.',
+    `${paramsKey}.${requiredField} is required for the selected media-driven ${role} model.`,
     400,
-    { path: ['video_model_input', 'generation_input_video_file'] },
+    { path: [paramsKey, requiredField] },
   );
 }
 
@@ -518,7 +532,7 @@ function requireModifyVideoToVideoModel(input: ChainInput) {
 
   throw new BabyChainError(
     'invalid_chain_input',
-    'The selected modify_model does not support the video-to-video workflow required by the chain modify step. Choose a prompt-driven video-to-video model.',
+    'The selected modify_model does not support the video-to-video workflow required by the chain modify step. Choose a prompt-driven video-to-video model or a media-driven video variant.',
     400,
     { path: ['modify_model'] },
   );
@@ -935,14 +949,19 @@ function rejectChainWiredImageInputs(input: ChainInput) {
     'modify_model_input',
   ] as const) {
     const params = input[paramsKey];
+    const role = roleForModelInputKey(paramsKey);
+    const modelIdentifier = optionalString(input[modelKeyForRole(role)]);
+    const allowedField =
+      role === 'video' || role === 'modify'
+        ? getMediaDrivenRequiredCallerField(modelIdentifier ?? '', role)
+        : null;
     const path =
       findProviderChainWiredOverrideParamPath(params) ??
       findProviderChainWiredMediaParamPath(params, [], {
+        allowGenerationInputImageFile:
+          allowedField === 'generation_input_image_file',
         allowGenerationInputVideoFile:
-          paramsKey === 'video_model_input' &&
-          isMediaDrivenImageToVideoChainModel(
-            optionalString(input.video_model) ?? '',
-          ),
+          allowedField === 'generation_input_video_file',
       });
 
     if (!path) {
@@ -957,6 +976,27 @@ function rejectChainWiredImageInputs(input: ChainInput) {
       400,
       { path: fullPath },
     );
+  }
+}
+
+function roleForModelInputKey(
+  paramsKey: 'refine_model_input' | 'video_model_input' | 'modify_model_input',
+): Exclude<ChainSchemaStepRole, 'image'> {
+  if (paramsKey === 'refine_model_input') {
+    return 'refine';
+  }
+
+  return paramsKey === 'video_model_input' ? 'video' : 'modify';
+}
+
+function modelKeyForRole(role: Exclude<ChainSchemaStepRole, 'image'>) {
+  switch (role) {
+    case 'refine':
+      return 'refine_model';
+    case 'video':
+      return 'video_model';
+    case 'modify':
+      return 'modify_model';
   }
 }
 
@@ -1007,7 +1047,10 @@ function findProviderChainWiredOverrideParamPath(
 function findProviderChainWiredMediaParamPath(
   value: unknown,
   path: string[] = [],
-  options: { allowGenerationInputVideoFile?: boolean } = {},
+  options: {
+    allowGenerationInputImageFile?: boolean;
+    allowGenerationInputVideoFile?: boolean;
+  } = {},
 ): string[] | null {
   if (!value || typeof value !== 'object') {
     return null;
@@ -1034,6 +1077,14 @@ function findProviderChainWiredMediaParamPath(
       isProviderChainWiredMediaParamKey(key) &&
       hasProvidedInputValue(entryValue)
     ) {
+      if (
+        options.allowGenerationInputImageFile === true &&
+        path.length === 0 &&
+        key === 'generation_input_image_file'
+      ) {
+        continue;
+      }
+
       if (
         options.allowGenerationInputVideoFile === true &&
         path.length === 0 &&

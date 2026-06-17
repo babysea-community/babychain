@@ -66,6 +66,7 @@ export type ProviderSubmitInput = {
   stepKind: 'image' | 'video';
   params: GenerationParams | Record<string, unknown>;
   idempotencyKey: string;
+  sourceModelIdentifier?: string;
 };
 
 /**

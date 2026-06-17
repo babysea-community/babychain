@@ -8,6 +8,12 @@ import {
   type SemanticLadyWorkflow,
 } from 'semantic-lady';
 
+import {
+  isMediaDrivenBaseModelIdentifier,
+  listMediaDrivenModelVariants,
+  type MediaDrivenVariantInputKind,
+} from './media-driven-variants';
+
 export type ModelProvider = SemanticLadyProvider;
 export type ModelKind = SemanticLadyModelKind;
 export type ModelMode = 'babysea' | 'byok';
@@ -16,9 +22,11 @@ export type ModelCatalogEntry = {
   babyseaCompatible?: boolean;
   key: string;
   kind: ModelKind;
+  mediaInputKind?: MediaDrivenVariantInputKind;
   modelIdentifier: string;
   provider: ModelProvider;
   rawId: string;
+  semanticModelIdentifier?: string;
   uiName: string;
   workflows: readonly SemanticLadyWorkflow[];
 };
@@ -29,18 +37,64 @@ const BYOK_ONLY_BYTEPLUS_MODELS = new Set([
   'bytedance/seedance-2.0-fast',
 ]);
 
-export const MODEL_CATALOG = listModels().map(
-  (model): ModelCatalogEntry => ({
-    key: modelKey(model.apiName),
+export const MODEL_CATALOG = listModels().flatMap((model) => {
+  if (!isMediaDrivenBaseModelIdentifier(model.apiName)) {
+    return [toCatalogEntry(model)];
+  }
+
+  return listMediaDrivenModelVariants()
+    .filter((variant) => variant.baseModelIdentifier === model.apiName)
+    .map((variant) =>
+      toCatalogEntry(model, {
+        mediaInputKind: variant.inputKind,
+        modelIdentifier: variant.modelIdentifier,
+        semanticModelIdentifier: variant.baseModelIdentifier,
+        uiName: `${model.uiName} (${formatVariantInputKind(
+          variant.inputKind,
+        )})`,
+      }),
+    );
+});
+
+export const MODEL_LOOKUP_CATALOG = [
+  ...MODEL_CATALOG,
+  ...listModels()
+    .filter((model) => isMediaDrivenBaseModelIdentifier(model.apiName))
+    .map((model) => toCatalogEntry(model)),
+];
+
+function toCatalogEntry(
+  model: SemanticLadyModel,
+  options: {
+    mediaInputKind?: MediaDrivenVariantInputKind;
+    modelIdentifier?: string;
+    semanticModelIdentifier?: string;
+    uiName?: string;
+  } = {},
+): ModelCatalogEntry {
+  const modelIdentifier = options.modelIdentifier ?? model.apiName;
+
+  return {
+    key: modelKey(modelIdentifier),
     kind: model.kind,
-    modelIdentifier: model.apiName,
+    modelIdentifier,
     provider: model.provider,
     rawId: model.providerModel,
-    uiName: model.uiName,
+    uiName: options.uiName ?? model.uiName,
     workflows: model.workflows,
+    ...(options.mediaInputKind
+      ? { mediaInputKind: options.mediaInputKind }
+      : {}),
+    ...(options.semanticModelIdentifier
+      ? { semanticModelIdentifier: options.semanticModelIdentifier }
+      : {}),
     ...(isBabySeaCompatible(model) ? {} : { babyseaCompatible: false }),
-  }),
-);
+  };
+}
+
+function formatVariantInputKind(inputKind: MediaDrivenVariantInputKind) {
+  return inputKind === 'image' ? 'Image' : 'Video';
+}
 
 function isBabySeaCompatible(model: SemanticLadyModel) {
   switch (model.provider) {

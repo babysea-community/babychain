@@ -10,8 +10,6 @@ import {
   resolveStepModel,
   selectChainTemplateSteps,
 } from '@/lib/chains/templates';
-import { createModelRequestSchemas } from '@/app/templates/page';
-import { modelSchemaCacheKey } from '@/lib/models/chain-schema';
 import {
   isImageInputCapableModel,
   isImageToVideoChainModel,
@@ -115,14 +113,16 @@ describe('chain templates', () => {
     expect(isImageToVideoChainModel('google/veo-3.1')).toBe(true);
     expect(isImageToVideoChainModel('runway/gen-4-turbo')).toBe(true);
     expect(isImageToVideoChainModel('wan/2.7-r2v')).toBe(true);
-    // Text-to-video-only models are not wireable as the chain image-to-video
-    // step. Performance-transfer models are wireable when callers supply the
-    // required reference video input.
+    // Text-to-video-only and performance-transfer models are not wireable as
+    // the chain image-to-video step.
     expect(isImageToVideoChainModel('wan/2.7-t2v')).toBe(false);
     expect(isImageToVideoChainModel('happyhorse/1.0-t2v')).toBe(false);
-    expect(isImageToVideoChainModel('runway/act-two')).toBe(true);
-    expect(isImageToVideoChainModel('wan/2.2-animate-mix')).toBe(true);
-    expect(isImageToVideoChainModel('wan/2.2-animate-move')).toBe(true);
+    expect(isImageToVideoChainModel('runway/act-two')).toBe(false);
+    expect(isImageToVideoChainModel('wan/2.2-animate-mix')).toBe(false);
+    expect(isImageToVideoChainModel('wan/2.2-animate-move')).toBe(false);
+    expect(isImageToVideoChainModel('runway/act-two-image')).toBe(true);
+    expect(isImageToVideoChainModel('wan/2.2-animate-mix-image')).toBe(true);
+    expect(isImageToVideoChainModel('wan/2.2-animate-move-image')).toBe(true);
     expect(isImageToVideoChainModel('runway/aleph-2')).toBe(true);
 
     expect(isVideoToVideoChainModel('runway/aleph-2')).toBe(true);
@@ -135,6 +135,9 @@ describe('chain templates', () => {
     expect(isVideoToVideoChainModel('bytedance/seedance-1.5-pro')).toBe(false);
     expect(isVideoToVideoChainModel('runway/act-two')).toBe(false);
     expect(isVideoToVideoChainModel('wan/2.2-animate-mix')).toBe(false);
+    expect(isVideoToVideoChainModel('runway/act-two-video')).toBe(true);
+    expect(isVideoToVideoChainModel('wan/2.2-animate-mix-video')).toBe(true);
+    expect(isVideoToVideoChainModel('wan/2.2-animate-move-video')).toBe(true);
   });
 
   it('allows Google image input through Semantic Lady fields', () => {
@@ -445,18 +448,8 @@ describe('chain templates', () => {
     ).toThrow('selected refine_model does not accept image input');
   });
 
-  it('requires media-driven video models to receive a reference video input', () => {
+  it('requires the built-in chain video_model to accept image input', () => {
     const template = getChainTemplate('chain');
-
-    expect(() =>
-      parseTemplateInput(template!, {
-        image_model: TEXT_IMAGE_MODEL,
-        video_model: 'runway/act-two',
-        video_model_input: {
-          generation_duration: 4,
-        },
-      }),
-    ).toThrow('generation_input_video_file is required');
 
     expect(() =>
       parseTemplateInput(
@@ -465,19 +458,37 @@ describe('chain templates', () => {
           image_model: TEXT_IMAGE_MODEL,
           video_model: 'runway/act-two',
           video_model_input: {
-            generation_aspect_ratio: '1280:720',
+            generation_prompt: 'Animate the generated image',
           },
         },
         { byokMode: true },
       ),
-    ).toThrow('generation_input_video_file is required');
+    ).toThrow('does not support the image-to-video workflow');
+  });
+
+  it('requires media-driven image variants to receive caller reference media', () => {
+    const template = getChainTemplate('chain');
 
     expect(() =>
       parseTemplateInput(
         template!,
         {
           image_model: TEXT_IMAGE_MODEL,
-          video_model: 'runway/act-two',
+          video_model: 'runway/act-two-image',
+          video_model_input: {
+            generation_aspect_ratio: '1280:720',
+          },
+        },
+        { byokMode: true },
+      ),
+    ).toThrow('video_model_input.generation_input_video_file is required');
+
+    expect(() =>
+      parseTemplateInput(
+        template!,
+        {
+          image_model: TEXT_IMAGE_MODEL,
+          video_model: 'runway/act-two-image',
           video_model_input: {
             generation_aspect_ratio: '1280:720',
             generation_input_video_file: [
@@ -494,7 +505,7 @@ describe('chain templates', () => {
         template!,
         {
           image_model: TEXT_IMAGE_MODEL,
-          video_model: 'wan/2.2-animate-mix',
+          video_model: 'wan/2.2-animate-mix-image',
           video_model_input: {
             generation_input_video_file: [
               'https://cdn.example.com/reference.mp4',
@@ -507,25 +518,69 @@ describe('chain templates', () => {
     ).not.toThrow();
   });
 
-  it('includes media-driven reference video fields in template page schemas', () => {
-    const schemas = createModelRequestSchemas();
-    const videoSchema = schemas[
-      modelSchemaCacheKey('video', 'runway/act-two')
-    ] as { properties?: Record<string, unknown>; required?: string[] };
-    const modifySchema = schemas[
-      modelSchemaCacheKey('modify', 'runway/act-two')
-    ] as { properties?: Record<string, unknown>; required?: string[] };
+  it('requires media-driven video variants to receive caller companion media', () => {
+    const template = getChainTemplate('chain');
 
-    expect(videoSchema.required).toContain('generation_input_video_file');
-    expect(videoSchema.properties).toHaveProperty(
-      'generation_input_video_file',
-    );
-    expect(modifySchema.required ?? []).not.toContain(
-      'generation_input_video_file',
-    );
-    expect(modifySchema.properties ?? {}).not.toHaveProperty(
-      'generation_input_video_file',
-    );
+    expect(() =>
+      parseTemplateInput(
+        template!,
+        {
+          image_model: TEXT_IMAGE_MODEL,
+          video_model: 'runway/gen-4-turbo',
+          modify_model: 'wan/2.2-animate-mix-video',
+          video_model_input: {
+            generation_aspect_ratio: '1280:720',
+            generation_duration: 5,
+            generation_prompt: 'Animate the generated image',
+          },
+        },
+        { byokMode: true },
+      ),
+    ).toThrow('modify_model_input.generation_input_image_file is required');
+
+    expect(() =>
+      parseTemplateInput(
+        template!,
+        {
+          image_model: TEXT_IMAGE_MODEL,
+          video_model: 'runway/gen-4-turbo',
+          modify_model: 'wan/2.2-animate-mix-video',
+          video_model_input: {
+            generation_aspect_ratio: '1280:720',
+            generation_duration: 5,
+            generation_prompt: 'Animate the generated image',
+          },
+          modify_model_input: {
+            generation_input_image_file: [
+              'https://cdn.example.com/reference.png',
+            ],
+          },
+        },
+        { byokMode: true },
+      ),
+    ).not.toThrow();
+
+    expect(() =>
+      parseTemplateInput(
+        template!,
+        {
+          image_model: TEXT_IMAGE_MODEL,
+          video_model: 'runway/gen-4-turbo',
+          modify_model: 'runway/act-two-video',
+          video_model_input: {
+            generation_aspect_ratio: '1280:720',
+            generation_duration: 5,
+            generation_prompt: 'Animate the generated image',
+          },
+          modify_model_input: {
+            generation_input_video_file: [
+              'https://cdn.example.com/reference.mp4',
+            ],
+          },
+        },
+        { byokMode: true },
+      ),
+    ).not.toThrow();
   });
 
   it('requires the modify_model to accept video input', () => {
@@ -632,7 +687,13 @@ describe('chain templates', () => {
   it('rejects video models that cannot consume the previous image output', () => {
     const template = getChainTemplate('chain');
 
-    for (const videoModel of ['happyhorse/1.0-t2v', 'wan/2.7-t2v']) {
+    for (const videoModel of [
+      'happyhorse/1.0-t2v',
+      'wan/2.7-t2v',
+      'wan/2.2-animate-mix',
+      'wan/2.2-animate-move',
+      'runway/act-two',
+    ]) {
       expect(() =>
         parseTemplateInput(
           template!,

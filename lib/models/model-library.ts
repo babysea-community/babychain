@@ -2,6 +2,7 @@ import 'server-only';
 
 import {
   MODEL_CATALOG,
+  MODEL_LOOKUP_CATALOG,
   type ModelCatalogEntry,
   type ModelProvider,
 } from './model-catalog';
@@ -23,7 +24,7 @@ export const MODEL_IDENTIFIER = Object.freeze(
 ) as Readonly<Record<ModelKey, ModelName>>;
 
 const MODEL_BY_IDENTIFIER: ReadonlyMap<string, ModelCatalogEntry> = new Map(
-  MODEL_CATALOG.map((model): [string, ModelCatalogEntry] => [
+  MODEL_LOOKUP_CATALOG.map((model): [string, ModelCatalogEntry] => [
     model.modelIdentifier,
     model,
   ]),
@@ -112,7 +113,9 @@ export function getModelSchema(modelIdentifier: string) {
     return null;
   }
 
-  const semanticModel = getSemanticModel(model.modelIdentifier);
+  const semanticModel = getSemanticModel(
+    model.semanticModelIdentifier ?? model.modelIdentifier,
+  );
 
   return {
     object: 'model_schema' as const,

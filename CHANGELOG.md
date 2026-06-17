@@ -25,11 +25,13 @@ All notable changes will be documented here. The format follows [Keep a Changelo
 - The templates page curl examples and schema section now use the same Semantic Lady `generation_*` request contract as the run API and canvas node cards.
 - Canvas API requests and template curl examples now share one request-shape builder, use schema defaults exactly as published by Semantic Lady, and show every user-sendable schema field by filling no-default fields with typed placeholders such as `<string>`.
 - Create-chain cURL examples now use a plain single-quoted `--data` JSON body with shell-safe escaping instead of a here-doc delimiter.
+- The public model catalog now exposes media-driven Act-Two and Wan Animate models as explicit Image/Video BabyChain variants instead of ambiguous base model choices; the base `runway/act-two`, `wan/2.2-animate-mix`, and `wan/2.2-animate-move` identifiers remain internal Semantic Lady source ids for schema lookup and provider routing.
+- Runway Act-Two and Wan Animate variant selections now stay attached through provider submission, so Runway receives the correct image or video character media and Alibaba Cloud receives the correct chained media plus caller companion file.
 
 ### Added
 
 - Added authenticated run-output URLs under `GET /api/v1/chains/get/:runId/outputs/:stepKey/:outputIndex` and dashboard preview URLs under `/api/dashboard/chains/get/:runId/outputs/:stepKey/:outputIndex` so inline provider media can be fetched separately without embedding base64 payloads inside run JSON.
-- Added media-driven image-to-video support for `runway/act-two` and `wan/2.2-animate-*`: BabyChain supplies the generated image output and accepts the caller's required `generation_input_video_file` reference video on the `video_model` step.
+- Added explicit media-driven variants for `runway/act-two`, `wan/2.2-animate-mix`, and `wan/2.2-animate-move`: Image variants run as `video_model` steps with caller reference media, while Video variants run as `modify_model` steps with the required caller companion media.
 
 ### Fixed
 
@@ -37,6 +39,7 @@ All notable changes will be documented here. The format follows [Keep a Changelo
 - Removed duplicated local schema-example builders from the canvas and templates page so JSON Schema display, cURL examples, and run payloads all use the same Semantic Lady-backed request shape.
 - Backend run creation now strips legacy empty full-shape cURL placeholders from no-default model inputs before provider submission while preserving real model defaults such as `""`, `null`, `false`, and numeric defaults.
 - Google Veo 3.1 BYOK submissions no longer forward the unsupported `generateAudio` request parameter.
+- Plain pnpm 11 installs and package-check scripts no longer require `PNPM_CONFIG_MINIMUM_RELEASE_AGE=0` for fresh BabyChain dependencies; the starter now declares `minimumReleaseAge: 0` in `pnpm-workspace.yaml`, the documented pnpm workspace setting.
 
 ### Removed
 
