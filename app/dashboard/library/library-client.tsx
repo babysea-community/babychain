@@ -423,7 +423,7 @@ function MetaRow({
   children: React.ReactNode;
 }) {
   return (
-    <p className="break-all font-mono text-[0.65rem] leading-4 text-foreground">
+    <p className="break-all font-mono text-[0.65rem] leading-4 text-muted-foreground">
       <span className="uppercase">{label}: </span>
       {children}
     </p>

@@ -16,6 +16,7 @@ All notable changes will be documented here. The format follows [Keep a Changelo
 - Library canvas cards now show the real `run_id` above the Canvas ID and Created metadata; canvas API and runner cards stay focused on requests and controls.
 - Canvas API and runner cards now keep their dragged position like model cards, and the API card exposes List chains, Create chain, Get run, and Cancel run cURL snippets for debugging.
 - Library canvas metadata now uses one foreground monospace style for Run ID, Canvas ID, and Created; canvas info-card names wrap within the card; the canvas API card is model-card width and fills Get/Cancel cURLs with the latest run id.
+- Library canvas metadata now uses one muted monospace style for Run ID, Canvas ID, and Created so it does not compete with the canvas name.
 - Runner card copy now renders `Run only` and `Run and save` as inline code labels, and canvas flow cards show the active `byok_mode` or `babysea_mode` with provider icons while model dropdowns keep unavailable models visible with disabled-reason badges; restored flows with unavailable models are blocked before starting a run.
 - Canvas flow add, duplicate, remove, reset, and optional-step actions now refit the current canvas viewport immediately so changes are visible without opening another tab.
 - Canvas media previews now use dashboard-session output links for inline provider media, keeping API responses clean while preserving browser image/video rendering.
