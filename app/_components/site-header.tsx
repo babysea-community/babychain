@@ -59,7 +59,8 @@ export function SiteHeader({
                 asChild
                 className={cn(
                   'h-full w-12 border-y-0 border-l-0 border-r border-border px-0 last:border-r-0 sm:w-44 sm:px-4',
-                  isSponsor && 'border-[#ec4899] bg-[#ec4899] text-black',
+                  isSponsor &&
+                    'border-[#ec4899] bg-[#ec4899] text-black hover:border-[#db2777] hover:bg-[#db2777] hover:text-white',
                 )}
                 key={`${action.label}-${action.href}`}
                 size="sm"
