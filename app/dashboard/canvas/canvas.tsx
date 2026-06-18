@@ -32,6 +32,7 @@ import {
 import type {
   ChangeEvent,
   ComponentType,
+  PointerEvent as ReactPointerEvent,
   ReactNode,
   SVGProps,
   WheelEvent as ReactWheelEvent,
@@ -831,6 +832,7 @@ type CanvasContextValue = {
   providerMode: ProviderMode;
   updateModel: (id: string, modelId: string) => void;
   updateValue: (id: string, name: string, value: FieldValue) => void;
+  moveFlowBy: (flowId: string, delta: { x: number; y: number }) => void;
   removeNode: (id: string) => void;
   removeFlow: (flowId: string) => void;
   duplicateFlow: (flowId: string) => void;
@@ -1908,15 +1910,22 @@ function InfoNodeComponent({ id, data }: NodeProps) {
     flowMeta,
     providerMode,
     updateValue,
+    moveFlowBy,
     runningFlowIds,
     renameCanvas,
   } = useCanvas();
+  const { getZoom } = useReactFlow();
   const running = runningFlowIds.has(flowId);
   const nameValue = typeof values.name === 'string' ? values.name : '';
   const autoName = flowMeta[flowId]?.autoName ?? 'Untitled canvas';
 
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(nameValue);
+  const dragRef = useRef<{
+    clientX: number;
+    clientY: number;
+    pointerId: number;
+  } | null>(null);
 
   const commit = () => {
     setEditing(false);
@@ -1928,6 +1937,46 @@ function InfoNodeComponent({ id, data }: NodeProps) {
     // already been published carry their Library id on the info card, so a
     // later rename updates the Library card immediately too.
     renameCanvas(flowId, title);
+  };
+  const startFlowDrag = (event: ReactPointerEvent<HTMLButtonElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+    event.currentTarget.setPointerCapture(event.pointerId);
+    dragRef.current = {
+      clientX: event.clientX,
+      clientY: event.clientY,
+      pointerId: event.pointerId,
+    };
+  };
+  const moveFlowDrag = (event: ReactPointerEvent<HTMLButtonElement>) => {
+    const drag = dragRef.current;
+    if (!drag || drag.pointerId !== event.pointerId) return;
+
+    event.preventDefault();
+    event.stopPropagation();
+
+    const zoom = getZoom() || 1;
+    const delta = {
+      x: (event.clientX - drag.clientX) / zoom,
+      y: (event.clientY - drag.clientY) / zoom,
+    };
+
+    if (delta.x !== 0 || delta.y !== 0) {
+      moveFlowBy(flowId, delta);
+    }
+
+    dragRef.current = {
+      ...drag,
+      clientX: event.clientX,
+      clientY: event.clientY,
+    };
+  };
+  const endFlowDrag = (event: ReactPointerEvent<HTMLButtonElement>) => {
+    if (dragRef.current?.pointerId === event.pointerId) {
+      dragRef.current = null;
+    }
+
+    event.currentTarget.releasePointerCapture(event.pointerId);
   };
 
   return (
@@ -1947,6 +1996,18 @@ function InfoNodeComponent({ id, data }: NodeProps) {
         >
           canvas_flow
         </div>
+        <button
+          type="button"
+          aria-label="Move canvas flow"
+          title="Move canvas flow"
+          className="nodrag nopan flex size-6 shrink-0 cursor-grab items-center justify-center border border-transparent text-muted-foreground transition hover:border-border hover:text-foreground active:cursor-grabbing"
+          onPointerDown={startFlowDrag}
+          onPointerMove={moveFlowDrag}
+          onPointerUp={endFlowDrag}
+          onPointerCancel={endFlowDrag}
+        >
+          <FontAwesomeIcon className="size-3" icon="up-down-left-right" />
+        </button>
       </div>
 
       <div className="space-y-3 p-3">
@@ -2851,6 +2912,25 @@ function CanvasInner(props: CanvasProps) {
     [setNodes],
   );
 
+  const moveFlowBy = useCallback(
+    (flowId: string, delta: { x: number; y: number }) => {
+      setNodes((current) =>
+        current.map((node) =>
+          node.data.flowId === flowId
+            ? {
+                ...node,
+                position: {
+                  x: node.position.x + delta.x,
+                  y: node.position.y + delta.y,
+                },
+              }
+            : node,
+        ),
+      );
+    },
+    [setNodes],
+  );
+
   const removeNode = useCallback(
     (id: string) =>
       setNodes((current) => {
@@ -3402,6 +3482,7 @@ function CanvasInner(props: CanvasProps) {
       providerMode,
       updateModel,
       updateValue,
+      moveFlowBy,
       removeNode,
       removeFlow,
       duplicateFlow,
@@ -3440,6 +3521,7 @@ function CanvasInner(props: CanvasProps) {
       providerMode,
       updateModel,
       updateValue,
+      moveFlowBy,
       removeNode,
       removeFlow,
       duplicateFlow,
