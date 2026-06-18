@@ -1983,6 +1983,11 @@ function InfoNodeComponent({ id, data }: NodeProps) {
       event.currentTarget.releasePointerCapture(event.pointerId);
     }
   };
+  const clearLostFlowDrag = (event: ReactPointerEvent<HTMLButtonElement>) => {
+    if (dragRef.current?.pointerId === event.pointerId) {
+      dragRef.current = null;
+    }
+  };
 
   return (
     <div className="relative w-[280px]">
@@ -1996,14 +2001,24 @@ function InfoNodeComponent({ id, data }: NodeProps) {
           onPointerMove={moveFlowDrag}
           onPointerUp={endFlowDrag}
           onPointerCancel={endFlowDrag}
+          onLostPointerCapture={clearLostFlowDrag}
         >
           <FontAwesomeIcon className="size-5" icon="up-down-left-right" />
         </button>
-        <span className="h-5 w-px bg-border" aria-hidden="true" />
-        <span
-          className="-mt-1 size-2 rotate-45 border border-border bg-card"
+        <svg
+          className="h-5 w-4 overflow-visible"
+          viewBox="0 0 16 20"
           aria-hidden="true"
-        />
+        >
+          <path
+            d="M8 0 V17"
+            fill="none"
+            stroke="#475067"
+            strokeLinecap="round"
+            strokeWidth="2"
+          />
+          <path d="M4 14 L8 20 L12 14 Z" fill="#475067" />
+        </svg>
       </div>
 
       <div className="border border-border bg-card shadow-lg">
