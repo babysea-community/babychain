@@ -92,16 +92,19 @@ function unwrap(schema: z.ZodTypeAny) {
     const name = typeName(current);
 
     if (name === 'ZodDefault') {
-      const value = (current._def as { defaultValue: unknown }).defaultValue;
+      const value = (current._def as unknown as { defaultValue: unknown })
+        .defaultValue;
       defaultValue = typeof value === 'function' ? value() : value;
       isOptional = true;
-      current = (current._def as { innerType: z.ZodTypeAny }).innerType;
+      current = (current._def as unknown as { innerType: z.ZodTypeAny })
+        .innerType;
       continue;
     }
 
     if (name === 'ZodOptional' || name === 'ZodNullable') {
       isOptional = true;
-      current = (current._def as { innerType: z.ZodTypeAny }).innerType;
+      current = (current._def as unknown as { innerType: z.ZodTypeAny })
+        .innerType;
       continue;
     }
 
@@ -121,19 +124,19 @@ function unwrapOne(schema: z.ZodTypeAny) {
   const name = typeName(schema);
 
   if (name === 'ZodEffects') {
-    return (schema._def as { schema: z.ZodTypeAny }).schema;
+    return (schema._def as unknown as { schema: z.ZodTypeAny }).schema;
   }
 
-  if (name === 'ZodPipeline') {
-    return (schema._def as { out: z.ZodTypeAny }).out;
+  if (name === 'ZodPipeline' || name === 'ZodPipe') {
+    return (schema._def as unknown as { out: z.ZodTypeAny }).out;
   }
 
   if (name === 'ZodOptional' || name === 'ZodNullable') {
-    return (schema._def as { innerType: z.ZodTypeAny }).innerType;
+    return (schema._def as unknown as { innerType: z.ZodTypeAny }).innerType;
   }
 
   if (name === 'ZodDefault') {
-    return (schema._def as { innerType: z.ZodTypeAny }).innerType;
+    return (schema._def as unknown as { innerType: z.ZodTypeAny }).innerType;
   }
 
   return null;
@@ -159,18 +162,21 @@ function getFieldType(core: z.ZodTypeAny): ChainInputField['type'] {
 
 function getEnumValues(core: z.ZodTypeAny) {
   if (typeName(core) === 'ZodEnum') {
-    return (core._def as { values: string[] }).values;
+    const definition = core._def as unknown as {
+      entries?: Record<string, string>;
+      values?: string[];
+    };
+
+    return definition.values ?? Object.values(definition.entries ?? {});
   }
 
   if (typeName(core) !== 'ZodUnion') {
     return undefined;
   }
 
-  const values = (core._def as { options: z.ZodTypeAny[] }).options
+  const values = (core._def as unknown as { options: z.ZodTypeAny[] }).options
     .map((option) =>
-      typeName(option) === 'ZodLiteral'
-        ? (option._def as { value: unknown }).value
-        : undefined,
+      typeName(option) === 'ZodLiteral' ? getLiteralValue(option) : undefined,
     )
     .filter((value): value is string | number | boolean => value !== undefined);
 
@@ -183,25 +189,64 @@ function getNumberBounds(core: z.ZodTypeAny) {
   }
 
   const checks =
-    (core._def as { checks?: Array<{ kind: string; value: number }> }).checks ??
-    [];
+    (
+      core._def as unknown as {
+        checks?: Array<{
+          _zod?: {
+            def?: {
+              check?: string;
+              inclusive?: boolean;
+              value?: number;
+            };
+          };
+          kind?: string;
+          value?: number;
+        }>;
+      }
+    ).checks ?? [];
   const bounds: { min?: number; max?: number } = {};
 
   for (const check of checks) {
-    if (check.kind === 'min') {
-      bounds.min = check.value;
+    const definition = check._zod?.def;
+    const value = definition?.value ?? check.value;
+
+    if (typeof value !== 'number') {
+      continue;
     }
 
-    if (check.kind === 'max') {
-      bounds.max = check.value;
+    if (check.kind === 'min' || definition?.check === 'greater_than') {
+      bounds.min = value;
+    }
+
+    if (check.kind === 'max' || definition?.check === 'less_than') {
+      bounds.max = value;
     }
   }
 
   return bounds;
 }
 
+function getLiteralValue(schema: z.ZodTypeAny) {
+  const definition = schema._def as unknown as {
+    value?: unknown;
+    values?: readonly unknown[];
+  };
+
+  return definition.value ?? definition.values?.[0];
+}
+
 function typeName(schema: z.ZodTypeAny) {
-  return (schema._def as ZodDef).typeName as string;
+  const definition = schema._def as unknown as ZodDef;
+
+  const name = definition.typeName ?? definition.type;
+
+  if (typeof name !== 'string') {
+    return '';
+  }
+
+  return name.startsWith('Zod')
+    ? name
+    : `Zod${name.charAt(0).toUpperCase()}${name.slice(1)}`;
 }
 
 function humanizeName(name: string) {

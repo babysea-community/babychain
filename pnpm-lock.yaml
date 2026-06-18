@@ -76,8 +76,8 @@ catalogs:
       specifier: 19.2.4
       version: 19.2.4
     semantic-lady:
-      specifier: 0.4.3
-      version: 0.4.3
+      specifier: 0.4.4
+      version: 0.4.4
     server-only:
       specifier: 0.0.1
       version: 0.0.1
@@ -100,8 +100,8 @@ catalogs:
       specifier: 4.0.7
       version: 4.0.7
     zod:
-      specifier: 3.25.76
-      version: 3.25.76
+      specifier: 4.4.3
+      version: 4.4.3
 
 overrides:
   '@opentelemetry/core': 2.8.0
@@ -149,7 +149,7 @@ importers:
         version: 19.2.4(react@19.2.4)
       semantic-lady:
         specifier: 'catalog:'
-        version: 0.4.3
+        version: 0.4.4
       server-only:
         specifier: 'catalog:'
         version: 0.0.1
@@ -161,7 +161,7 @@ importers:
         version: 3.6.0
       zod:
         specifier: 'catalog:'
-        version: 3.25.76
+        version: 4.4.3
     devDependencies:
       '@eslint/js':
         specifier: 'catalog:'
@@ -3010,8 +3010,8 @@ packages:
     resolution: {integrity: sha512-eflK8wEtyOE6+hsaRVPxvUKYCpRgzLqDTb8krvAsRIwOGlHoSgYLgBXoubGgLd2fT41/OUYdb48v4k4WWHQurA==}
     engines: {node: '>= 10.13.0'}
 
-  semantic-lady@0.4.3:
-    resolution: {integrity: sha512-l2RUQ5nW3k9gjzZPPnsxBcm15LnXHb9Uwg0OPOtRXP6HPCGuSOaxscSWwpCVwPN6svx5PQGtAVsSYUfm6hFs+g==}
+  semantic-lady@0.4.4:
+    resolution: {integrity: sha512-sMi2L9RwRFyZwBcGF6pbxuym0auA+XDGjqLoaMPJO5q7diwsavHPBDtSkhPLfM9CpDxI/d01qLFIaIba2aOOfw==}
     engines: {node: '>=24.14.0 <25'}
 
   semver@6.3.1:
@@ -3459,6 +3459,9 @@ packages:
 
   zod@3.25.76:
     resolution: {integrity: sha512-gzUt/qt81nXsFGKIFcC3YnfEAx5NkunCfnDlvuBSSFS02bcXu4Lmea0AFIUwbLWxWPx3d9p8S5QoaujKcNQxcQ==}
+
+  zod@4.4.3:
+    resolution: {integrity: sha512-ytENFjIJFl2UwYglde2jchW2Hwm4GJFLDiSXWdTrJQBIN9Fcyp7n4DhxJEiWNAJMV1/BqWfW/kkg71UDcHJyTQ==}
 
   zustand@4.5.7:
     resolution: {integrity: sha512-CHOUy7mu3lbD6o6LJLfllpjkzhHXSBlX8B9+qPddUsIfeF5S/UZ5q0kmCsnRqT1UHFQZchNFDDzMbQsuesHWlw==}
@@ -6392,7 +6395,7 @@ snapshots:
       ajv-formats: 2.1.1(ajv@8.20.0)
       ajv-keywords: 5.1.0(ajv@8.20.0)
 
-  semantic-lady@0.4.3: {}
+  semantic-lady@0.4.4: {}
 
   semver@6.3.1: {}
 
@@ -6914,6 +6917,8 @@ snapshots:
       zod: 3.25.76
 
   zod@3.25.76: {}
+
+  zod@4.4.3: {}
 
   zustand@4.5.7(@types/react@19.2.14)(react@19.2.4):
     dependencies:

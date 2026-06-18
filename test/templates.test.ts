@@ -15,6 +15,7 @@ import {
   isImageToVideoChainModel,
   isVideoToVideoChainModel,
 } from '@/lib/models/semantic-schema';
+import { listModelCatalog } from '@/lib/models/model-library';
 import type { ChainStepOutput, ChainTemplate } from '@/lib/chains/types';
 
 const TEXT_IMAGE_MODEL = 'bfl/flux-1.1-pro';
@@ -123,7 +124,10 @@ describe('chain templates', () => {
     expect(isImageToVideoChainModel('runway/act-two-image')).toBe(true);
     expect(isImageToVideoChainModel('wan/2.2-animate-mix-image')).toBe(true);
     expect(isImageToVideoChainModel('wan/2.2-animate-move-image')).toBe(true);
-    expect(isImageToVideoChainModel('runway/aleph-2')).toBe(true);
+    expect(isImageToVideoChainModel('runway/aleph-2')).toBe(false);
+    expect(isImageToVideoChainModel('runway/gen-4-aleph')).toBe(false);
+    expect(isImageToVideoChainModel('happyhorse/1.0-video-edit')).toBe(false);
+    expect(isImageToVideoChainModel('wan/2.7-videoedit')).toBe(false);
 
     expect(isVideoToVideoChainModel('runway/aleph-2')).toBe(true);
     expect(isVideoToVideoChainModel('runway/gen-4-aleph')).toBe(true);
@@ -138,6 +142,90 @@ describe('chain templates', () => {
     expect(isVideoToVideoChainModel('runway/act-two-video')).toBe(true);
     expect(isVideoToVideoChainModel('wan/2.2-animate-mix-video')).toBe(true);
     expect(isVideoToVideoChainModel('wan/2.2-animate-move-video')).toBe(true);
+  });
+
+  it('keeps every catalog model in the correct chain role slots', () => {
+    const expectedRoles: Record<string, readonly string[]> = {
+      'bfl/flux-1.1-pro': ['image', 'refine'],
+      'bfl/flux-1.1-pro-ultra': ['image', 'refine'],
+      'bfl/flux-2-flex': ['image', 'refine'],
+      'bfl/flux-2-klein-4b': ['image', 'refine'],
+      'bfl/flux-2-klein-9b': ['image', 'refine'],
+      'bfl/flux-2-max': ['image', 'refine'],
+      'bfl/flux-2-pro': ['image', 'refine'],
+      'bytedance/seedance-1-pro': ['video'],
+      'bytedance/seedance-1-pro-fast': ['video'],
+      'bytedance/seedance-1.5-pro': ['video'],
+      'bytedance/seedance-2.0': ['video', 'modify'],
+      'bytedance/seedance-2.0-fast': ['video', 'modify'],
+      'bytedance/seedream-4': ['image', 'refine'],
+      'bytedance/seedream-4.5': ['image', 'refine'],
+      'bytedance/seedream-5-lite': ['image', 'refine'],
+      'google/imagen-4': ['image'],
+      'google/imagen-4-fast': ['image'],
+      'google/imagen-4-ultra': ['image'],
+      'google/nano-banana': ['image', 'refine'],
+      'google/nano-banana-2': ['image', 'refine'],
+      'google/nano-banana-pro': ['image', 'refine'],
+      'google/veo-3.1': ['video'],
+      'google/veo-3.1-fast': ['video'],
+      'google/veo-3.1-lite': ['video'],
+      'gpt/image-2': ['image', 'refine'],
+      'happyhorse/1.0-i2v': ['video'],
+      'happyhorse/1.0-r2v': ['video', 'modify'],
+      'happyhorse/1.0-t2v': [],
+      'happyhorse/1.0-video-edit': ['modify'],
+      'qwen/image': ['image'],
+      'qwen/image-2': ['image', 'refine'],
+      'qwen/image-2-pro': ['image', 'refine'],
+      'qwen/image-edit': ['image', 'refine'],
+      'qwen/image-edit-max': ['image', 'refine'],
+      'qwen/image-edit-plus': ['image', 'refine'],
+      'qwen/image-max': ['image'],
+      'qwen/image-plus': ['image'],
+      'runway/act-two-image': ['video'],
+      'runway/act-two-video': ['modify'],
+      'runway/aleph-2': ['modify'],
+      'runway/gen-4-aleph': ['modify'],
+      'runway/gen-4-image': ['image', 'refine'],
+      'runway/gen-4-image-turbo': ['image', 'refine'],
+      'runway/gen-4-turbo': ['video'],
+      'runway/gen-4.5': ['video'],
+      'wan/2.1-imageedit': ['image', 'refine'],
+      'wan/2.2-animate-mix-image': ['video'],
+      'wan/2.2-animate-mix-video': ['modify'],
+      'wan/2.2-animate-move-image': ['video'],
+      'wan/2.2-animate-move-video': ['modify'],
+      'wan/2.5-i2i-preview': ['image', 'refine'],
+      'wan/2.6-image': ['image', 'refine'],
+      'wan/2.6-t2i': ['image'],
+      'wan/2.7-i2v-2026-04-25': ['video', 'modify'],
+      'wan/2.7-image': ['image', 'refine'],
+      'wan/2.7-image-pro': ['image', 'refine'],
+      'wan/2.7-r2v': ['video', 'modify'],
+      'wan/2.7-t2v': [],
+      'wan/2.7-videoedit': ['modify'],
+      'z/image-turbo': ['image'],
+    };
+
+    const actualRoles = Object.fromEntries(
+      listModelCatalog().map((model) => {
+        const roles = [
+          ...(model.kind === 'image' ? ['image'] : []),
+          ...(isImageInputCapableModel(model.modelIdentifier)
+            ? ['refine']
+            : []),
+          ...(isImageToVideoChainModel(model.modelIdentifier) ? ['video'] : []),
+          ...(isVideoToVideoChainModel(model.modelIdentifier)
+            ? ['modify']
+            : []),
+        ];
+
+        return [model.modelIdentifier, roles] as const;
+      }),
+    );
+
+    expect(actualRoles).toEqual(expectedRoles);
   });
 
   it('allows Google image input through Semantic Lady fields', () => {
@@ -1935,7 +2023,7 @@ function createTemplate(overrides: Partial<ChainTemplate> = {}): ChainTemplate {
         type: 'string',
       },
     ],
-    inputSchema: z.record(z.unknown()),
+    inputSchema: z.record(z.string(), z.unknown()),
     slug: 'test-chain',
     steps: [stepTemplate()],
     title: 'Test chain',

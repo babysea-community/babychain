@@ -33,8 +33,8 @@ import type {
 } from './types';
 import { deriveChainInputFields } from './schema-fields';
 
-const StepModelInputSchema = z
-  .record(z.unknown())
+const StepModelInputSchemaBase = z
+  .record(z.string(), z.unknown())
   .superRefine((modelInput, context) => {
     const credentialPath = findCredentialLikeParamPath(modelInput);
     const providerControlledPath = findProviderControlledParamPath(modelInput);
@@ -98,8 +98,10 @@ const StepModelInputSchema = z
         });
       }
     }
-  })
-  .default({});
+  });
+
+const StepModelInputSchema = StepModelInputSchemaBase.default({});
+const OptionalStepModelInputSchema = StepModelInputSchemaBase.optional();
 
 const CREDENTIAL_LIKE_KEYS = new Set([
   'apikey',
@@ -152,9 +154,9 @@ const ChainInputSchema = z.preprocess(
       video_model: z.string().trim().min(1),
       modify_model: z.string().trim().min(1).optional(),
       image_model_input: StepModelInputSchema,
-      refine_model_input: StepModelInputSchema.optional(),
+      refine_model_input: OptionalStepModelInputSchema,
       video_model_input: StepModelInputSchema,
-      modify_model_input: StepModelInputSchema.optional(),
+      modify_model_input: OptionalStepModelInputSchema,
     })
     .passthrough()
     .superRefine((input, context) => {

@@ -6,7 +6,7 @@ All notable changes will be documented here. The format follows [Keep a Changelo
 
 ### Changed
 
-- Updated the BYOK schema source to `semantic-lady@0.4.3`, including published provider model ids, corrected provider defaults for direct BYOK routing, and removal of the unsupported Google Veo 3.1 `generation_audio` request field.
+- Updated the BYOK schema source to `semantic-lady@0.4.4`, including published provider model ids, corrected provider defaults, removal of the unsupported Google Veo 3.1 `generation_audio` request field, and corrected video workflow roles for Runway Aleph, Wan Video Edit, and HappyHorse Video Edit models.
 - Removed BabyChain's hand-maintained model schema catalog and provider-side size/ratio conversion tables; model fields, defaults, enums, and provider model ids now come from Semantic Lady.
 - Workspace `Run and save` now creates a fresh Library card for each run, while saved canvas pages still update the opened canvas in place; untouched auto-generated flow names are refreshed when new Library cards are created.
 - Deployment docs, Docker/Cloud Run/CloudFormation/EC2/Coolify/Fly examples, and host deploy menus now use the Aurora/PostgreSQL `DATABASE_URL` runtime model, the canonical BabyChain env order, and explicit AWS/Google host labels instead of the old Supabase-era wording.
@@ -52,6 +52,8 @@ All notable changes will be documented here. The format follows [Keep a Changelo
 - Docker image vulnerability scans no longer report the four medium Node package findings from `@opentelemetry/core`, `brace-expansion`, `ip-address`, and `tar`; patched transitive versions are pinned through pnpm overrides.
 - The final Docker runtime image no longer ships the unused global npm/npx CLI, removing scanner findings that came from Node's bundled npm dependencies rather than BabyChain runtime code.
 - Editing text fields inside canvas model cards no longer jumps the cursor back to the end while typing in the middle of prompts or media URL fields.
+- Optional `refine_model_input` and `modify_model_input` no longer materialize as empty objects when their matching optional models are omitted, keeping chain validation focused on fields the caller actually sent.
+- Environment validation now classifies missing required variables correctly with the Zod 4 issue shape used by the current dependency set.
 
 ### Removed
 

@@ -40,7 +40,7 @@ function emptyStringToUndefined(value: unknown) {
 }
 
 function boundedJsonRecord(label: string, maxBytes: number) {
-  return z.record(z.unknown()).superRefine((value, context) => {
+  return z.record(z.string(), z.unknown()).superRefine((value, context) => {
     const serialized = tryStringifyJson(value);
 
     if (!serialized) {

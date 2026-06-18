@@ -90,18 +90,22 @@ describe('model chain catalog', () => {
         'bfl/flux-1.1-pro → runway/gen-4-turbo → runway/aleph-2',
       ),
     ).toBe(true);
+    expect(catalogChains.has('bfl/flux-1.1-pro → runway/aleph-2')).toBe(false);
     expect(
       catalogChains.has(
         'bfl/flux-1.1-pro → wan/2.7-i2v-2026-04-25 → wan/2.7-videoedit',
       ),
     ).toBe(true);
     expect(catalogChains.has('bfl/flux-1.1-pro → wan/2.7-videoedit')).toBe(
-      true,
+      false,
     );
     expect(catalogChains.has('bfl/flux-1.1-pro → wan/2.7-t2v')).toBe(false);
     expect(catalogChains.has('bfl/flux-1.1-pro → happyhorse/1.0-t2v')).toBe(
       false,
     );
+    expect(
+      catalogChains.has('bfl/flux-1.1-pro → happyhorse/1.0-video-edit'),
+    ).toBe(false);
     expect(catalogChains.has('bfl/flux-1.1-pro → wan/2.2-animate-mix')).toBe(
       false,
     );

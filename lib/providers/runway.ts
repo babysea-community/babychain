@@ -28,7 +28,6 @@ const POLL_TIMEOUT_MS = 10_000;
 
 const RUNWAY_IMAGE_MODELS = new Set(['gen4_image', 'gen4_image_turbo']);
 const RUNWAY_IMAGE_TO_VIDEO_MODELS = new Set(['gen4.5', 'gen4_turbo']);
-const RUNWAY_DUAL_VIDEO_WORKFLOW_MODELS = new Set(['aleph2', 'gen4_aleph']);
 const RUNWAY_VIDEO_TO_VIDEO_MODELS = new Set(['aleph2', 'gen4_aleph']);
 const RUNWAY_CHARACTER_MODELS = new Set(['act_two']);
 
@@ -58,7 +57,7 @@ export function createRunwayProvider(config: RunwayProviderConfig): Provider {
       const model = stripPrefix(input.modelIdentifier, 'runway/');
       assertModelId(model);
 
-      const endpoint = endpointForModel(model, input.stepKind, input.stepKey);
+      const endpoint = endpointForModel(model, input.stepKind);
       const body = buildSubmitBody({
         model,
         params: input.params as Record<string, unknown>,
@@ -146,16 +145,12 @@ export function createRunwayProvider(config: RunwayProviderConfig): Provider {
   };
 }
 
-function endpointForModel(
-  model: string,
-  stepKind: 'image' | 'video',
-  stepKey?: string,
-) {
+function endpointForModel(model: string, stepKind: 'image' | 'video') {
   if (stepKind === 'image' && RUNWAY_IMAGE_MODELS.has(model)) {
     return '/v1/text_to_image';
   }
 
-  if (stepKind === 'video' && isRunwayImageToVideoStep(model, stepKey)) {
+  if (stepKind === 'video' && isRunwayImageToVideoStep(model)) {
     return '/v1/image_to_video';
   }
 
@@ -210,7 +205,7 @@ function buildSubmitBody(args: {
 
     if (
       rawKey === 'generation_duration' &&
-      isRunwayImageToVideoStep(args.model, args.stepKey)
+      isRunwayImageToVideoStep(args.model)
     ) {
       body.duration = jsonValue(value);
       continue;
@@ -256,10 +251,7 @@ function buildSubmitBody(args: {
     }
   }
 
-  if (
-    body.ratio === undefined &&
-    !isRunwayVideoToVideoStep(args.model, args.stepKey)
-  ) {
+  if (body.ratio === undefined && !isRunwayVideoToVideoStep(args.model)) {
     body.ratio = '1280:720';
   }
 
@@ -296,7 +288,7 @@ function buildSubmitBody(args: {
   }
 
   if (
-    isRunwayVideoToVideoStep(args.model, args.stepKey) &&
+    isRunwayVideoToVideoStep(args.model) &&
     (videoFiles.length > 0 || inputFiles.length > 0) &&
     body.videoUri === undefined
   ) {
@@ -304,7 +296,7 @@ function buildSubmitBody(args: {
   }
 
   if (
-    isRunwayImageToVideoStep(args.model, args.stepKey) &&
+    isRunwayImageToVideoStep(args.model) &&
     inputFiles.length > 0 &&
     body.promptImage === undefined
   ) {
@@ -314,18 +306,12 @@ function buildSubmitBody(args: {
   return body;
 }
 
-function isRunwayImageToVideoStep(model: string, stepKey?: string) {
-  return (
-    RUNWAY_IMAGE_TO_VIDEO_MODELS.has(model) ||
-    (stepKey === 'video' && RUNWAY_DUAL_VIDEO_WORKFLOW_MODELS.has(model))
-  );
+function isRunwayImageToVideoStep(model: string) {
+  return RUNWAY_IMAGE_TO_VIDEO_MODELS.has(model);
 }
 
-function isRunwayVideoToVideoStep(model: string, stepKey?: string) {
-  return (
-    RUNWAY_VIDEO_TO_VIDEO_MODELS.has(model) &&
-    !(stepKey === 'video' && RUNWAY_DUAL_VIDEO_WORKFLOW_MODELS.has(model))
-  );
+function isRunwayVideoToVideoStep(model: string) {
+  return RUNWAY_VIDEO_TO_VIDEO_MODELS.has(model);
 }
 
 type RunwayTaskResponse = {

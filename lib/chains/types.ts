@@ -82,7 +82,7 @@ export type ChainTemplate = {
   version: string;
   title: string;
   description: string;
-  inputSchema: z.ZodType<ChainInput, z.ZodTypeDef, unknown>;
+  inputSchema: z.ZodType<ChainInput>;
   inputFields: ChainInputField[];
   steps: ChainStepTemplate[];
 };

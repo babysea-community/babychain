@@ -113,11 +113,7 @@ export function getEnv() {
 
 function toConfigurationError(error: z.ZodError) {
   const missing = error.issues
-    .filter(
-      (issue) =>
-        issue.code === 'invalid_type' &&
-        (issue as { received?: string }).received === 'undefined',
-    )
+    .filter(isMissingEnvIssue)
     .map((issue) => issue.path.join('.'))
     .filter(Boolean);
   const invalid = error.issues
@@ -132,6 +128,14 @@ function toConfigurationError(error: z.ZodError) {
     invalid,
     missing,
   });
+}
+
+function isMissingEnvIssue(issue: z.ZodIssue) {
+  return (
+    issue.code === 'invalid_type' &&
+    ((issue as { input?: unknown }).input === undefined ||
+      (issue as { received?: string }).received === 'undefined')
+  );
 }
 
 export function getBabyChainApiKeys() {

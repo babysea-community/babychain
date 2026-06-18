@@ -1526,6 +1526,7 @@ describe('provider adapters', () => {
       idempotencyKey: 'idem_alibaba_videoedit',
       modelIdentifier: 'alibabacloud/wan2.7-videoedit',
       params: {
+        generation_input_image_file: ['https://cdn.example.com/style.png'],
         generation_input_file: ['https://cdn.example.com/source-video.mp4'],
         generation_audio: 'origin',
         generation_duration: 0,
@@ -1548,6 +1549,10 @@ describe('provider adapters', () => {
             type: 'video',
             url: 'https://cdn.example.com/source-video.mp4',
           },
+          {
+            type: 'reference_image',
+            url: 'https://cdn.example.com/style.png',
+          },
         ],
       },
       parameters: {
@@ -1560,47 +1565,6 @@ describe('provider adapters', () => {
       kind: 'async',
       generationId: 'dashscope_videoedit_task_123',
       providerOrder: ['alibabacloud'],
-    });
-  });
-
-  it('maps Alibaba Cloud dual-workflow video-step handoffs as first-frame images', async () => {
-    let submittedBody: Record<string, unknown> = {};
-    const fetchImpl = vi.fn(async (_url: string | URL | Request, init) => {
-      submittedBody = JSON.parse(String(init?.body));
-
-      return new Response(
-        JSON.stringify({
-          output: { task_id: 'dashscope_videoedit_i2v_task_123' },
-          request_id: 'dashscope_request_123',
-        }),
-        { status: 200 },
-      );
-    }) as typeof fetch;
-    const provider = createAlibabaCloudProvider({
-      apiKey: 'dashscope_test_key',
-      fetchImpl,
-    });
-
-    await provider.submit({
-      idempotencyKey: 'idem_alibaba_videoedit_i2v',
-      modelIdentifier: 'alibabacloud/wan2.7-videoedit',
-      params: {
-        generation_duration: 4,
-        generation_input_file: ['https://example.com/image.png'],
-        generation_prompt: 'Animate the generated product image.',
-      },
-      stepKey: 'video',
-      stepKind: 'video',
-    });
-
-    expect(submittedBody.input).toMatchObject({
-      prompt: 'Animate the generated product image.',
-      media: [
-        {
-          type: 'first_frame',
-          url: 'https://example.com/image.png',
-        },
-      ],
     });
   });
 
@@ -1750,14 +1714,14 @@ describe('provider adapters', () => {
     });
   });
 
-  it('routes Runway dual-workflow models as image-to-video on the chain video step', async () => {
+  it('keeps Runway Aleph models on video-to-video request fields', async () => {
     let submittedUrl = '';
     let submittedBody: Record<string, unknown> = {};
     const fetchImpl = vi.fn(async (url: string | URL | Request, init) => {
       submittedUrl = String(url);
       submittedBody = JSON.parse(String(init?.body));
 
-      return new Response(JSON.stringify({ id: 'runway_task_aleph_i2v' }), {
+      return new Response(JSON.stringify({ id: 'runway_task_aleph_v2v' }), {
         status: 200,
       });
     }) as typeof fetch;
@@ -1767,25 +1731,25 @@ describe('provider adapters', () => {
     });
 
     await provider.submit({
-      idempotencyKey: 'idem_runway_aleph_i2v',
+      idempotencyKey: 'idem_runway_aleph_v2v',
       modelIdentifier: 'runway/aleph2',
       params: {
-        generation_input_file: ['https://cdn.example.com/image.png'],
-        generation_prompt: 'Animate the generated image',
+        generation_input_file: ['https://cdn.example.com/video.mp4'],
+        generation_input_image_file: ['https://cdn.example.com/reference.png'],
+        generation_prompt: 'Re-style the generated video',
         generation_aspect_ratio: '1280:720',
       },
-      stepKey: 'video',
+      stepKey: 'modify',
       stepKind: 'video',
     });
 
-    expect(submittedUrl).toContain('/v1/image_to_video');
+    expect(submittedUrl).toContain('/v1/video_to_video');
     expect(submittedBody).toMatchObject({
       model: 'aleph2',
-      promptImage: 'https://cdn.example.com/image.png',
-      promptText: 'Animate the generated image',
-      ratio: '1280:720',
+      promptText: 'Re-style the generated video',
+      videoUri: 'https://cdn.example.com/video.mp4',
     });
-    expect(submittedBody).not.toHaveProperty('videoUri');
+    expect(submittedBody).not.toHaveProperty('promptImage');
   });
 
   it('submits GPT Image 2 generations with documented request fields', async () => {
