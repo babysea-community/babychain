@@ -18,7 +18,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
-      DOCKER_IMAGE: ${{ vars.DOCKER_IMAGE || 'babysea/babychain' }}
+      DOCKER_IMAGE: ${{ vars.DOCKER_IMAGE || 'babyseaoss/babychain' }}
       DOCKER_USERNAME: ${{ vars.DOCKER_USERNAME }}
       NEXT_PUBLIC_SITE_URL: ${{ vars.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000' }}
       NEXT_PUBLIC_SENTRY_DSN: ${{ vars.NEXT_PUBLIC_SENTRY_DSN }}

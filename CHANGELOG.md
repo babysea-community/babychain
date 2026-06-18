@@ -10,7 +10,7 @@ All notable changes will be documented here. The format follows [Keep a Changelo
 - Removed BabyChain's hand-maintained model schema catalog and provider-side size/ratio conversion tables; model fields, defaults, enums, and provider model ids now come from Semantic Lady.
 - Workspace `Run and save` now creates a fresh Library card for each run, while saved canvas pages still update the opened canvas in place; untouched auto-generated flow names are refreshed when new Library cards are created.
 - Deployment docs, Docker/Cloud Run/CloudFormation/EC2/Coolify/Fly examples, and host deploy menus now use the Aurora/PostgreSQL `DATABASE_URL` runtime model, the canonical BabyChain env order, and explicit AWS/Google host labels instead of the old Supabase-era wording.
-- Docker deployment now supports the published `babysea/babychain` image directly: `docker-compose.yml` defaults to `babysea/babychain:latest`, the Docker guide includes pull/run/publish flows, and the README links the Docker Hub repository.
+- Docker deployment now supports the published `babyseaoss/babychain` image directly: `docker-compose.yml` defaults to `babyseaoss/babychain:latest`, the Docker guide includes pull/run/publish flows, and the README links the Docker Hub repository.
 - Added a Duplicate button to each workspace runner card so users can clone a flow's current models and inputs into a new unsaved flow without overwriting the original Library card.
 - Canvas node cards now expose the selected model's Semantic Lady fields more completely, preserve documented defaults, and render numeric enums or small bounded integer ranges as dropdowns instead of free number inputs.
 - Canvas run buttons now stay disabled until required fields are filled and schema-invalid zero numeric values are corrected, with defensive validation repeated before run creation.
@@ -37,7 +37,7 @@ All notable changes will be documented here. The format follows [Keep a Changelo
 
 - Added authenticated run-output URLs under `GET /api/v1/chains/get/:runId/outputs/:stepKey/:outputIndex` and dashboard preview URLs under `/api/dashboard/chains/get/:runId/outputs/:stepKey/:outputIndex` so inline provider media can be fetched separately without embedding base64 payloads inside run JSON.
 - Added explicit media-driven variants for `runway/act-two`, `wan/2.2-animate-mix`, and `wan/2.2-animate-move`: Image variants run as `video_model` steps with caller reference media, while Video variants run as `modify_model` steps with the required caller companion media.
-- Added Docker Hub publishing metadata and runtime health checks for the public `babysea/babychain:0.1.1` and `babysea/babychain:latest` image tags.
+- Added Docker Hub publishing metadata and runtime health checks for the public `babyseaoss/babychain:0.1.1` and `babyseaoss/babychain:latest` image tags.
 - Added a large attached flow-level move handle above each `canvas_flow` info card so an entire flow can be dragged together without moving cards one by one.
 
 ### Fixed

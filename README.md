@@ -25,7 +25,7 @@ Canvas studio and durable chain API for image and video model workflows with one
 <strong>Checks</strong>
 
 [![Vercel Status](https://img.shields.io/github/deployments/babysea-community/babychain/production?style=for-the-badge&label=vercel&logo=vercel&logoColor=white&color=000000)](https://babychain.vercel.app)
-[![Docker Status](https://img.shields.io/docker/v/babysea/babychain?style=for-the-badge&label=docker&logo=docker&logoColor=white&color=2560FF)](https://hub.docker.com/r/babysea/babychain)
+[![Docker Status](https://img.shields.io/docker/v/babyseaoss/babychain?style=for-the-badge&label=docker&logo=docker&logoColor=white&color=2560FF)](https://hub.docker.com/r/babyseaoss/babychain)
 [![GitLabCI](https://img.shields.io/gitlab/pipeline-status/babysea/babychain?branch=main&style=for-the-badge&label=gitlabci&logo=gitlab&logoColor=white&color=FC6D26)](https://gitlab.com/babysea/babychain/-/commits/main)
 [![CircleCI](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fcircleci.com%2Fapi%2Fv1.1%2Fproject%2Fcircleci%2F2uTLcwc4naeNuKDP41es88%2FLkDoyyGhqLz6j1Wi6mUHWd%2Ftree%2Fmain%3Flimit%3D1&query=%24%5B0%5D.status&style=for-the-badge&logo=circleci&logoColor=white&label=circleci&color=003740)](https://dl.circleci.com/status-badge/redirect/circleci/2uTLcwc4naeNuKDP41es88/LkDoyyGhqLz6j1Wi6mUHWd/tree/main)
 [![Sentry](https://img.shields.io/github/actions/workflow/status/babysea-community/babychain/sentry-check.yml?style=for-the-badge&label=sentry&logo=sentry&logoColor=white&color=181225)](https://github.com/babysea-community/babychain/actions/workflows/sentry-check.yml)
@@ -552,11 +552,11 @@ Use Coolify when you want a Docker Compose deployment with managed builds, runti
 
 [![Deploy with Docker](public/deploy-button/docker.svg)](docs/deployment/docker.md)
 
-Use Docker when you want a portable production image for your own host or orchestrator. Pull `babysea/babychain:latest` for local evaluation, or build the Dockerfile with your final `NEXT_PUBLIC_SITE_URL` for production. The guide covers runtime secret injection, port/TLS setup, a host scheduler for `/api/cron/process-runs`, and Docker Hub publishing. Full end-to-end guide: [docs/deployment/docker.md](docs/deployment/docker.md).
+Use Docker when you want a portable production image for your own host or orchestrator. Pull `babyseaoss/babychain:latest` for local evaluation, or build the Dockerfile with your final `NEXT_PUBLIC_SITE_URL` for production. The guide covers runtime secret injection, port/TLS setup, a host scheduler for `/api/cron/process-runs`, and Docker Hub publishing. Full end-to-end guide: [docs/deployment/docker.md](docs/deployment/docker.md).
 
 ```bash
-docker pull babysea/babychain:latest
-docker run --rm --env-file .env.local -p 3000:3000 babysea/babychain:latest
+docker pull babyseaoss/babychain:latest
+docker run --rm --env-file .env.local -p 3000:3000 babyseaoss/babychain:latest
 ```
 
 ### Fly.io

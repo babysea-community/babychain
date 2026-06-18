@@ -5,7 +5,7 @@ BabyChain is a self-hosted canvas studio and durable HTTP API for chaining image
 ## Image
 
 ```bash
-docker pull babysea/babychain:latest
+docker pull babyseaoss/babychain:latest
 ```
 
 Available tags:
@@ -36,7 +36,7 @@ docker run --rm \
   --name babychain \
   --env-file .env.local \
   -p 3000:3000 \
-  babysea/babychain:latest
+  babyseaoss/babychain:latest
 ```
 
 Open:
@@ -99,7 +99,7 @@ Authorization: Bearer BABYCHAIN_CRON_SECRET
 ## Links
 
 - Website: https://babychain.babysea.live
-- Docker Hub: https://hub.docker.com/r/babysea/babychain
+- Docker Hub: https://hub.docker.com/r/babyseaoss/babychain
 - Source: https://github.com/babysea-community/babychain
 - Supported models: https://github.com/babysea-community/babychain/blob/main/SUPPORTED_MODELS.md
 - Docker deployment guide: https://github.com/babysea-community/babychain/blob/main/docs/deployment/docker.md

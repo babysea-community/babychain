@@ -1,6 +1,6 @@
 services:
   babychain:
-    image: ${BABYCHAIN_IMAGE:-babysea/babychain:latest}
+    image: ${BABYCHAIN_IMAGE:-babyseaoss/babychain:latest}
     pull_policy: missing
     build:
       context: .

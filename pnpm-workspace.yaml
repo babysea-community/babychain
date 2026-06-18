@@ -21,7 +21,7 @@ catalog:
   eslint: 10.0.1
   eslint-config-next: 16.2.9
   globals: 17.6.0
-  jose: 5.10.0
+  jose: 6.2.3
   next: 16.2.6
   pg: 8.21.0
   prettier: 3.8.3

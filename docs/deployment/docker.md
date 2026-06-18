@@ -1,6 +1,6 @@
 # Deploy BabyChain with Docker
 
-Docker is the portable deployment path for BabyChain. You can pull the published `babysea/babychain` image for local evaluation or build the Dockerfile yourself with your final public Next.js values for production.
+Docker is the portable deployment path for BabyChain. You can pull the published `babyseaoss/babychain` image for local evaluation or build the Dockerfile yourself with your final public Next.js values for production.
 
 Use this guide when you want to run BabyChain on any Docker-capable host or publish a reusable image from GitHub Actions.
 
@@ -8,7 +8,7 @@ Use this guide when you want to run BabyChain on any Docker-capable host or publ
 
 - [`Dockerfile`](../../Dockerfile) builds a production Next.js image on `node:24-alpine`.
 - [`.dockerignore`](../../.dockerignore) keeps local build output, dependencies, logs, and env files out of the build context.
-- [`docker-compose.yml`](../../docker-compose.yml) runs `babysea/babychain:latest` by default and can still build from source with `docker compose up --build`.
+- [`docker-compose.yml`](../../docker-compose.yml) runs `babyseaoss/babychain:latest` by default and can still build from source with `docker compose up --build`.
 - [`.github/workflows/docker.yml`](../../.github/workflows/docker.yml) builds pull requests and can publish main or tag images to Docker Hub.
 - The final image runs as the non-root `node` user and exposes port `3000`.
 
@@ -76,7 +76,7 @@ pnpm run aurora:migrate
 For local evaluation, pull the public image:
 
 ```bash
-docker pull babysea/babychain:latest
+docker pull babyseaoss/babychain:latest
 ```
 
 The published `latest` tag is built for `http://localhost:3000`. You can use it with a local env file and port `3000` immediately.
@@ -88,7 +88,7 @@ docker run --rm \
 	--name babychain \
 	--env-file .env.local \
 	-p 3000:3000 \
-	babysea/babychain:latest
+	babyseaoss/babychain:latest
 ```
 
 Open <http://localhost:3000>.
@@ -101,7 +101,7 @@ docker run --detach \
 	--restart unless-stopped \
 	--env-file /etc/babychain.env \
 	-p 3000:3000 \
-	babysea/babychain:latest
+	babyseaoss/babychain:latest
 ```
 
 ### 4. Or build for your production URL
@@ -129,7 +129,7 @@ docker run --rm \
 
 ### 5. Docker Compose
 
-The compose file uses `babysea/babychain:latest` by default:
+The compose file uses `babyseaoss/babychain:latest` by default:
 
 ```bash
 docker compose --env-file .env.local up
@@ -163,14 +163,14 @@ If your host uses systemd, create a timer that runs the same curl command. Keep 
 
 Configure the repository before expecting pushes:
 
-| Name                             | Type                | Purpose                                                     |
-| :------------------------------- | :------------------ | :---------------------------------------------------------- |
-| `DOCKER_IMAGE`                   | Repository variable | Optional full image name. Defaults to `babysea/babychain`.  |
-| `DOCKER_USERNAME`                | Repository variable | Docker Hub username or organization account used for login. |
-| `DOCKER_PASSWORD`                | Repository secret   | Docker Hub token or password used by `docker/login-action`. |
-| `NEXT_PUBLIC_SITE_URL`           | Repository variable | Public URL baked into the Next.js image.                    |
-| `NEXT_PUBLIC_SENTRY_DSN`         | Repository variable | Optional public Sentry DSN.                                 |
-| `NEXT_PUBLIC_SENTRY_ENVIRONMENT` | Repository variable | Optional public Sentry environment.                         |
+| Name                             | Type                | Purpose                                                       |
+| :------------------------------- | :------------------ | :------------------------------------------------------------ |
+| `DOCKER_IMAGE`                   | Repository variable | Optional full image name. Defaults to `babyseaoss/babychain`. |
+| `DOCKER_USERNAME`                | Repository variable | Docker Hub username or organization account used for login.   |
+| `DOCKER_PASSWORD`                | Repository secret   | Docker Hub token or password used by `docker/login-action`.   |
+| `NEXT_PUBLIC_SITE_URL`           | Repository variable | Public URL baked into the Next.js image.                      |
+| `NEXT_PUBLIC_SENTRY_DSN`         | Repository variable | Optional public Sentry DSN.                                   |
+| `NEXT_PUBLIC_SENTRY_ENVIRONMENT` | Repository variable | Optional public Sentry environment.                           |
 
 Pull requests build without pushing. Main branch and `v*` tags push only when both Docker Hub credentials are configured. Main pushes publish `latest`, the `package.json` version, and a `sha-*` tag. Version tags also publish semver tags. The workflow attaches SBOM plus provenance attestations.
 
@@ -179,11 +179,11 @@ Manual Docker Hub publish from a trusted local checkout uses the same image name
 ```bash
 docker build \
 	--build-arg NEXT_PUBLIC_SITE_URL="http://localhost:3000" \
-	-t babysea/babychain:0.1.1 \
-	-t babysea/babychain:latest .
+	-t babyseaoss/babychain:0.1.1 \
+	-t babyseaoss/babychain:latest .
 
-docker push babysea/babychain:0.1.1
-docker push babysea/babychain:latest
+docker push babyseaoss/babychain:0.1.1
+docker push babyseaoss/babychain:latest
 ```
 
 ### 9. Update a running host
@@ -193,7 +193,7 @@ Build and tag a new image, then replace the running container:
 ```bash
 docker build \
 	--build-arg NEXT_PUBLIC_SITE_URL="https://your-domain.example.com" \
-	-t babysea/babychain:latest .
+	-t babyseaoss/babychain:latest .
 
 docker rm -f babychain
 
@@ -202,10 +202,10 @@ docker run --detach \
 	--restart unless-stopped \
 	--env-file /etc/babychain.env \
 	-p 3000:3000 \
-	babysea/babychain:latest
+	babyseaoss/babychain:latest
 ```
 
-If you publish to another registry, replace `babysea/babychain:latest` with your registry image tag.
+If you publish to another registry, replace `babyseaoss/babychain:latest` with your registry image tag.
 
 ### 10. Verify and debug
 
