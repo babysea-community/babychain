@@ -37,6 +37,7 @@ type CanvasRow = {
 
 export type SaveCanvasInput = {
   id: string;
+  lastRunId?: string | null;
   title: string;
   nodes: StoredCanvasNode[];
   saveVersion: number;
@@ -290,17 +291,25 @@ export async function saveCanvas(
   }
 
   const result = await auroraQuery<CanvasRow>(
-    `insert into babychain_private.canvas (id, owner_email, title, nodes, save_version)
-     values ($1, $2, $3, $4::jsonb, $5)
+    `insert into babychain_private.canvas (id, owner_email, title, nodes, save_version, last_run_id)
+     values ($1, $2, $3, $4::jsonb, $5, $6)
      on conflict (id) do update
         set title = excluded.title,
             nodes = excluded.nodes,
-            save_version = excluded.save_version
+            save_version = excluded.save_version,
+            last_run_id = coalesce(excluded.last_run_id, babychain_private.canvas.last_run_id)
       where babychain_private.canvas.owner_email = excluded.owner_email
         and not babychain_private.canvas.workspace
         and babychain_private.canvas.save_version < excluded.save_version
   returning id, title, nodes, last_run_id, save_version, created_at, updated_at`,
-    [canvas.id, owner, canvas.title, JSON.stringify(canvas.nodes), saveVersion],
+    [
+      canvas.id,
+      owner,
+      canvas.title,
+      JSON.stringify(canvas.nodes),
+      saveVersion,
+      canvas.lastRunId ?? null,
+    ],
   );
 
   const row = result.rows[0];
@@ -428,6 +437,15 @@ function validateSaveInput(input: SaveCanvasInput): SaveCanvasInput {
   }
 
   const title = normalizeCanvasTitle(input.title) || 'Canvas';
+  const lastRunId = input.lastRunId ?? null;
+
+  if (lastRunId !== null && !UUID_PATTERN.test(lastRunId)) {
+    throw new BabyChainError(
+      'invalid_canvas',
+      'Canvas last run id must be a UUID.',
+      400,
+    );
+  }
 
   if (!Array.isArray(input.nodes) || input.nodes.length === 0) {
     throw new BabyChainError(
@@ -456,7 +474,13 @@ function validateSaveInput(input: SaveCanvasInput): SaveCanvasInput {
     );
   }
 
-  return { id: input.id, nodes, saveVersion: input.saveVersion, title };
+  return {
+    id: input.id,
+    lastRunId,
+    nodes,
+    saveVersion: input.saveVersion,
+    title,
+  };
 }
 
 function normalizeSaveVersion(value: number) {

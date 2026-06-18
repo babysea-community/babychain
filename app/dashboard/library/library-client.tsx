@@ -510,12 +510,12 @@ function ResultPreview({
 function modelBadgeInfo(canvas: StoredCanvas): BadgeInfo[] {
   return uniqueBadges(
     canvas.nodes.map((node) => {
-      const key = modelIconKey(node.modelId);
-      if (!key) return null;
+      const iconKey = modelIconKey(node.modelId);
+      if (!iconKey) return null;
       return {
-        Icon: MODEL_ICONS[key],
-        key,
-        label: modelLabel(node.modelId),
+        Icon: MODEL_ICONS[iconKey],
+        key: node.modelId,
+        label: formatPublicModelName(node.modelId),
       };
     }),
   );
@@ -563,26 +563,6 @@ function modelIconKey(modelId: string): ModelIconKey | null {
   if (key === 'z') return 'z';
 
   return null;
-}
-
-function modelLabel(modelId: string) {
-  const key = modelIconKey(modelId);
-
-  if (!key) return formatPublicModelName(modelId);
-
-  const labels: Record<ModelIconKey, string> = {
-    bfl: 'Black Forest Labs',
-    bytedance: 'ByteDance',
-    google: 'Google',
-    happyhorse: 'HappyHorse',
-    openai: 'GPT',
-    qwen: 'Qwen',
-    runway: 'Runway',
-    wan: 'Wan',
-    z: 'Z-Image',
-  };
-
-  return labels[key];
 }
 
 function inferenceKey(modelId: string): InferenceIconKey {

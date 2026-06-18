@@ -17,6 +17,7 @@ All notable changes will be documented here. The format follows [Keep a Changelo
 - Each canvas model node now includes a collapsible JSON Schema view for the effective node inputs, matching the schema inspection pattern used on the templates page.
 - Each canvas flow now includes a separate API card in the final utility column beside the runner controls, using the current flow input and the same scroll-safe highlighted request styling.
 - Library canvas cards now show the real `run_id` above the Canvas ID and Created metadata; canvas API and runner cards stay focused on requests and controls.
+- Library canvas cards now show full public model names such as `Qwen Image 2.0 Pro`, `FLUX 2 Max`, and `Runway Gen-4.5` instead of collapsing the Models section to provider-family labels.
 - Canvas API and runner cards now keep their dragged position like model cards, and the API card exposes List chains, Create chain, Get run, and Cancel run cURL snippets for debugging.
 - Library canvas metadata now uses one foreground monospace style for Run ID, Canvas ID, and Created; canvas info-card names wrap within the card; the canvas API card is model-card width and fills Get/Cancel cURLs with the latest run id.
 - Library canvas metadata now uses one muted monospace style for Run ID, Canvas ID, and Created so it does not compete with the canvas name.
@@ -41,6 +42,8 @@ All notable changes will be documented here. The format follows [Keep a Changelo
 
 ### Fixed
 
+- Workspace `Run and save` no longer creates a Library card before a run id exists, preventing fast navigation from leaving an orphan "not run yet" card and tempting a duplicate publish.
+- Media-input and callback URL safety checks now fail closed when DNS resolution hangs, bounding how long provider submission or terminal callback delivery waits on a slow resolver.
 - `GET /api/v1/chains/get/:runId`, create-run responses, and terminal callbacks no longer serialize provider `data:*;base64,...` outputs directly in `generation_output_file`; inline media is returned as clean authenticated output URLs while normal provider URLs stay unchanged.
 - Removed duplicated local schema-example builders from the canvas and templates page so JSON Schema display, cURL examples, and run payloads all use the same Semantic Lady-backed request shape.
 - Backend run creation now strips legacy empty full-shape cURL placeholders from no-default model inputs before provider submission while preserving real model defaults such as `""`, `null`, `false`, and numeric defaults.

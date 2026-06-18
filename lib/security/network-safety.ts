@@ -2,6 +2,7 @@ import { lookup } from 'node:dns/promises';
 
 const LOCAL_HOSTNAMES = new Set(['localhost', 'metadata.google.internal']);
 const IPV4_PATTERN = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/;
+const DNS_LOOKUP_TIMEOUT_MS = 2_000;
 
 export function isBlockedNetworkHostname(hostname: string) {
   const normalized = normalizeHostname(hostname);
@@ -27,10 +28,7 @@ export function normalizeHostname(hostname: string) {
 
 export async function lookupAllowedNetworkAddress(hostname: string) {
   try {
-    const addresses = await lookup(normalizeHostname(hostname), {
-      all: true,
-      verbatim: true,
-    });
+    const addresses = await lookupWithTimeout(normalizeHostname(hostname));
 
     if (
       addresses.length === 0 ||
@@ -43,6 +41,27 @@ export async function lookupAllowedNetworkAddress(hostname: string) {
   } catch {
     return null;
   }
+}
+
+function lookupWithTimeout(hostname: string) {
+  let timeout: ReturnType<typeof setTimeout> | undefined;
+
+  return Promise.race([
+    lookup(hostname, {
+      all: true,
+      verbatim: true,
+    }),
+    new Promise<never>((_resolve, reject) => {
+      timeout = setTimeout(
+        () => reject(new Error('DNS lookup timed out.')),
+        DNS_LOOKUP_TIMEOUT_MS,
+      );
+    }),
+  ]).finally(() => {
+    if (timeout) {
+      clearTimeout(timeout);
+    }
+  });
 }
 
 function isBlockedIpv4Hostname(hostname: string) {

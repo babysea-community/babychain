@@ -23,6 +23,7 @@ import { MAX_CANVAS_TITLE_LENGTH } from '@/lib/canvas/names';
 
 const OWNER = 'owner@example.com';
 const CANVAS_ID = '7b9d3f60-1f7c-4a64-9a52-0d6f6a3a2b11';
+const RUN_ID = '10f7f30d-c59f-4d10-aa1f-77f285922ef8';
 const SAVE_VERSION = 1000;
 
 function node(overrides: Partial<StoredCanvasNode> = {}): StoredCanvasNode {
@@ -72,7 +73,40 @@ describe('saveCanvas', () => {
     const upsert = queryMock.mock.calls[1];
     expect(upsert?.[0]).toContain('on conflict (id) do update');
     expect(upsert?.[0]).toContain('owner_email = excluded.owner_email');
+    expect(upsert?.[0]).toContain('last_run_id = coalesce');
     expect(upsert?.[1]?.[1]).toBe(OWNER);
+    expect(upsert?.[1]?.[5]).toBeNull();
+  });
+
+  it('can attach the latest run id while saving a canvas', async () => {
+    queryMock
+      .mockResolvedValueOnce({ rows: [{ total: '0' }] })
+      .mockResolvedValueOnce({ rows: [row({ last_run_id: RUN_ID })] });
+
+    const saved = await saveCanvas(OWNER, {
+      id: CANVAS_ID,
+      lastRunId: RUN_ID,
+      title: 'Canvas',
+      nodes: [node()],
+      saveVersion: SAVE_VERSION,
+    });
+
+    expect(saved.lastRunId).toBe(RUN_ID);
+    expect(queryMock.mock.calls[1]?.[1]?.[5]).toBe(RUN_ID);
+  });
+
+  it('rejects invalid last run ids before touching the database', async () => {
+    await expect(
+      saveCanvas(OWNER, {
+        id: CANVAS_ID,
+        lastRunId: 'not-a-run-id',
+        title: 'Canvas',
+        nodes: [node()],
+        saveVersion: SAVE_VERSION,
+      }),
+    ).rejects.toMatchObject({ code: 'invalid_canvas', status: 400 });
+
+    expect(queryMock).not.toHaveBeenCalled();
   });
 
   it('rejects non-UUID canvas ids before touching the database', async () => {

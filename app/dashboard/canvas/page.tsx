@@ -398,7 +398,7 @@ function withDashboardOutputUrls(value: unknown): unknown {
 
 async function runChainAction(
   input: Record<string, unknown>,
-  canvasId?: string,
+  options?: { canvasId?: string; flowId?: string },
 ): Promise<{ ok: true; run: unknown } | { ok: false; error: string }> {
   'use server';
   const session = await requireOwnerSession();
@@ -421,10 +421,17 @@ async function runChainAction(
     // Link the run to its canvas server-side so the association survives
     // even if the browser tab closes before the response lands. Reopening
     // the canvas then resumes tracking this run.
-    if (canvasId && typeof json.id === 'string') {
-      await setCanvasLastRun(session.email, canvasId, json.id).catch(
+    if (options?.canvasId && typeof json.id === 'string') {
+      await setCanvasLastRun(session.email, options.canvasId, json.id).catch(
         () => undefined,
       );
+    }
+    if (options?.flowId && typeof json.id === 'string') {
+      await recordWorkspaceFlowRun(
+        session.email,
+        options.flowId,
+        json.id,
+      ).catch(() => undefined);
     }
     return { ok: true, run: withDashboardOutputUrls(json) };
   } catch (error) {

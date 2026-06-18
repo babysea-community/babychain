@@ -502,12 +502,13 @@ type CanvasProps = {
   ) => Promise<FieldGroup>;
   runChainAction: (
     input: Record<string, unknown>,
-    canvasId?: string,
+    options?: { canvasId?: string; flowId?: string },
   ) => Promise<{ ok: true; run: unknown } | { ok: false; error: string }>;
   getRunAction: (runId: string) => Promise<unknown | null>;
   cancelRunAction: (runId: string) => Promise<unknown | null>;
   saveCanvasAction: (input: {
     id: string;
+    lastRunId?: string | null;
     title: string;
     nodes: StoredCanvasNode[];
     saveVersion: number;
@@ -3380,49 +3381,10 @@ function CanvasInner(props: CanvasProps) {
         }
       }
 
-      // "Run and save": snapshot THIS flow into the Library first, so the
-      // saved canvas exists (and is linked to the run) before anything runs.
-      // On the workspace every publish creates a fresh Library canvas card.
-      // On a saved canvas page the page id is reused, so re-running updates in
-      // place.
-      if (save) {
-        if (!savedCanvasId) {
-          finishFlow(flowId);
-          toast.error('Saving the canvas failed.');
-          return;
-        }
-
-        const title = canvasId
-          ? flowName(nodesRef.current, flowId)
-          : libraryFlowName(nodesRef.current, flowId);
-        const result = await saveCanvasAction({
-          id: savedCanvasId,
-          title,
-          nodes: snapshotNodes([
-            ...workingNodes.filter((node) => node.id === `info_${flowId}`),
-            ...flowNodes,
-          ]),
-          saveVersion: nextSaveVersion(),
-        }).catch(() => ({
-          ok: false as const,
-          error: 'Saving the canvas failed.',
-        }));
-
-        if (!result.ok) {
-          finishFlow(flowId);
-          toast.error(result.error);
-          return;
-        }
-
-        saveToastIdRef.current = toast.info(
-          'Flow saved to your Library. Results attach to it automatically.',
-          { duration: 2400 },
-        );
-      }
-
-      const result = await runChainAction(input, savedCanvasId).catch(
-        () => null,
-      );
+      const result = await runChainAction(input, {
+        ...(save && canvasId ? { canvasId } : {}),
+        ...(!canvasId ? { flowId } : {}),
+      }).catch(() => null);
       if (!result || !result.ok) {
         finishFlow(flowId);
         toast.error(
@@ -3431,6 +3393,45 @@ function CanvasInner(props: CanvasProps) {
         return;
       }
       const run = result.run as RunJson;
+
+      // "Run and save": only create/update the Library card after a run id
+      // exists, so navigating away cannot leave a saved canvas that says
+      // "not run yet". On the workspace every publish creates a fresh Library
+      // canvas card. On a saved canvas page the page id is reused.
+      if (save) {
+        if (!savedCanvasId) {
+          toast.error('Saving the canvas failed.');
+        } else {
+          const title = canvasId
+            ? flowName(nodesRef.current, flowId)
+            : libraryFlowName(nodesRef.current, flowId);
+          const saveResult = await saveCanvasAction({
+            id: savedCanvasId,
+            lastRunId: run.id,
+            title,
+            nodes: snapshotNodes([
+              ...workingNodes.filter((node) => node.id === `info_${flowId}`),
+              ...flowNodes,
+            ]),
+            saveVersion: nextSaveVersion(),
+          }).catch(() => ({
+            ok: false as const,
+            error: 'Saving the canvas failed.',
+          }));
+
+          if (!saveResult.ok) {
+            toast.error(
+              `Run started, but saving it to the Library failed. ${saveResult.error}`,
+            );
+          } else {
+            saveToastIdRef.current = toast.info(
+              'Flow saved to your Library. Results attach to it automatically.',
+              { duration: 2400 },
+            );
+          }
+        }
+      }
+
       flowRunIdRef.current.set(flowId, run.id);
       setRunIdsByFlow((prev) => new Map(prev).set(flowId, run.id));
       // Record the run on the workspace so a reload resumes tracking it.
