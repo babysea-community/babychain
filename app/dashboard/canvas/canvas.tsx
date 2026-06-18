@@ -30,6 +30,7 @@ import {
   type NodeTypes,
 } from '@xyflow/react';
 import type {
+  ChangeEvent,
   ComponentType,
   ReactNode,
   SVGProps,
@@ -870,12 +871,13 @@ function FieldControl({
 
   if (field.type === 'textarea') {
     return (
-      <textarea
+      <TextInputControl
+        as="textarea"
         className={cn(base, 'min-h-20 resize-y py-1.5')}
-        rows={field.rows ?? 3}
-        value={String(value ?? '')}
         disabled={disabled}
-        onChange={(event) => onChange(event.target.value)}
+        rows={field.rows ?? 3}
+        value={value}
+        onChange={onChange}
       />
     );
   }
@@ -929,12 +931,69 @@ function FieldControl({
     );
   }
   return (
-    <input
+    <TextInputControl
+      as="input"
       className={cn(base, 'h-8')}
-      value={String(value ?? '')}
       disabled={disabled}
-      onChange={(event) => onChange(event.target.value)}
+      value={value}
+      onChange={onChange}
     />
+  );
+}
+
+function TextInputControl({
+  as,
+  className,
+  disabled,
+  rows,
+  value,
+  onChange,
+}: {
+  as: 'input' | 'textarea';
+  className: string;
+  disabled: boolean;
+  rows?: number;
+  value: FieldValue | undefined;
+  onChange: (value: FieldValue) => void;
+}) {
+  const externalValue = String(value ?? '');
+  const [draft, setDraft] = useState(externalValue);
+  const focusedRef = useRef(false);
+
+  useEffect(() => {
+    if (!focusedRef.current) {
+      setDraft(externalValue);
+    }
+  }, [externalValue]);
+
+  const handleFocus = () => {
+    focusedRef.current = true;
+  };
+  const handleBlur = () => {
+    focusedRef.current = false;
+    setDraft(externalValue);
+  };
+  const handleChange = (
+    event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
+  ) => {
+    const next = event.target.value;
+    setDraft(next);
+    onChange(next);
+  };
+
+  const sharedProps = {
+    className,
+    disabled,
+    onBlur: handleBlur,
+    onChange: handleChange,
+    onFocus: handleFocus,
+    value: draft,
+  };
+
+  return as === 'textarea' ? (
+    <textarea {...sharedProps} rows={rows ?? 3} />
+  ) : (
+    <input {...sharedProps} />
   );
 }
 

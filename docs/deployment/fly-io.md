@@ -58,11 +58,10 @@ fly secrets set \
   NEXT_PUBLIC_SENTRY_DSN="" \
   NEXT_PUBLIC_SENTRY_ENVIRONMENT="production" \
   SENTRY_ORG="YOUR_SENTRY_ORG" \
-  SENTRY_PROJECT="YOUR_SENTRY_PROJECT" \
-  SENTRY_AUTH_TOKEN="YOUR_SENTRY_AUTH_TOKEN"
+  SENTRY_PROJECT="YOUR_SENTRY_PROJECT"
 ```
 
-The BabySea and Sentry values can be placeholders when you stay in BYOK mode and do not upload source maps. For BabySea mode, change `BABYCHAIN_PROVIDER_MODE` to `babysea` and replace the BabySea placeholders with real values.
+The BabySea and Sentry values can be placeholders when you stay in BYOK mode and do not upload source maps. Keep `SENTRY_AUTH_TOKEN` in CI or your build environment only when you intentionally upload source maps; it is not needed by the running container. For BabySea mode, change `BABYCHAIN_PROVIDER_MODE` to `babysea` and replace the BabySea placeholders with real values.
 
 ### 3. Deploy with build args
 
@@ -77,10 +76,10 @@ fly deploy \
 If you use a custom domain, update the secret and redeploy with the same URL:
 
 ```bash
-fly certs add babychain.example.com
-fly secrets set NEXT_PUBLIC_SITE_URL="https://babychain.example.com"
+fly certs add your-app.example.com
+fly secrets set NEXT_PUBLIC_SITE_URL="https://your-domain.example.com"
 fly deploy \
-  --build-arg NEXT_PUBLIC_SITE_URL="https://babychain.example.com"
+  --build-arg NEXT_PUBLIC_SITE_URL="https://your-domain.example.com"
 ```
 
 ### 4. Schedule run recovery
@@ -102,7 +101,6 @@ Set the schedule to every minute for high-volume deployments, or every five minu
 ```bash
 fly status
 fly logs
-curl -fsS https://babychain.fly.dev/
 curl -fsS \
   -H "Authorization: Bearer YOUR_BABYCHAIN_API_KEY" \
   https://babychain.fly.dev/api/v1/models

@@ -88,7 +88,7 @@ printf 'Site URL: %s\nECR: %s\nSecret prefix: %s\n' \
 	"$SITE_URL" "$REPOSITORY_URI" "$SECRET_PREFIX"
 ```
 
-If you are deploying behind a custom HTTPS domain, set `SITE_URL=https://your-domain.example` before building and pass `SiteUrl="$SITE_URL"` when you update the stack.
+If you are deploying behind a custom HTTPS domain, set `SITE_URL=https://your-domain.example.com` before building and pass `SiteUrl="$SITE_URL"` when you update the stack.
 
 ### 3. Populate runtime secrets
 
@@ -131,10 +131,9 @@ put_secret BABYSEA_API_KEY replace-with-babysea-api-key
 put_secret BABYSEA_WEBHOOK_SECRET replace-with-babysea-webhook-secret
 put_secret SENTRY_ORG replace-with-sentry-org
 put_secret SENTRY_PROJECT replace-with-sentry-project
-put_secret SENTRY_AUTH_TOKEN replace-with-sentry-auth-token
 ```
 
-The Sentry values can be placeholders when you do not upload source maps. For BabySea mode, replace the BabySea placeholders with real values and set `ProviderMode=babysea` on the stack update.
+The Sentry values can be placeholders when you do not upload source maps. Keep `SENTRY_AUTH_TOKEN` in CI or your build environment only when you intentionally upload source maps; it is not needed by the running ECS container. For BabySea mode, replace the BabySea placeholders with real values and set `ProviderMode=babysea` on the stack update.
 
 Do not put `DATABASE_URL`, owner credentials, provider keys, or BabyChain secrets in build args. They belong in Secrets Manager and are injected at runtime.
 
@@ -213,7 +212,7 @@ aws ecs describe-services \
 	--services "$SERVICE_NAME" \
 	--query 'services[0].{Status:status,Running:runningCount,Desired:desiredCount,Events:events[0:3].message}'
 
-curl -fsS "$SITE_URL" >/dev/null
+curl -fsS "${SITE_URL%/}/api/v1/models" >/dev/null
 
 aws logs tail "$LOG_GROUP_NAME" \
 	--region "$AWS_REGION" \

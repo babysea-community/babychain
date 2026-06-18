@@ -1,5 +1,7 @@
 services:
   babychain:
+    image: ${BABYCHAIN_IMAGE:-babysea/babychain:latest}
+    pull_policy: missing
     build:
       context: .
       dockerfile: Dockerfile
@@ -39,12 +41,11 @@ services:
       NEXT_PUBLIC_SENTRY_ENVIRONMENT: ${NEXT_PUBLIC_SENTRY_ENVIRONMENT:-production}
       SENTRY_ORG: ${SENTRY_ORG:-}
       SENTRY_PROJECT: ${SENTRY_PROJECT:-}
-      SENTRY_AUTH_TOKEN: ${SENTRY_AUTH_TOKEN:-}
     healthcheck:
       test:
         [
           'CMD-SHELL',
-          'node -e "fetch(''http://127.0.0.1:''+(process.env.PORT||3000)+''/'').then((response)=>process.exit(response.ok?0:1)).catch(()=>process.exit(1))"',
+          'node -e "fetch(''http://127.0.0.1:''+(process.env.PORT||3000)+''/api/v1/models'').then((response)=>process.exit(response.ok?0:1)).catch(()=>process.exit(1))"',
         ]
       interval: 30s
       timeout: 10s

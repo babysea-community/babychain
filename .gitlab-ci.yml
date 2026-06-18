@@ -40,7 +40,7 @@ variables:
   PNPM_INSTALL_FLAGS: --frozen-lockfile --ignore-scripts
   PNPM_CONFIG_MINIMUM_RELEASE_AGE: '0'
   DAST_WEBSITE: https://babychain.babysea.live
-  NEXT_PUBLIC_SITE_URL: https://your-app.example.com
+  NEXT_PUBLIC_SITE_URL: https://your-domain.example.com
   DATABASE_URL: postgresql://postgres:postgres@localhost:5432/postgres
   OWNER_EMAIL: ci_owner_email
   OWNER_PASSWORD: ci_owner_password

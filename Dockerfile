@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1.7
 
-FROM node:24-bookworm-slim AS base
+FROM node:24-alpine AS base
 ENV PNPM_HOME=/pnpm
 ENV PNPM_CONFIG_MINIMUM_RELEASE_AGE=0
 ENV PATH="$PNPM_HOME:$PATH"
@@ -12,7 +12,7 @@ COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 RUN pnpm install --frozen-lockfile
 
 FROM deps AS build
-ARG NEXT_PUBLIC_SITE_URL=https://babychain.example.com
+ARG NEXT_PUBLIC_SITE_URL=http://localhost:3000
 ARG NEXT_PUBLIC_SENTRY_DSN=
 ARG NEXT_PUBLIC_SENTRY_ENVIRONMENT=production
 ENV NEXT_PUBLIC_SITE_URL=$NEXT_PUBLIC_SITE_URL
@@ -27,12 +27,26 @@ ENV NODE_ENV=production
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 RUN pnpm install --prod --frozen-lockfile
 
-FROM node:24-bookworm-slim AS runner
+FROM node:24-alpine AS runner
+ARG BABYCHAIN_VERSION=0.1.1
+ARG BUILD_DATE=unknown
+ARG VCS_REF=unknown
 WORKDIR /app
 ENV HOSTNAME=0.0.0.0
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV PORT=3000
+
+LABEL org.opencontainers.image.title="BabyChain" \
+	org.opencontainers.image.description="Canvas studio and durable chain API for image and video model workflows with one final callback." \
+	org.opencontainers.image.url="https://babychain.babysea.live" \
+	org.opencontainers.image.source="https://github.com/babysea-community/babychain" \
+	org.opencontainers.image.version="$BABYCHAIN_VERSION" \
+	org.opencontainers.image.revision="$VCS_REF" \
+	org.opencontainers.image.created="$BUILD_DATE" \
+	org.opencontainers.image.licenses="Apache-2.0"
+
+RUN rm -rf /usr/local/lib/node_modules/npm /usr/local/bin/npm /usr/local/bin/npx
 
 COPY --chown=node:node --from=prod-deps /app/node_modules ./node_modules
 COPY --chown=node:node --from=build /app/.next ./.next
@@ -49,4 +63,5 @@ COPY --chown=node:node --from=build /app/tsconfig.json ./tsconfig.json
 
 USER node
 EXPOSE 3000
-CMD ["sh", "-c", "node node_modules/next/dist/bin/next start -H 0.0.0.0 -p ${PORT:-3000}"]
+HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 CMD node -e "fetch('http://127.0.0.1:' + (process.env.PORT || '3000') + '/api/v1/models').then((response) => process.exit(response.ok ? 0 : 1)).catch(() => process.exit(1))"
+CMD ["sh", "-c", "exec node node_modules/next/dist/bin/next start -H 0.0.0.0 -p ${PORT:-3000}"]

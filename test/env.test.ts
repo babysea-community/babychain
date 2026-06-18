@@ -15,7 +15,7 @@ describe('env validation', () => {
       ...ORIGINAL_ENV,
       BABYSEA_API_BASE_URL: 'https://api.us.babysea.ai',
       BABYSEA_API_KEY: 'bye_test',
-      NEXT_PUBLIC_SITE_URL: 'https://your-app.example.com',
+      NEXT_PUBLIC_SITE_URL: 'https://your-domain.example.com',
       DATABASE_URL: 'postgresql://postgres:postgres@localhost:5432/postgres',
     };
 
@@ -55,7 +55,7 @@ describe('env validation', () => {
 
     process.env = {
       ...ORIGINAL_ENV,
-      NEXT_PUBLIC_SITE_URL: 'https://your-app.example.com',
+      NEXT_PUBLIC_SITE_URL: 'https://your-domain.example.com',
       DATABASE_URL: 'postgresql://postgres:postgres@localhost:5432/postgres',
       BABYCHAIN_API_KEY: 'bchn_test_key',
       BABYCHAIN_CRON_SECRET: 'cron_test_secret',
@@ -90,7 +90,7 @@ describe('env validation', () => {
 
     process.env = {
       ...ORIGINAL_ENV,
-      NEXT_PUBLIC_SITE_URL: 'https://your-app.example.com',
+      NEXT_PUBLIC_SITE_URL: 'https://your-domain.example.com',
       DATABASE_URL: 'postgresql://postgres:postgres@localhost:5432/postgres',
       BABYCHAIN_API_KEY: 'bchn_test_key',
       BABYCHAIN_CRON_SECRET: 'cron_test_secret',
@@ -120,7 +120,7 @@ describe('env validation', () => {
 
     process.env = {
       ...ORIGINAL_ENV,
-      NEXT_PUBLIC_SITE_URL: 'https://your-app.example.com',
+      NEXT_PUBLIC_SITE_URL: 'https://your-domain.example.com',
       DATABASE_URL: 'postgresql://postgres:postgres@localhost:5432/postgres',
       BABYCHAIN_API_KEY: 'bchn_test_key',
       BABYCHAIN_CRON_SECRET: 'cron_test_secret',
@@ -163,7 +163,7 @@ describe('env validation', () => {
       OPENAI_API_KEY: '',
       RUNWAYML_API_SECRET: '',
       BABYCHAIN_CRON_SECRET: 'cron_test_secret',
-      NEXT_PUBLIC_SITE_URL: 'https://your-app.example.com',
+      NEXT_PUBLIC_SITE_URL: 'https://your-domain.example.com',
       DATABASE_URL: 'postgresql://postgres:postgres@localhost:5432/postgres',
     };
 
@@ -182,7 +182,7 @@ describe('env validation', () => {
 
     process.env = {
       ...ORIGINAL_ENV,
-      NEXT_PUBLIC_SITE_URL: 'https://your-app.example.com',
+      NEXT_PUBLIC_SITE_URL: 'https://your-domain.example.com',
       DATABASE_URL: 'postgresql://postgres:postgres@localhost:5432/postgres',
       BABYCHAIN_API_KEY: 'bchn_test_key',
       BABYCHAIN_CRON_SECRET: 'cron_test_secret',
@@ -219,7 +219,7 @@ describe('env validation', () => {
       BFL_API_KEY: 'bfl_test_key_123',
       OPENAI_API_KEY: '',
       BABYCHAIN_CRON_SECRET: 'cron_test_secret',
-      NEXT_PUBLIC_SITE_URL: 'https://your-app.example.com',
+      NEXT_PUBLIC_SITE_URL: 'https://your-domain.example.com',
       DATABASE_URL: 'postgresql://postgres:postgres@localhost:5432/postgres',
     };
 

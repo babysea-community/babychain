@@ -107,7 +107,6 @@ write_parameter_value NEXT_PUBLIC_SENTRY_DSN
 write_parameter_value NEXT_PUBLIC_SENTRY_ENVIRONMENT production
 write_parameter_value SENTRY_ORG
 write_parameter_value SENTRY_PROJECT
-write_parameter_value SENTRY_AUTH_TOKEN
 write_env_value HOSTNAME 0.0.0.0
 write_env_value PORT "$BABYCHAIN_CONTAINER_PORT"
 write_env_value NODE_ENV production

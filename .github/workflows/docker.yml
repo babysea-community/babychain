@@ -11,8 +11,6 @@ on:
 
 permissions:
   contents: read
-  attestations: write
-  id-token: write
 
 jobs:
   build:
@@ -20,30 +18,31 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
+      DOCKER_IMAGE: ${{ vars.DOCKER_IMAGE || 'babysea/babychain' }}
       DOCKER_USERNAME: ${{ vars.DOCKER_USERNAME }}
-      NEXT_PUBLIC_SITE_URL: ${{ vars.NEXT_PUBLIC_SITE_URL || 'https://babychain.example.com' }}
+      NEXT_PUBLIC_SITE_URL: ${{ vars.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000' }}
       NEXT_PUBLIC_SENTRY_DSN: ${{ vars.NEXT_PUBLIC_SENTRY_DSN }}
       NEXT_PUBLIC_SENTRY_ENVIRONMENT: ${{ vars.NEXT_PUBLIC_SENTRY_ENVIRONMENT || 'production' }}
     steps:
       - name: Checkout
         uses: actions/checkout@v6
 
-      - name: Resolve Docker image
-        id: image
+      - name: Resolve Docker build metadata
+        id: build
         run: |
-          if [[ -n "$DOCKER_USERNAME" ]]; then
-            echo "name=$DOCKER_USERNAME/babychain" >> "$GITHUB_OUTPUT"
-          else
-            echo "name=babychain" >> "$GITHUB_OUTPUT"
-          fi
+          echo "version=$(node -p "require('./package.json').version")" >> "$GITHUB_OUTPUT"
+          echo "created=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_OUTPUT"
 
       - name: Extract Docker image metadata
         id: meta
         uses: docker/metadata-action@v6
         with:
-          images: ${{ steps.image.outputs.name }}
+          images: ${{ env.DOCKER_IMAGE }}
           tags: |
-            type=ref,event=branch
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=raw,value=${{ steps.build.outputs.version }},enable={{is_default_branch}}
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
             type=ref,event=tag
             type=ref,event=pr
             type=sha,prefix=sha-
@@ -89,3 +88,6 @@ jobs:
             NEXT_PUBLIC_SITE_URL=${{ env.NEXT_PUBLIC_SITE_URL }}
             NEXT_PUBLIC_SENTRY_DSN=${{ env.NEXT_PUBLIC_SENTRY_DSN }}
             NEXT_PUBLIC_SENTRY_ENVIRONMENT=${{ env.NEXT_PUBLIC_SENTRY_ENVIRONMENT }}
+            BABYCHAIN_VERSION=${{ steps.build.outputs.version }}
+            BUILD_DATE=${{ steps.build.outputs.created }}
+            VCS_REF=${{ github.sha }}

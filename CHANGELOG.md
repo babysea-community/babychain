@@ -10,6 +10,7 @@ All notable changes will be documented here. The format follows [Keep a Changelo
 - Removed BabyChain's hand-maintained model schema catalog and provider-side size/ratio conversion tables; model fields, defaults, enums, and provider model ids now come from Semantic Lady.
 - Workspace `Run and save` now creates a fresh Library card for each run, while saved canvas pages still update the opened canvas in place; untouched auto-generated flow names are refreshed when new Library cards are created.
 - Deployment docs, Docker/Cloud Run/CloudFormation/EC2/Coolify/Fly examples, and host deploy menus now use the Aurora/PostgreSQL `DATABASE_URL` runtime model, the canonical BabyChain env order, and explicit AWS/Google host labels instead of the old Supabase-era wording.
+- Docker deployment now supports the published `babysea/babychain` image directly: `docker-compose.yml` defaults to `babysea/babychain:latest`, the Docker guide includes pull/run/publish flows, and the README links the Docker Hub repository.
 - Added a Duplicate button to each workspace runner card so users can clone a flow's current models and inputs into a new unsaved flow without overwriting the original Library card.
 - Canvas node cards now expose the selected model's Semantic Lady fields more completely, preserve documented defaults, and render numeric enums or small bounded integer ranges as dropdowns instead of free number inputs.
 - Canvas run buttons now stay disabled until required fields are filled and schema-invalid zero numeric values are corrected, with defensive validation repeated before run creation.
@@ -27,11 +28,15 @@ All notable changes will be documented here. The format follows [Keep a Changelo
 - Create-chain cURL examples now use a plain single-quoted `--data` JSON body with shell-safe escaping instead of a here-doc delimiter.
 - The public model catalog now exposes media-driven Act-Two and Wan Animate models as explicit Image/Video BabyChain variants instead of ambiguous base model choices; the base `runway/act-two`, `wan/2.2-animate-mix`, and `wan/2.2-animate-move` identifiers remain internal Semantic Lady source ids for schema lookup and provider routing.
 - Runway Act-Two and Wan Animate variant selections now stay attached through provider submission, so Runway receives the correct image or video character media and Alibaba Cloud receives the correct chained media plus caller companion file.
+- The production Docker image now uses `node:24-alpine` for build, dependency, and runtime stages instead of the Debian slim base, reducing the published image size and removing the inherited high/critical Debian OS findings reported against `node:24-bookworm-slim`.
+- Docker host docs and templates now keep `SENTRY_AUTH_TOKEN` out of runtime container secrets; it is documented as a CI/build-time-only value for optional source map uploads.
+- CloudFormation, Fly.io, Coolify, and Compose Docker host paths now use the same `/api/v1/models` health endpoint, and CloudFormation placeholder/helper Node images use Alpine instead of Debian slim.
 
 ### Added
 
 - Added authenticated run-output URLs under `GET /api/v1/chains/get/:runId/outputs/:stepKey/:outputIndex` and dashboard preview URLs under `/api/dashboard/chains/get/:runId/outputs/:stepKey/:outputIndex` so inline provider media can be fetched separately without embedding base64 payloads inside run JSON.
 - Added explicit media-driven variants for `runway/act-two`, `wan/2.2-animate-mix`, and `wan/2.2-animate-move`: Image variants run as `video_model` steps with caller reference media, while Video variants run as `modify_model` steps with the required caller companion media.
+- Added Docker Hub publishing metadata and runtime health checks for the public `babysea/babychain:0.1.1` and `babysea/babychain:latest` image tags.
 
 ### Fixed
 
@@ -40,6 +45,9 @@ All notable changes will be documented here. The format follows [Keep a Changelo
 - Backend run creation now strips legacy empty full-shape cURL placeholders from no-default model inputs before provider submission while preserving real model defaults such as `""`, `null`, `false`, and numeric defaults.
 - Google Veo 3.1 BYOK submissions no longer forward the unsupported `generateAudio` request parameter.
 - Plain pnpm 11 installs and package-check scripts no longer require `PNPM_CONFIG_MINIMUM_RELEASE_AGE=0` for fresh BabyChain dependencies; the starter now declares `minimumReleaseAge: 0` in `pnpm-workspace.yaml`, the documented pnpm workspace setting.
+- Docker image vulnerability scans no longer report the four medium Node package findings from `@opentelemetry/core`, `brace-expansion`, `ip-address`, and `tar`; patched transitive versions are pinned through pnpm overrides.
+- The final Docker runtime image no longer ships the unused global npm/npx CLI, removing scanner findings that came from Node's bundled npm dependencies rather than BabyChain runtime code.
+- Editing text fields inside canvas model cards no longer jumps the cursor back to the end while typing in the middle of prompts or media URL fields.
 
 ### Removed
 

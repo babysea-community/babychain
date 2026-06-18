@@ -13,7 +13,7 @@ Use this guide when you want one inspectable VM. Use CloudFormation when you wan
 - AWS Systems Manager Parameter Store stores runtime values.
 - A systemd timer calls `/api/cron/process-runs` every five minutes.
 
-The direct `http://$ELASTIC_IP` flow below is for first launch and evaluation only. Before sending production bearer tokens or real workloads, put HTTPS in front with an ALB plus ACM, CloudFront plus ACM, or a reverse proxy on a domain. Then rebuild with `SITE_URL=https://your-domain.example`.
+The direct `http://$ELASTIC_IP` flow below is for first launch and evaluation only. Before sending production bearer tokens or real workloads, put HTTPS in front with an ALB plus ACM, CloudFront plus ACM, or a reverse proxy on a domain. Then rebuild with `SITE_URL=https://your-domain.example.com`.
 
 ## Prerequisites
 
@@ -58,7 +58,7 @@ ELASTIC_IP=$(aws ec2 describe-addresses \
 SITE_URL=http://$ELASTIC_IP
 ```
 
-For production HTTPS, set `SITE_URL=https://your-domain.example` instead and point the domain to the instance or proxy after launch.
+For production HTTPS, set `SITE_URL=https://your-domain.example.com` instead and point the domain to the instance or proxy after launch.
 
 ### 3. Build and push the image to ECR
 
@@ -142,8 +142,9 @@ put_parameter NEXT_PUBLIC_SENTRY_DSN ''
 put_parameter NEXT_PUBLIC_SENTRY_ENVIRONMENT production
 put_parameter SENTRY_ORG replace-with-sentry-org
 put_parameter SENTRY_PROJECT replace-with-sentry-project
-put_parameter SENTRY_AUTH_TOKEN replace-with-sentry-auth-token
 ```
+
+Keep `SENTRY_AUTH_TOKEN` in CI or your build environment only when you intentionally upload source maps; it is not needed by the running EC2 container.
 
 The BabySea and Sentry values can be placeholders when you stay in BYOK mode and do not upload source maps.
 
@@ -286,7 +287,7 @@ Open `http://$ELASTIC_IP`.
 ### 7. Verify and inspect
 
 ```bash
-curl -fsS "$SITE_URL" >/dev/null
+curl -fsS "${SITE_URL%/}/api/v1/models" >/dev/null
 ssh -i "$KEY_NAME.pem" "ec2-user@$ELASTIC_IP"
 ```
 

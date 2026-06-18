@@ -9,7 +9,7 @@ Coolify can deploy BabyChain from the production `Dockerfile` or from the includ
 - BabyChain schema applied with `pnpm run aurora:migrate` against `DATABASE_URL`.
 - BYOK provider credentials. Default deployments use `BABYCHAIN_PROVIDER_MODE=byok`, so set all inference provider keys in the order shown below.
 - Optional BabySea credentials only if you switch `BABYCHAIN_PROVIDER_MODE` to `babysea`.
-- A public domain selected before the first build, for example `https://babychain.example.com`.
+- A public domain selected before the first build, for example `https://your-domain.example.com`.
 
 ### 1. Create the Coolify resource
 
@@ -19,14 +19,14 @@ Coolify can deploy BabyChain from the production `Dockerfile` or from the includ
 4. Set the compose file path to `docker-compose.yml`.
 5. Set the public domain to your final `NEXT_PUBLIC_SITE_URL`.
 
-The compose service exposes port `3000`, maps it through `BABYCHAIN_HOST_PORT`, and includes a healthcheck for `/`.
+The compose service exposes port `3000`, maps it through `BABYCHAIN_HOST_PORT`, and includes a healthcheck for `/api/v1/models`.
 
 ### 2. Set build and runtime variables
 
 Coolify passes variables to both the Docker build and the running container. Add these values in the application environment screen:
 
 ```bash
-NEXT_PUBLIC_SITE_URL=https://babychain.example.com
+NEXT_PUBLIC_SITE_URL=https://your-domain.example.com
 OWNER_EMAIL=owner@example.com
 OWNER_PASSWORD=YOUR_OWNER_PASSWORD
 OWNER_SESSION_SECRET=YOUR_OWNER_SESSION_SECRET
@@ -51,10 +51,9 @@ NEXT_PUBLIC_SENTRY_DSN=https://example@sentry.io/123
 NEXT_PUBLIC_SENTRY_ENVIRONMENT=production
 SENTRY_ORG=YOUR_SENTRY_ORG
 SENTRY_PROJECT=YOUR_SENTRY_PROJECT
-SENTRY_AUTH_TOKEN=YOUR_SENTRY_AUTH_TOKEN
 ```
 
-The BabySea and Sentry values can be placeholders when you stay in BYOK mode and do not upload source maps. For BabySea mode, change `BABYCHAIN_PROVIDER_MODE` to `babysea` and replace the BabySea placeholders with real values.
+The BabySea and Sentry values can be placeholders when you stay in BYOK mode and do not upload source maps. Keep `SENTRY_AUTH_TOKEN` in CI or your build environment only when you intentionally upload source maps; it is not needed by the running container. For BabySea mode, change `BABYCHAIN_PROVIDER_MODE` to `babysea` and replace the BabySea placeholders with real values.
 
 ### 3. Deploy
 
@@ -93,7 +92,6 @@ docker compose --env-file .env.local up --build
 Then verify the API:
 
 ```bash
-curl -fsS http://localhost:3000/
 curl -fsS \
   -H "Authorization: Bearer YOUR_BABYCHAIN_API_KEY" \
   http://localhost:3000/api/v1/models

@@ -4,7 +4,7 @@ import { authenticateApiKey } from '@/lib/api/auth';
 
 describe('api auth', () => {
   beforeAll(() => {
-    process.env.NEXT_PUBLIC_SITE_URL = 'https://your-app.example.com';
+    process.env.NEXT_PUBLIC_SITE_URL = 'https://your-domain.example.com';
     process.env.BABYSEA_API_KEY = 'bye_test';
     process.env.BABYSEA_REGION = 'us';
     process.env.BABYSEA_API_BASE_URL = 'https://api.us.babysea.ai';
