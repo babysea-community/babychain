@@ -1972,89 +1972,104 @@ function InfoNodeComponent({ id, data }: NodeProps) {
     };
   };
   const endFlowDrag = (event: ReactPointerEvent<HTMLButtonElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+
     if (dragRef.current?.pointerId === event.pointerId) {
       dragRef.current = null;
     }
 
-    event.currentTarget.releasePointerCapture(event.pointerId);
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
   };
 
   return (
-    <div className="w-[280px] border border-border bg-card shadow-lg">
-      <div className="h-1.5 w-full" style={{ backgroundColor: INFO_COLOR }} />
-      <Handle
-        type="source"
-        position={Position.Right}
-        className="!size-3 !border-2 !border-background"
-        style={{ backgroundColor: INFO_COLOR }}
-      />
-
-      <div className="flex items-center justify-between gap-2 border-b border-border px-3 py-2.5">
-        <div
-          className="font-mono text-xs font-semibold"
-          style={{ color: INFO_COLOR }}
-        >
-          canvas_flow
-        </div>
+    <div className="relative w-[280px]">
+      <div className="nodrag nopan absolute -top-16 left-1/2 z-30 flex -translate-x-1/2 flex-col items-center">
         <button
           type="button"
           aria-label="Move canvas flow"
           title="Move canvas flow"
-          className="nodrag nopan flex size-6 shrink-0 cursor-grab items-center justify-center border border-transparent text-muted-foreground transition hover:border-border hover:text-foreground active:cursor-grabbing"
+          className="nodrag nopan flex size-12 touch-none select-none items-center justify-center border border-border bg-card text-muted-foreground shadow-xl transition hover:border-primary hover:text-foreground active:cursor-grabbing"
           onPointerDown={startFlowDrag}
           onPointerMove={moveFlowDrag}
           onPointerUp={endFlowDrag}
           onPointerCancel={endFlowDrag}
         >
-          <FontAwesomeIcon className="size-3" icon="up-down-left-right" />
+          <FontAwesomeIcon className="size-5" icon="up-down-left-right" />
         </button>
+        <span className="h-5 w-px bg-border" aria-hidden="true" />
+        <span
+          className="-mt-1 size-2 rotate-45 border border-border bg-card"
+          aria-hidden="true"
+        />
       </div>
 
-      <div className="space-y-3 p-3">
-        <div className="grid gap-1">
-          <span className="font-mono text-[0.7rem] text-muted-foreground">
-            canvas_name
-          </span>
-          {editing ? (
-            <input
-              autoFocus
-              maxLength={MAX_CANVAS_TITLE_LENGTH}
-              className="nodrag h-8 w-full border border-border bg-input px-2.5 text-xs text-foreground outline-none focus-visible:border-ring"
-              value={draft}
-              placeholder={autoName}
-              onChange={(event) =>
-                setDraft(event.target.value.slice(0, MAX_CANVAS_TITLE_LENGTH))
-              }
-              onBlur={commit}
-              onKeyDown={(event) => {
-                if (event.key === 'Enter') commit();
-                if (event.key === 'Escape') {
-                  setDraft(nameValue);
-                  setEditing(false);
-                }
-              }}
-            />
-          ) : (
-            <div className="flex items-start justify-between gap-1.5">
-              <p className="min-w-0 flex-1 break-words text-xs leading-5 text-foreground [overflow-wrap:anywhere]">
-                {nameValue || autoName}
-              </p>
-              <button
-                type="button"
-                aria-label="Rename canvas"
-                disabled={running}
-                onClick={() => {
-                  setDraft(nameValue || autoName);
-                  setEditing(true);
-                }}
-                className="nodrag flex size-6 shrink-0 cursor-pointer items-center justify-center border border-transparent text-muted-foreground transition hover:border-border hover:text-foreground disabled:opacity-40"
-              >
-                <FontAwesomeIcon className="size-3" icon="pen-to-square" />
-              </button>
-            </div>
-          )}
+      <div className="border border-border bg-card shadow-lg">
+        <div className="h-1.5 w-full" style={{ backgroundColor: INFO_COLOR }} />
+        <Handle
+          type="source"
+          position={Position.Right}
+          className="!size-3 !border-2 !border-background"
+          style={{ backgroundColor: INFO_COLOR }}
+        />
+
+        <div className="border-b border-border px-3 py-2.5">
+          <div
+            className="font-mono text-xs font-semibold"
+            style={{ color: INFO_COLOR }}
+          >
+            canvas_flow
+          </div>
         </div>
-        <CanvasModeBadge mode={providerMode} byokProviders={byokProviders} />
+
+        <div className="space-y-3 p-3">
+          <div className="grid gap-1">
+            <span className="font-mono text-[0.7rem] text-muted-foreground">
+              canvas_name
+            </span>
+            {editing ? (
+              <input
+                autoFocus
+                maxLength={MAX_CANVAS_TITLE_LENGTH}
+                className="nodrag h-8 w-full border border-border bg-input px-2.5 text-xs text-foreground outline-none focus-visible:border-ring"
+                value={draft}
+                placeholder={autoName}
+                onChange={(event) =>
+                  setDraft(event.target.value.slice(0, MAX_CANVAS_TITLE_LENGTH))
+                }
+                onBlur={commit}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter') commit();
+                  if (event.key === 'Escape') {
+                    setDraft(nameValue);
+                    setEditing(false);
+                  }
+                }}
+              />
+            ) : (
+              <div className="flex items-start justify-between gap-1.5">
+                <p className="min-w-0 flex-1 break-words text-xs leading-5 text-foreground [overflow-wrap:anywhere]">
+                  {nameValue || autoName}
+                </p>
+                <button
+                  type="button"
+                  aria-label="Rename canvas"
+                  disabled={running}
+                  onClick={() => {
+                    setDraft(nameValue || autoName);
+                    setEditing(true);
+                  }}
+                  className="nodrag flex size-6 shrink-0 cursor-pointer items-center justify-center border border-transparent text-muted-foreground transition hover:border-border hover:text-foreground disabled:opacity-40"
+                >
+                  <FontAwesomeIcon className="size-3" icon="pen-to-square" />
+                </button>
+              </div>
+            )}
+          </div>
+          <CanvasModeBadge mode={providerMode} byokProviders={byokProviders} />
+        </div>
       </div>
     </div>
   );

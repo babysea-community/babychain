@@ -37,7 +37,7 @@ All notable changes will be documented here. The format follows [Keep a Changelo
 - Added authenticated run-output URLs under `GET /api/v1/chains/get/:runId/outputs/:stepKey/:outputIndex` and dashboard preview URLs under `/api/dashboard/chains/get/:runId/outputs/:stepKey/:outputIndex` so inline provider media can be fetched separately without embedding base64 payloads inside run JSON.
 - Added explicit media-driven variants for `runway/act-two`, `wan/2.2-animate-mix`, and `wan/2.2-animate-move`: Image variants run as `video_model` steps with caller reference media, while Video variants run as `modify_model` steps with the required caller companion media.
 - Added Docker Hub publishing metadata and runtime health checks for the public `babysea/babychain:0.1.1` and `babysea/babychain:latest` image tags.
-- Added a flow-level move handle to each `canvas_flow` info card so an entire flow can be dragged together without moving cards one by one.
+- Added a large attached flow-level move handle above each `canvas_flow` info card so an entire flow can be dragged together without moving cards one by one.
 
 ### Fixed
 
