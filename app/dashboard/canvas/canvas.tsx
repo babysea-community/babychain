@@ -2011,13 +2011,13 @@ function InfoNodeComponent({ id, data }: NodeProps) {
           aria-hidden="true"
         >
           <path
-            d="M8 0 V17"
+            d="M8 0 V18"
             fill="none"
             stroke="#475067"
             strokeLinecap="round"
             strokeWidth="2"
           />
-          <path d="M4 14 L8 20 L12 14 Z" fill="#475067" />
+          <circle cx="8" cy="18" r="3" fill="#475067" />
         </svg>
       </div>
 
