@@ -15,6 +15,7 @@ type DashboardShellProps = {
 
 const NAV_ITEMS = [
   { href: '/dashboard/canvas', icon: 'diagram-project', label: 'Canvas' },
+  { href: '/dashboard/story', icon: 'film', label: 'Story' },
   { href: '/dashboard/library', icon: 'lines-leaning', label: 'Library' },
   { href: '/dashboard/profile', icon: 'user-astronaut', label: 'Profile' },
 ];
