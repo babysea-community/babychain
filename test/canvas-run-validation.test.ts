@@ -200,4 +200,22 @@ describe('canvas run validation', () => {
       }),
     ).toEqual({ ok: true, reason: null });
   });
+
+  it('allows agent modes to run with blank downstream fields', () => {
+    expect(
+      validateCanvasFlowRun({
+        agentDownstreamInputs: true,
+        fieldsByModel,
+        flowNodes: flowNodes(
+          {
+            generation_height: 720,
+            generation_prompt: 'A product photo',
+            generation_width: 1280,
+          },
+          {},
+        ),
+        models,
+      }),
+    ).toEqual({ ok: true, reason: null });
+  });
 });

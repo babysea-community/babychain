@@ -2507,7 +2507,7 @@ function InfoNodeComponent({ id, data }: NodeProps) {
           </div>
           <CanvasModeBadge mode={providerMode} byokProviders={byokProviders} />
           <div className="grid gap-1.5 border border-border p-2">
-            <span className="text-[0.65rem] font-medium uppercase tracking-wide text-muted-foreground">
+            <span className="text-[0.65rem] font-medium tracking-wide text-muted-foreground">
               chain_runner
             </span>
             <RunModeDropdown

@@ -87,25 +87,21 @@ export function validateCanvasFlowRun({
     const agentWillPlanStep =
       agentDownstreamInputs && node.data.role !== 'image';
 
+    if (agentWillPlanStep) {
+      continue;
+    }
+
     for (const field of fields) {
       const value = node.data.values[field.name];
       const requestValue = meaningfulCanvasValue(value) ? value : field.default;
 
-      if (
-        !agentWillPlanStep &&
-        shouldBlockZeroValue(field) &&
-        isZeroValue(requestValue, field)
-      ) {
+      if (shouldBlockZeroValue(field) && isZeroValue(requestValue, field)) {
         return blocked(
           `${field.name} cannot be 0 in the ${node.data.role}_model node.`,
         );
       }
 
-      if (
-        !agentWillPlanStep &&
-        isRequiredRunField(field) &&
-        !meaningfulCanvasValue(value)
-      ) {
+      if (isRequiredRunField(field) && !meaningfulCanvasValue(value)) {
         return blocked(
           `Fill ${field.name} in the ${node.data.role}_model node.`,
         );
