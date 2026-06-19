@@ -115,7 +115,81 @@ function validatePromptEnhancement(
     };
   }
 
+  const driftError = unsupportedSceneDrift(result, context);
+  if (driftError) {
+    return {
+      ok: false,
+      checkedParams,
+      error: driftError,
+    };
+  }
+
   return { ok: true, checkedParams };
+}
+
+function unsupportedSceneDrift(
+  result: Pick<ChainAgentResult, 'selectedPrompt' | 'suggestions'>,
+  context: ChainAgentPromptContext,
+) {
+  const sourceText = normalizeComparablePrompt(
+    [
+      promptString(context.previousStep.requestParams),
+      promptString(context.nextStep.requestParams),
+      JSON.stringify(context.currentInput),
+    ]
+      .filter(Boolean)
+      .join(' '),
+  );
+  const selected = normalizeComparablePrompt(result.selectedPrompt);
+
+  if (!sourceText || !selected) {
+    return null;
+  }
+
+  const sourceHasUrbanCue = hasAny(sourceText, [
+    'city',
+    'street',
+    'storefront',
+    'streetlight',
+    'urban',
+    'neon',
+  ]);
+  const sourceHasPortraitCue = hasAny(sourceText, [
+    'portrait',
+    'looking to the camera',
+    'eyes',
+    'shallow depth of field',
+    'film',
+  ]);
+  const selectedInventsNatureScene = hasAny(selected, [
+    'park',
+    'garden',
+    'flowers',
+    'greenery',
+    'forest',
+    'beach',
+    'mountain',
+    'meadow',
+  ]);
+
+  if (
+    (sourceHasUrbanCue || sourceHasPortraitCue) &&
+    selectedInventsNatureScene
+  ) {
+    return 'selected_prompt relocates the subject into an unsupported new environment. Preserve the source image setting and animate it naturally.';
+  }
+
+  return null;
+}
+
+function hasAny(value: string, terms: string[]) {
+  return terms.some((term) => value.includes(term));
+}
+
+function promptString(value: unknown) {
+  if (!isRecord(value)) return '';
+  const prompt = value.generation_prompt;
+  return typeof prompt === 'string' ? prompt : '';
 }
 
 function validateAgentFieldValue(

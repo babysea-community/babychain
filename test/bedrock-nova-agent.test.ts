@@ -187,6 +187,139 @@ describe('Bedrock Nova Chain Agent', () => {
       validation: { ok: true },
     });
   });
+
+  it('repairs unsupported scene drift from portrait context', async () => {
+    setMinimalEnv();
+    const connectedPrompt =
+      'The young Japanese woman remains in the same color-film portrait setting, holding eye contact as the camera makes a slow handheld push-in; her bangs shift slightly, the shallow-focus background breathes with soft bokeh, and fine high-ISO grain flickers naturally.';
+    const responses = [
+      {
+        output: {
+          message: {
+            content: [
+              {
+                text: JSON.stringify({
+                  observations: {},
+                  suggestions: [
+                    {
+                      title: 'Park Walk',
+                      prompt:
+                        'A young Japanese woman takes a peaceful walk through a park, occasionally stopping to appreciate flowers and greenery.',
+                      params: {},
+                    },
+                    {
+                      title: 'Garden Calm',
+                      prompt:
+                        'She wanders through a quiet garden path surrounded by flowers and soft greenery.',
+                      params: {},
+                    },
+                    {
+                      title: 'Green Escape',
+                      prompt:
+                        'The subject moves through a forest-like park with relaxed natural light.',
+                      params: {},
+                    },
+                  ],
+                  selected_prompt:
+                    'A young Japanese woman takes a peaceful walk through a park, occasionally stopping to appreciate flowers and greenery.',
+                  selected_params: {
+                    generation_duration: 4,
+                    generation_prompt:
+                      'A young Japanese woman takes a peaceful walk through a park, occasionally stopping to appreciate flowers and greenery.',
+                  },
+                }),
+              },
+            ],
+          },
+        },
+        usage: { inputTokens: 10, outputTokens: 20 },
+      },
+      {
+        output: {
+          message: {
+            content: [
+              {
+                text: JSON.stringify({
+                  observations: {},
+                  suggestions: [
+                    {
+                      title: 'Portrait Breath',
+                      prompt: connectedPrompt,
+                      params: {},
+                    },
+                    {
+                      title: 'Eye Contact Drift',
+                      prompt:
+                        'She stays in the same shallow-depth portrait as her eyes soften and the camera drifts closer, preserving the film grain and blurred surroundings.',
+                      params: {},
+                    },
+                    {
+                      title: 'Film Grain Hold',
+                      prompt:
+                        'The portrait gently comes alive with a tiny head turn, moving hair, and subtle focus breathing while the background remains abstract and blurred.',
+                      params: {},
+                    },
+                  ],
+                  selected_prompt: connectedPrompt,
+                  selected_params: {
+                    generation_duration: 4,
+                    generation_prompt: connectedPrompt,
+                  },
+                }),
+              },
+            ],
+          },
+        },
+        usage: { inputTokens: 11, outputTokens: 21 },
+      },
+    ];
+    const fetchImpl = vi.fn(async () => Response.json(responses.shift()));
+
+    const { createBedrockNovaAgent } =
+      await import('@/lib/agents/bedrock-nova');
+    const agent = createBedrockNovaAgent({
+      apiKey: 'bedrock_test_key_12345678',
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+      modelIdentifier: 'us.amazon.nova-pro-v1:0',
+      region: 'us-east-1',
+    });
+    const result = await agent.suggestNextStep({
+      currentInput: {},
+      flow: {
+        currentStepKey: 'image',
+        mode: 'autopilot',
+        nextStepKey: 'video',
+      },
+      nextStep: {
+        modelIdentifier: 'google/veo-3.1-lite',
+        requestParams: null,
+        schema: {
+          type: 'object',
+          required: ['generation_prompt', 'generation_duration'],
+          properties: {
+            generation_prompt: { type: 'string' },
+            generation_duration: { type: 'number', minimum: 1, maximum: 8 },
+          },
+        },
+        stepKey: 'video',
+        stepKind: 'video',
+      },
+      previousStep: {
+        modelIdentifier: 'bfl/flux-1.1-pro',
+        outputFiles: [],
+        requestParams: {
+          generation_prompt:
+            'A color film-inspired portrait of a young Japanese woman looking to the camera with a shallow depth of field that blurs the surrounding elements, drawing attention to her eyes. The fine grain and cast suggest a high ISO film stock, while the wide aperture lens creates a motion blur effect, enhancing the natural documentary style',
+        },
+        stepKey: 'image',
+        stepKind: 'image',
+      },
+    });
+
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
+    expect(result.selectedPrompt).toBe(connectedPrompt);
+    expect(result.selectedPrompt).not.toContain('park');
+  });
 });
 
 function setMinimalEnv() {

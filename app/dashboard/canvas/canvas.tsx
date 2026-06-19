@@ -435,6 +435,80 @@ function FieldSelectDropdown({
   );
 }
 
+function RunModeDropdown({
+  value,
+  disabled,
+  onChange,
+}: {
+  value: RunMode;
+  disabled: boolean;
+  onChange: (value: RunMode) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  const selected = RUN_MODE_OPTIONS.find((option) => option.value === value);
+
+  useEffect(() => {
+    if (!open) return;
+    const onDocClick = (event: MouseEvent) => {
+      const target = event.target as globalThis.Node | null;
+      if (ref.current && target && !ref.current.contains(target)) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', onDocClick);
+    return () => document.removeEventListener('mousedown', onDocClick);
+  }, [open]);
+
+  return (
+    <div className="nodrag relative" ref={ref}>
+      <button
+        type="button"
+        disabled={disabled}
+        onClick={() => setOpen((state) => !state)}
+        className="flex h-8 w-full items-center gap-2 border border-border bg-input px-2.5 text-left text-xs text-foreground outline-none transition focus-visible:border-ring disabled:opacity-50"
+      >
+        <span className="min-w-0 flex-1 truncate">
+          {selected?.label ?? 'Self Control'}
+        </span>
+        <FontAwesomeIcon
+          className="size-3.5 shrink-0 text-muted-foreground"
+          icon="chevron-down"
+        />
+      </button>
+
+      {open ? (
+        <div
+          className="nodrag nopan nowheel absolute left-0 right-0 top-full z-50 mt-1 max-h-48 overflow-y-auto overscroll-contain border border-border bg-card shadow-xl"
+          onPointerDown={(event) => event.stopPropagation()}
+          onWheel={handleDropdownWheel}
+        >
+          {RUN_MODE_OPTIONS.map((option) => {
+            const active = option.value === value;
+
+            return (
+              <button
+                type="button"
+                key={option.value}
+                onClick={() => {
+                  onChange(option.value);
+                  setOpen(false);
+                }}
+                className={cn(
+                  'flex w-full items-center px-2.5 py-1.5 text-left text-xs transition hover:bg-muted',
+                  active ? 'bg-muted text-foreground' : 'text-muted-foreground',
+                )}
+              >
+                <span className="min-w-0 flex-1 truncate">{option.label}</span>
+              </button>
+            );
+          })}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 // ----------------------------------------------------------------------------
 // Shared types (also imported by the app server page)
 // ----------------------------------------------------------------------------
@@ -1786,10 +1860,11 @@ function AgentCheckpointPanel({
                 }}
                 className={cn(
                   'nodrag border px-2 py-1.5 text-left text-[0.65rem] leading-4 transition disabled:opacity-60',
-                  index === selectedIndex ||
-                    suggestion.prompt === checkpoint.selected_prompt
+                  suggestion.prompt === checkpoint.selected_prompt
                     ? 'border-blue-400 bg-blue-500/10 text-foreground'
-                    : 'border-border text-muted-foreground hover:border-ring hover:text-foreground',
+                    : index === selectedIndex
+                      ? 'border-ring bg-muted text-foreground'
+                      : 'border-border text-muted-foreground hover:border-ring hover:text-foreground',
                 )}
               >
                 <span className="block font-medium text-foreground">
@@ -1816,7 +1891,7 @@ function AgentCheckpointPanel({
               {Object.entries(selectedParams).map(([key, value]) => (
                 <div
                   key={key}
-                  className="grid grid-cols-[8rem_minmax(0,1fr)] gap-2 px-2 py-1.5 text-[0.65rem] leading-4"
+                  className="grid grid-cols-[11rem_minmax(0,1fr)] gap-2 px-2 py-1.5 text-[0.65rem] leading-4"
                 >
                   <span className="font-mono text-muted-foreground">{key}</span>
                   <span className="whitespace-pre-wrap break-words text-foreground">
@@ -1835,7 +1910,7 @@ function AgentCheckpointPanel({
             onClick={approve}
           >
             <FontAwesomeIcon icon="check" />
-            Continue with prompt
+            Continue with Agent
           </Button>
         ) : null}
       </div>
@@ -1867,7 +1942,7 @@ function CheckpointNodeComponent({ data }: NodeProps) {
     state?.checkpoint ?? createPendingCheckpointPlaceholder(role, runMode);
 
   return (
-    <div className="w-[400px] border border-border bg-card shadow-lg">
+    <div className="w-[460px] border border-border bg-card shadow-lg">
       <div className="h-1.5 w-full" style={{ backgroundColor: RUNNER_COLOR }} />
       <Handle
         type="target"
@@ -2435,21 +2510,11 @@ function InfoNodeComponent({ id, data }: NodeProps) {
             <span className="text-[0.65rem] font-medium uppercase tracking-wide text-muted-foreground">
               chain_runner
             </span>
-            <select
-              aria-label="chain_runner"
-              className="nodrag h-8 w-full border border-border bg-input px-2 text-xs text-foreground outline-none focus-visible:border-ring disabled:opacity-50"
+            <RunModeDropdown
               disabled={running}
               value={runMode}
-              onChange={(event) =>
-                setRunMode(flowId, event.target.value as RunMode)
-              }
-            >
-              {RUN_MODE_OPTIONS.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
+              onChange={(value) => setRunMode(flowId, value)}
+            />
           </div>
         </div>
       </div>
