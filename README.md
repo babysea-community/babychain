@@ -475,7 +475,7 @@ Configure Chain Agent with:
 ```bash
 AWS_BEARER_TOKEN_BEDROCK=
 BEDROCK_REGION=us-east-1
-BEDROCK_NOVA_AGENT_MODEL=amazon.nova-premier-v1:0
+BEDROCK_NOVA_AGENT_MODEL=us.amazon.nova-pro-v1:0
 ```
 
 Until BabyChain Media Storage is enabled, Chain Agent reads previous outputs from the existing provider URL or inline data URL. Provider URLs can expire, redirect, or exceed the temporary 24MB checkpoint media limit, so storage should be added before relying on long-running or large-video agent workflows in production.

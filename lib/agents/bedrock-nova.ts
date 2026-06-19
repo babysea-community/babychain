@@ -18,7 +18,7 @@ import type {
   ChainAgentSuggestion,
 } from './types';
 
-const BEDROCK_DEFAULT_MODEL = 'amazon.nova-premier-v1:0';
+const BEDROCK_DEFAULT_MODEL = 'us.amazon.nova-pro-v1:0';
 const BEDROCK_DEFAULT_REGION = 'us-east-1';
 const BEDROCK_TIMEOUT_MS = 120_000;
 const MEDIA_DOWNLOAD_TIMEOUT_MS = 60_000;
@@ -164,17 +164,32 @@ async function fetchBedrockConverse(args: {
     .catch(() => null)) as JsonObject | null;
 
   if (!response.ok) {
+    const message = bedrockErrorMessage(payload);
+
     throw new BabyChainError(
       response.status === 429
         ? 'chain_agent_rate_limited'
         : 'chain_agent_failed',
-      `Bedrock Nova agent request failed with status ${response.status}.`,
+      message
+        ? `Bedrock Nova agent request failed with status ${response.status}: ${message}`
+        : `Bedrock Nova agent request failed with status ${response.status}.`,
       response.status === 429 ? 429 : 502,
       payload ?? undefined,
     );
   }
 
   return payload ?? {};
+}
+
+function bedrockErrorMessage(payload: JsonObject | null) {
+  if (!payload) return null;
+
+  return (
+    stringValue(payload.message) ??
+    stringValue(payload.Message) ??
+    stringValue(payload.error) ??
+    stringValue(payload.errorMessage)
+  );
 }
 
 function extractTextResponse(payload: JsonObject) {

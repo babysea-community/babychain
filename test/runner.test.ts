@@ -1364,7 +1364,7 @@ function chainAgentRecord(mode: 'autopilot' | 'review'): ChainRunWithSteps {
         type: 'chain_agent',
         mode,
         provider: 'bedrock',
-        modelIdentifier: 'amazon.nova-premier-v1:0',
+        modelIdentifier: 'us.amazon.nova-pro-v1:0',
       },
       input: {
         image_model: 'bytedance/seedream-4.5',
