@@ -69,8 +69,28 @@ describe('validateChainAgentResult', () => {
     expect(result).toMatchObject({
       ok: false,
       error:
-        'generation_negative_prompt is must be planned by the downstream schema.',
+        'generation_negative_prompt must be included in selected_params because it is defined by the downstream schema.',
     });
+  });
+
+  it('allows optional string fields to be intentionally blank', () => {
+    const result = validateChainAgentResult(
+      resultWithPrompt(
+        {
+          selectedPrompt:
+            'The color-film portrait gently animates with subtle breathing, soft bokeh motion, and a slow camera push.',
+          generationPrompt:
+            'The color-film portrait gently animates with subtle breathing, soft bokeh motion, and a slow camera push.',
+        },
+        {
+          generation_negative_prompt: '',
+          generation_seed: 12345,
+        },
+      ),
+      contextWithCurrentInput({}, true),
+    );
+
+    expect(result).toMatchObject({ ok: true });
   });
 
   it('rejects selected prompt that does not match selected params prompt', () => {
@@ -137,20 +157,21 @@ function contextWithCurrentInput(
   };
 }
 
-function resultWithPrompt({
-  generationPrompt,
-  selectedPrompt,
-}: {
-  generationPrompt: string;
-  selectedPrompt: string;
-}): Pick<
-  ChainAgentResult,
-  'selectedParams' | 'selectedPrompt' | 'suggestions'
-> {
+function resultWithPrompt(
+  {
+    generationPrompt,
+    selectedPrompt,
+  }: {
+    generationPrompt: string;
+    selectedPrompt: string;
+  },
+  extraParams: Record<string, unknown> = {},
+): Pick<ChainAgentResult, 'selectedParams' | 'selectedPrompt' | 'suggestions'> {
   return {
     selectedParams: {
       generation_duration: 4,
       generation_prompt: generationPrompt,
+      ...extraParams,
     },
     selectedPrompt,
     suggestions: [

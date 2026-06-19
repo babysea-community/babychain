@@ -46,14 +46,30 @@ export function validateChainAgentResult(
   const plannedFields = agentPlannedSchemaFields(properties);
 
   for (const fieldName of plannedFields) {
-    if (!hasProvidedAgentValue(params[fieldName])) {
-      const requirement = required.includes(fieldName)
-        ? 'required'
-        : 'must be planned';
+    const field = properties[fieldName];
+    const isRequired = required.includes(fieldName);
+
+    if (!(fieldName in params)) {
       return {
         ok: false,
         checkedParams,
-        error: `${fieldName} is ${requirement} by the downstream schema.`,
+        error: `${fieldName} must be included in selected_params because it is defined by the downstream schema.`,
+      };
+    }
+
+    if (isRequired && !hasProvidedAgentValue(params[fieldName])) {
+      return {
+        ok: false,
+        checkedParams,
+        error: `${fieldName} is required by the downstream schema.`,
+      };
+    }
+
+    if (!isRequired && !hasOptionalAgentValue(params[fieldName], field)) {
+      return {
+        ok: false,
+        checkedParams,
+        error: `${fieldName} must be a schema-valid planned value.`,
       };
     }
   }
@@ -351,6 +367,18 @@ function validateAgentFieldValue(
 function hasProvidedAgentValue(value: JsonValue | undefined) {
   if (value === undefined || value === null) return false;
   if (typeof value === 'string') return value.trim().length > 0;
+  if (Array.isArray(value)) return value.length > 0;
+  return true;
+}
+
+function hasOptionalAgentValue(
+  value: JsonValue | undefined,
+  field?: JsonObject,
+) {
+  if (value === undefined || value === null) return false;
+  if (typeof value === 'string' && value.trim().length === 0) {
+    return field?.type === 'string';
+  }
   if (Array.isArray(value)) return value.length > 0;
   return true;
 }

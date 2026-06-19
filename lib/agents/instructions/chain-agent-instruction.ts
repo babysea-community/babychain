@@ -71,7 +71,7 @@ export function buildChainAgentInstruction(
     '- selected_prompt MUST be the strongest option for the next model.',
     '- selected_params MUST include generation_prompt exactly matching selected_prompt.',
     '- selected_params MUST include every supported downstream schema generation_* field that is not BabyChain-owned media handoff, including advanced fields such as negative prompt and seed when present.',
-    '- For optional fields, choose schema-valid values deliberately. Use empty strings only when the best value is intentionally blank, and use deterministic seed-like controls when the schema requires a number.',
+    '- For optional string fields such as generation_negative_prompt, include the key and use an empty string when the best value is intentionally blank. For optional numeric fields such as generation_seed, include a schema-valid number.',
     '- selected_params MAY change existing downstream field values when the schema, previous media, and prompt context make a better choice clear.',
     '- For enum fields, choose one exact enum value from the downstream schema.',
     '- For numeric fields, choose a value within min/max bounds when provided.',
