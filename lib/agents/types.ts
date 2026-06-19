@@ -30,7 +30,7 @@ export type ChainAgentPromptContext = {
   nextStep: Pick<
     ChainStepRecord,
     'modelIdentifier' | 'requestParams' | 'stepKey' | 'stepKind'
-  >;
+  > & { schema?: JsonObject | null };
   currentInput: JsonObject;
 };
 

@@ -501,6 +501,10 @@ type AgentCheckpoint = {
 type RunJson = {
   agent_checkpoints?: AgentCheckpoint[];
   error?: { message?: string | null } | null;
+  execution?:
+    | { type: 'canvas_flow' }
+    | { mode?: 'autopilot' | 'review'; type: 'chain_agent' }
+    | null;
   id: string;
   status: string;
   steps?: RunStep[];
@@ -639,22 +643,32 @@ const FLOW_COL_W = 520;
 const FLOW_ROW_H = 980;
 const FLOW_UTILITY_STACK_Y = 420;
 
+type AuxNodeType = 'checkpoint' | 'curl' | 'info' | 'runner';
+
+function checkpointNodeId(flowId: string, role: StepRole) {
+  return `checkpoint_${flowId}_${role}`;
+}
+
+function isPersistedCanvasNode(node: FlowNode) {
+  return (
+    node.type !== 'checkpoint' && node.type !== 'curl' && node.type !== 'runner'
+  );
+}
+
 function snapshotNodes(nodes: FlowNode[]): StoredCanvasNode[] {
   // Utility cards are derived UI; info cards persist the flow name. Run ids
   // are transient UI state and never stored in canvas nodes.
-  return nodes
-    .filter((node) => node.type !== 'curl' && node.type !== 'runner')
-    .map((node) => ({
-      id: node.id,
-      role: node.data.role,
-      modelId: node.data.modelId,
-      flowId: node.data.flowId,
-      values:
-        node.type === 'info'
-          ? stripFlowLibraryCanvasId(node.data.values)
-          : node.data.values,
-      position: node.position,
-    }));
+  return nodes.filter(isPersistedCanvasNode).map((node) => ({
+    id: node.id,
+    role: node.data.role,
+    modelId: node.data.modelId,
+    flowId: node.data.flowId,
+    values:
+      node.type === 'info'
+        ? stripFlowLibraryCanvasId(node.data.values)
+        : node.data.values,
+    position: node.position,
+  }));
 }
 
 function stripFlowLibraryCanvasId(values: Record<string, FieldValue>) {
@@ -672,7 +686,10 @@ function restoreNodes(
   const fallbackFlowId = genFlowId();
 
   return entries
-    .filter((entry) => entry && entry.id && entry.role)
+    .filter(
+      (entry) =>
+        entry && entry.id && entry.role && !entry.id.startsWith('checkpoint_'),
+    )
     .map((entry) => {
       const type = entry.id.startsWith('info_') ? 'info' : 'model';
       const values = entry.values ?? {};
@@ -729,14 +746,17 @@ function flowsFrom(nodes: FlowNode[]): Map<string, FlowNode[]> {
   return flows;
 }
 
-function needsFlowAuxReconcile(nodes: FlowNode[]) {
+function needsFlowAuxReconcile(
+  nodes: FlowNode[],
+  runModeByFlow: ReadonlyMap<string, RunMode>,
+) {
   const modelNodes = nodes.filter((node) => node.type === 'model');
   const auxById = new Map(
     nodes
       .filter((node) => node.type !== 'model')
       .map((node) => [node.id, node]),
   );
-  const expectedAux = new Map<string, 'curl' | 'info' | 'runner'>();
+  const expectedAux = new Map<string, AuxNodeType>();
 
   for (const [flowId, flowNodes] of flowsFrom(modelNodes)) {
     const first = flowNodes[0];
@@ -744,6 +764,17 @@ function needsFlowAuxReconcile(nodes: FlowNode[]) {
     if (!first || !last) continue;
 
     expectedAux.set(`info_${flowId}`, 'info');
+    if ((runModeByFlow.get(flowId) ?? 'canvas_flow') !== 'canvas_flow') {
+      for (let index = 1; index < flowNodes.length; index += 1) {
+        const target = flowNodes[index];
+        if (target) {
+          expectedAux.set(
+            checkpointNodeId(flowId, target.data.role),
+            'checkpoint',
+          );
+        }
+      }
+    }
     expectedAux.set(`curl_${flowId}`, 'curl');
     expectedAux.set(`runner_${flowId}`, 'runner');
   }
@@ -765,6 +796,13 @@ function utilityCardPosition(last: FlowNode, kind: 'api' | 'runner') {
   };
 }
 
+function checkpointCardPosition(target: FlowNode) {
+  return {
+    x: target.position.x,
+    y: target.position.y - 260,
+  };
+}
+
 /** Re-place one flow's cards in rank order along its own row. */
 function relayoutFlow(nodes: FlowNode[], flowId: string): FlowNode[] {
   const flowNodes = nodes
@@ -778,8 +816,20 @@ function relayoutFlow(nodes: FlowNode[], flowId: string): FlowNode[] {
     ]),
   );
   // Info card leads the flow; runner and API sit separately in the final
-  // utility column.
+  // utility column. Checkpoints sit above their downstream model cards.
   positions.set(`info_${flowId}`, { x: FLOW_X, y: rowY });
+  for (let index = 1; index < flowNodes.length; index += 1) {
+    const target = flowNodes[index];
+    if (target) {
+      positions.set(
+        checkpointNodeId(flowId, target.data.role),
+        checkpointCardPosition({
+          ...target,
+          position: positions.get(target.id) ?? target.position,
+        }),
+      );
+    }
+  }
   positions.set(`runner_${flowId}`, {
     x: FLOW_X + INFO_COL_W + flowNodes.length * FLOW_COL_W,
     y: rowY,
@@ -1351,13 +1401,12 @@ function ModelNodeComponent({ id, data }: NodeProps) {
     models,
     fieldsByModel,
     statusByNode,
-    agentCheckpointByNode,
     runningFlowIds,
+    runModeByFlow,
     flowMeta,
     isSavedCanvas,
     updateModel,
     updateValue,
-    continueAgentCheckpoint,
     removeNode,
     addNodeToFlow,
   } = useCanvas();
@@ -1374,7 +1423,9 @@ function ModelNodeComponent({ id, data }: NodeProps) {
   const HeaderIcon = inferenceIcon(model?.provider);
   const meta = flowMeta[flowId];
   const running = runningFlowIds.has(flowId);
-  const agentCheckpoint = agentCheckpointByNode[id];
+  const runMode = runModeByFlow.get(flowId) ?? 'canvas_flow';
+  const lockedByAutopilot = runMode === 'agent_autopilot' && role !== 'image';
+  const controlsDisabled = running || lockedByAutopilot;
   const addableRole: StepRole | null =
     role === 'image' && !meta?.roles.has('refine')
       ? 'refine'
@@ -1517,7 +1568,7 @@ function ModelNodeComponent({ id, data }: NodeProps) {
           <ModelDropdown
             options={options}
             value={modelId}
-            disabled={running}
+            disabled={controlsDisabled}
             onChange={(next) => updateModel(id, next)}
           />
         </div>
@@ -1541,7 +1592,7 @@ function ModelNodeComponent({ id, data }: NodeProps) {
                   key={field.name}
                   field={field}
                   value={values[field.name]}
-                  disabled={running}
+                  disabled={controlsDisabled}
                   onChange={(value) => updateValue(id, field.name, value)}
                 />
               ))}
@@ -1571,7 +1622,7 @@ function ModelNodeComponent({ id, data }: NodeProps) {
                           key={field.name}
                           field={field}
                           value={values[field.name]}
-                          disabled={running}
+                          disabled={controlsDisabled}
                           onChange={(value) =>
                             updateValue(id, field.name, value)
                           }
@@ -1628,21 +1679,6 @@ function ModelNodeComponent({ id, data }: NodeProps) {
           </>
         )}
 
-        {agentCheckpoint ? (
-          <AgentCheckpointPanel
-            checkpoint={agentCheckpoint.checkpoint}
-            disabled={!running}
-            onApprove={(prompt, params) =>
-              continueAgentCheckpoint(
-                flowId,
-                agentCheckpoint.checkpoint.id,
-                prompt,
-                params,
-              )
-            }
-          />
-        ) : null}
-
         {nodeStatus?.output ? (
           <div className="border border-border">
             {/* Key by URL so a new run's output restarts the loading state
@@ -1661,11 +1697,15 @@ function ModelNodeComponent({ id, data }: NodeProps) {
 
 function AgentCheckpointPanel({
   checkpoint,
+  mode,
   disabled,
+  pending,
   onApprove,
 }: {
   checkpoint: AgentCheckpoint;
+  mode: RunMode;
   disabled: boolean;
+  pending: boolean;
   onApprove: (prompt: string, params: Record<string, unknown>) => void;
 }) {
   const suggestions = checkpoint.suggestions ?? [];
@@ -1690,13 +1730,20 @@ function AgentCheckpointPanel({
       generation_prompt: prompt,
     });
   };
+  const isAutopilot = mode === 'agent_autopilot';
 
   return (
     <div className="border border-primary/50 bg-primary/5">
       <div className="border-b border-primary/30 px-2.5 py-1.5 text-[0.68rem] font-medium uppercase tracking-wide text-primary">
-        Chain Agent Review
+        {isAutopilot ? 'Chain Agent Autopilot' : 'Chain Agent Review'}
       </div>
       <div className="space-y-2 p-2.5">
+        {pending ? (
+          <p className="text-[0.65rem] leading-4 text-muted-foreground">
+            Waiting for the previous step output. The agent prompt will appear
+            here before this step starts.
+          </p>
+        ) : null}
         {suggestions.length > 0 ? (
           <div className="grid gap-1.5">
             {suggestions.map((suggestion, index) => (
@@ -1725,22 +1772,98 @@ function AgentCheckpointPanel({
         ) : null}
         <textarea
           className="nodrag min-h-24 w-full resize-y border border-border bg-input px-2.5 py-1.5 text-xs text-foreground outline-none focus-visible:border-ring disabled:opacity-50"
-          disabled={disabled}
+          disabled={disabled || isAutopilot || pending}
+          placeholder="Agent prompt will appear here."
           value={draft}
           onChange={(event) => setDraft(event.target.value)}
         />
-        <Button
-          className="nodrag w-full"
-          size="sm"
-          disabled={disabled}
-          onClick={approve}
-        >
-          <FontAwesomeIcon icon="check" />
-          Continue with prompt
-        </Button>
+        {!isAutopilot ? (
+          <Button
+            className="nodrag w-full"
+            size="sm"
+            disabled={disabled || pending}
+            onClick={approve}
+          >
+            <FontAwesomeIcon icon="check" />
+            Continue with prompt
+          </Button>
+        ) : null}
       </div>
     </div>
   );
+}
+
+function CheckpointNodeComponent({ data }: NodeProps) {
+  const node = data as NodeData;
+  const { flowId, role } = node;
+  const {
+    agentCheckpointByNode,
+    continueAgentCheckpoint,
+    runningFlowIds,
+    runModeByFlow,
+  } = useCanvas();
+  const runMode = runModeByFlow.get(flowId) ?? 'canvas_flow';
+  const state = agentCheckpointByNode[checkpointNodeId(flowId, role)];
+  const running = runningFlowIds.has(flowId);
+  const checkpoint =
+    state?.checkpoint ?? createPendingCheckpointPlaceholder(role, runMode);
+
+  return (
+    <div className="w-[400px] border border-primary/50 bg-card shadow-lg">
+      <div className="h-1.5 w-full bg-primary" />
+      <Handle
+        type="target"
+        position={Position.Left}
+        className="!size-3 !border-2 !border-background"
+      />
+      <Handle
+        type="source"
+        position={Position.Right}
+        className="!size-3 !border-2 !border-background"
+      />
+
+      <div className="flex items-center justify-between gap-2 border-b border-border px-3 py-2.5">
+        <div className="font-mono text-xs font-semibold text-primary">
+          checkpoint_{role}
+        </div>
+        <span className="border border-primary/50 px-1.5 py-0.5 text-[0.6rem] font-medium uppercase tracking-wide text-primary">
+          {runMode === 'agent_autopilot' ? 'Autopilot' : 'Review'}
+        </span>
+      </div>
+
+      <div className="p-3">
+        <AgentCheckpointPanel
+          checkpoint={checkpoint}
+          mode={runMode}
+          disabled={!running || runMode !== 'agent_review' || !state}
+          pending={!state}
+          onApprove={(prompt, params) => {
+            if (!state) return;
+            continueAgentCheckpoint(
+              flowId,
+              state.checkpoint.id,
+              prompt,
+              params,
+            );
+          }}
+        />
+      </div>
+    </div>
+  );
+}
+
+function createPendingCheckpointPlaceholder(
+  role: StepRole,
+  mode: RunMode,
+): AgentCheckpoint {
+  return {
+    id: checkpointNodeId('pending', role),
+    selected_params: null,
+    selected_prompt: null,
+    status: mode === 'agent_autopilot' ? 'approved' : 'suggested',
+    step_key: role,
+    suggestions: [],
+  };
 }
 
 type ApiCurlKey = 'cancel' | 'create' | 'get' | 'list';
@@ -1903,11 +2026,8 @@ function RunnerNodeComponent({ data }: NodeProps) {
     flowCount,
     isSavedCanvas,
     runValidationByFlow,
-    runModeByFlow,
-    setRunMode,
   } = useCanvas();
   const running = runningFlowIds.has(flowId);
-  const runMode = runModeByFlow.get(flowId) ?? 'canvas_flow';
   const runValidation = runValidationByFlow[flowId] ?? {
     ok: false,
     reason: 'Loading this flow.',
@@ -1947,29 +2067,6 @@ function RunnerNodeComponent({ data }: NodeProps) {
       </div>
 
       <div className="space-y-2 p-3">
-        <div className="grid gap-1.5 border border-border p-2">
-          <span className="text-[0.65rem] font-medium uppercase tracking-wide text-muted-foreground">
-            Run type
-          </span>
-          <RunModeButton
-            active={runMode === 'canvas_flow'}
-            disabled={running}
-            label="Canvas Flow"
-            onClick={() => setRunMode(flowId, 'canvas_flow')}
-          />
-          <RunModeButton
-            active={runMode === 'agent_review'}
-            disabled={running}
-            label="Chain Agent Review"
-            onClick={() => setRunMode(flowId, 'agent_review')}
-          />
-          <RunModeButton
-            active={runMode === 'agent_autopilot'}
-            disabled={running}
-            label="Chain Agent Autopilot"
-            onClick={() => setRunMode(flowId, 'agent_autopilot')}
-          />
-        </div>
         <p className="text-[0.65rem] leading-4 text-muted-foreground">
           {isSavedCanvas ? (
             <>
@@ -2121,6 +2218,8 @@ function InfoNodeComponent({ id, data }: NodeProps) {
     byokProviders,
     flowMeta,
     providerMode,
+    runModeByFlow,
+    setRunMode,
     updateValue,
     moveFlowBy,
     runningFlowIds,
@@ -2128,6 +2227,7 @@ function InfoNodeComponent({ id, data }: NodeProps) {
   } = useCanvas();
   const { getZoom } = useReactFlow();
   const running = runningFlowIds.has(flowId);
+  const runMode = runModeByFlow.get(flowId) ?? 'canvas_flow';
   const nameValue = typeof values.name === 'string' ? values.name : '';
   const autoName = flowMeta[flowId]?.autoName ?? 'Untitled canvas';
 
@@ -2296,6 +2396,29 @@ function InfoNodeComponent({ id, data }: NodeProps) {
             )}
           </div>
           <CanvasModeBadge mode={providerMode} byokProviders={byokProviders} />
+          <div className="grid gap-1.5 border border-border p-2">
+            <span className="text-[0.65rem] font-medium uppercase tracking-wide text-muted-foreground">
+              Run type
+            </span>
+            <RunModeButton
+              active={runMode === 'canvas_flow'}
+              disabled={running}
+              label="Default"
+              onClick={() => setRunMode(flowId, 'canvas_flow')}
+            />
+            <RunModeButton
+              active={runMode === 'agent_review'}
+              disabled={running}
+              label="Chain Agent Review"
+              onClick={() => setRunMode(flowId, 'agent_review')}
+            />
+            <RunModeButton
+              active={runMode === 'agent_autopilot'}
+              disabled={running}
+              label="Chain Agent Autopilot"
+              onClick={() => setRunMode(flowId, 'agent_autopilot')}
+            />
+          </div>
         </div>
       </div>
     </div>
@@ -2337,10 +2460,12 @@ function CanvasModeBadge({
 }
 
 const ModelNode = memo(ModelNodeComponent);
+const CheckpointNode = memo(CheckpointNodeComponent);
 const CurlNode = memo(CurlNodeComponent);
 const RunnerNode = memo(RunnerNodeComponent);
 const InfoNode = memo(InfoNodeComponent);
 const nodeTypes: NodeTypes = {
+  checkpoint: CheckpointNode,
   model: ModelNode,
   curl: CurlNode,
   runner: RunnerNode,
@@ -3006,9 +3131,34 @@ function CanvasInner(props: CanvasProps) {
         });
       }
       for (let index = 1; index < flowNodes.length; index += 1) {
+        const previous = flowNodes[index - 1];
+        const target = flowNodes[index];
+        if (!previous || !target) continue;
+        const checkpointId = checkpointNodeId(flowId, target.data.role);
+        if (auxIds.has(checkpointId)) {
+          result.push({
+            id: `${previous.id}->${checkpointId}`,
+            source: previous.id,
+            target: checkpointId,
+            animated,
+          });
+          result.push({
+            id: `${checkpointId}->${target.id}`,
+            source: checkpointId,
+            target: target.id,
+            animated,
+          });
+          continue;
+        }
+      }
+      for (let index = 1; index < flowNodes.length; index += 1) {
         const source = flowNodes[index - 1];
         const target = flowNodes[index];
-        if (source && target) {
+        if (
+          source &&
+          target &&
+          !auxIds.has(checkpointNodeId(flowId, target.data.role))
+        ) {
           result.push({
             id: `${source.id}->${target.id}`,
             source: source.id,
@@ -3049,7 +3199,7 @@ function CanvasInner(props: CanvasProps) {
   // aux cards spawn separated in the final utility column; existing ones keep
   // whatever position the user dragged them to.
   useEffect(() => {
-    if (!needsFlowAuxReconcile(nodes)) return;
+    if (!needsFlowAuxReconcile(nodes, runModeByFlow)) return;
 
     setNodes((current) => {
       const modelNodes = current.filter((node) => node.type === 'model');
@@ -3098,6 +3248,32 @@ function CanvasInner(props: CanvasProps) {
           });
         }
 
+        if ((runModeByFlow.get(flowId) ?? 'canvas_flow') !== 'canvas_flow') {
+          for (let index = 1; index < flowNodes.length; index += 1) {
+            const target = flowNodes[index];
+            if (!target) continue;
+            const checkpointId = checkpointNodeId(flowId, target.data.role);
+            const existingCheckpoint = auxById.get(checkpointId);
+            if (existingCheckpoint) {
+              matched += 1;
+              next.push(existingCheckpoint);
+            } else {
+              changed = true;
+              next.push({
+                id: checkpointId,
+                type: 'checkpoint',
+                position: checkpointCardPosition(target),
+                data: {
+                  role: target.data.role,
+                  modelId: target.data.modelId,
+                  flowId,
+                  values: {},
+                },
+              });
+            }
+          }
+        }
+
         const curlId = `curl_${flowId}`;
         const existingCurl = auxById.get(curlId);
         if (existingCurl) {
@@ -3134,7 +3310,7 @@ function CanvasInner(props: CanvasProps) {
 
       return changed ? next : current;
     });
-  }, [nodes, initialTitle, setNodes]);
+  }, [nodes, initialTitle, runModeByFlow, setNodes]);
 
   const updateModel = useCallback(
     (id: string, modelId: string) => {
@@ -3414,6 +3590,16 @@ function CanvasInner(props: CanvasProps) {
   ]);
 
   const applyRunToFlow = useCallback((flowId: string, run: RunJson) => {
+    const restoredMode = runModeFromExecution(run);
+    if (restoredMode) {
+      setRunModeByFlow((prev) => {
+        if (prev.get(flowId) === restoredMode) return prev;
+        const next = new Map(prev);
+        next.set(flowId, restoredMode);
+        return next;
+      });
+    }
+
     // Map run steps (keyed by role) onto this flow's MODEL nodes. Info and
     // runner cards carry a dummy role and must never receive step status.
     const nodeByRole = new Map<string, string>();
@@ -3437,24 +3623,72 @@ function CanvasInner(props: CanvasProps) {
     });
     setAgentCheckpointByNode((prev) => {
       const next = { ...prev };
-      for (const nodeId of nodeByRole.values()) {
-        delete next[nodeId];
+      for (const role of nodeByRole.keys()) {
+        delete next[checkpointNodeId(flowId, role as StepRole)];
       }
 
       for (const checkpoint of run.agent_checkpoints ?? []) {
-        if (checkpoint.status !== 'suggested') {
-          continue;
-        }
-
-        const nodeId = nodeByRole.get(checkpoint.step_key);
-        if (nodeId) {
-          next[nodeId] = { checkpoint, runId: run.id };
+        if (nodeByRole.has(checkpoint.step_key)) {
+          next[checkpointNodeId(flowId, checkpoint.step_key as StepRole)] = {
+            checkpoint,
+            runId: run.id,
+          };
         }
       }
 
       return next;
     });
+    setNodes((current) => {
+      let changed = false;
+      const selectedPromptByRole = new Map<string, string>();
+
+      for (const checkpoint of run.agent_checkpoints ?? []) {
+        const prompt = checkpoint.selected_prompt?.trim();
+        if (prompt && nodeByRole.has(checkpoint.step_key)) {
+          selectedPromptByRole.set(checkpoint.step_key, prompt);
+        }
+      }
+
+      if (selectedPromptByRole.size === 0) {
+        return current;
+      }
+
+      const next = current.map((node) => {
+        if (node.type !== 'model' || node.data.flowId !== flowId) {
+          return node;
+        }
+
+        const prompt = selectedPromptByRole.get(node.data.role);
+        if (!prompt || node.data.values.generation_prompt === prompt) {
+          return node;
+        }
+
+        changed = true;
+        return {
+          ...node,
+          data: {
+            ...node.data,
+            values: {
+              ...node.data.values,
+              generation_prompt: prompt,
+            },
+          },
+        };
+      });
+
+      return changed ? next : current;
+    });
   }, []);
+
+  function runModeFromExecution(run: RunJson): RunMode | null {
+    if (run.execution?.type !== 'chain_agent') {
+      return null;
+    }
+
+    return run.execution.mode === 'autopilot'
+      ? 'agent_autopilot'
+      : 'agent_review';
+  }
 
   const finishFlow = useCallback((flowId: string) => {
     flowRunIdRef.current.delete(flowId);

@@ -33,6 +33,12 @@ import {
   lookupAllowedNetworkAddress,
   normalizeHostname,
 } from '@/lib/security/network-safety';
+import {
+  createSemanticRequestSchema,
+  getMediaDrivenSchemaOptionsForRole,
+} from '@/lib/models/semantic-schema';
+import { chainFieldModeForRole } from '@/lib/models/chain-schema';
+import type { ChainSchemaStepRole } from '@/lib/models/chain-schema';
 
 import {
   serializeCompletedRunOutput,
@@ -793,7 +799,10 @@ async function prepareAgentCheckpoint(args: {
         mode: execution.mode,
       },
       previousStep,
-      nextStep: readyStep,
+      nextStep: {
+        ...readyStep,
+        schema: agentStepSchema(readyStep),
+      },
     });
     const selectedParams = normalizeAgentSelectedParams(
       result.selectedPrompt,
@@ -847,6 +856,28 @@ async function prepareAgentCheckpoint(args: {
       errorMessage: toErrorMessage(error),
     };
   }
+}
+
+function agentStepSchema(step: ChainStepRecord): JsonObject {
+  const stepRole = toChainSchemaStepRole(step.stepKey);
+
+  if (!stepRole) {
+    return {};
+  }
+
+  return createSemanticRequestSchema(step.modelIdentifier, {
+    ...getMediaDrivenSchemaOptionsForRole(step.modelIdentifier, stepRole),
+    chainFieldMode: chainFieldModeForRole(stepRole),
+  }) as JsonObject;
+}
+
+function toChainSchemaStepRole(value: string): ChainSchemaStepRole | null {
+  return value === 'image' ||
+    value === 'refine' ||
+    value === 'video' ||
+    value === 'modify'
+    ? value
+    : null;
 }
 
 function applyAgentParams(

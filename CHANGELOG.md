@@ -7,7 +7,7 @@ All notable changes will be documented here. The format follows [Keep a Changelo
 ### Changed
 
 - BabyChain runs now carry an explicit execution mode, allowing the existing canvas flow runner to opt into Chain Agent Review or Autopilot without mixing agent planning into media provider routing.
-- Canvas runner cards now expose Run, Review, and Autopilot modes; Review runs pause at durable agent checkpoints for prompt approval, while Autopilot applies approved agent prompts before starting the downstream step.
+- Canvas `canvas_flow` cards now expose Default, Chain Agent Review, and Chain Agent Autopilot run types; agent modes render dedicated checkpoint cards, mirror selected agent prompts into the existing downstream prompt fields, and Autopilot locks downstream model inputs while the agent chooses schema-valid required fields.
 - Updated the BYOK schema source to `semantic-lady@0.4.4`, including published provider model ids, corrected provider defaults, removal of the unsupported Google Veo 3.1 `generation_audio` request field, and corrected video workflow roles for Runway Aleph, Wan Video Edit, and HappyHorse Video Edit models.
 - Removed BabyChain's hand-maintained model schema catalog and provider-side size/ratio conversion tables; model fields, defaults, enums, and provider model ids now come from Semantic Lady.
 - Workspace `Run and save` now creates a fresh Library card for each run, while saved canvas pages still update the opened canvas in place; untouched auto-generated flow names are refreshed when new Library cards are created.

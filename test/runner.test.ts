@@ -6,6 +6,7 @@ import {
   prepareStepParamsForProvider,
   processRun,
 } from '@/lib/chains/runner';
+import type { ChainAgent } from '@/lib/agents';
 import {
   serializeCompletedRunOutput,
   serializeRunWithSteps,
@@ -786,12 +787,16 @@ describe('runner step claiming', () => {
   it('pauses a Chain Agent Review run at the next checkpoint', async () => {
     const record = chainAgentRecord('review');
     let updatedRecord = record;
+    let nextStepSchema: JsonObject | null = null;
     const store = createMutableAgentStore(updatedRecord, (next) => {
       updatedRecord = next;
     });
     const agent = createPromptAgent({
       selectedPrompt: 'Slow cinematic dolly-in over the finished product.',
       selectedParams: { generation_prompt: 'Slow cinematic dolly-in.' },
+      onContext: (context) => {
+        nextStepSchema = (context.nextStep.schema ?? null) as JsonObject | null;
+      },
     });
 
     const result = await processRun(record, {
@@ -808,6 +813,12 @@ describe('runner step claiming', () => {
       status: 'suggested',
       stepKey: 'video',
     });
+    expect(nextStepSchema).toMatchObject({
+      properties: {
+        generation_duration: expect.any(Object),
+        generation_prompt: expect.any(Object),
+      },
+    });
     expect(result.steps[1]!.status).toBe('queued');
   });
 
@@ -821,6 +832,7 @@ describe('runner step claiming', () => {
     const agent = createPromptAgent({
       selectedPrompt: 'Elegant orbit with warm highlights.',
       selectedParams: {
+        generation_duration: 6,
         generation_input_file: ['https://attacker.example.com/skip.png'],
         generation_input_video_file: ['https://attacker.example.com/skip.mp4'],
         generation_prompt: 'Elegant orbit with warm highlights.',
@@ -848,6 +860,7 @@ describe('runner step claiming', () => {
     expect(result.run.currentStepKey).toBe('video');
     expect(result.agentCheckpoints[0]).toMatchObject({ status: 'applied' });
     expect(submittedParams).toMatchObject({
+      generation_duration: 6,
       generation_input_file: ['data:image/png;base64,aW1hZ2U='],
       generation_prompt: 'Elegant orbit with warm highlights.',
     });
@@ -1412,22 +1425,27 @@ function chainAgentRecord(mode: 'autopilot' | 'review'): ChainRunWithSteps {
 }
 
 function createPromptAgent(input: {
+  onContext?: (context: Parameters<ChainAgent['suggestNextStep']>[0]) => void;
   selectedParams: JsonObject;
   selectedPrompt: string;
-}) {
+}): ChainAgent {
   return {
-    suggestNextStep: async () => ({
-      observations: { mood: 'premium' },
-      rawText: '{}',
-      selectedParams: input.selectedParams,
-      selectedPrompt: input.selectedPrompt,
-      suggestions: [
-        {
-          title: 'Cinematic',
-          prompt: input.selectedPrompt,
-        },
-      ],
-    }),
+    suggestNextStep: async (context) => {
+      input.onContext?.(context);
+
+      return {
+        observations: { mood: 'premium' },
+        rawText: '{}',
+        selectedParams: input.selectedParams,
+        selectedPrompt: input.selectedPrompt,
+        suggestions: [
+          {
+            title: 'Cinematic',
+            prompt: input.selectedPrompt,
+          },
+        ],
+      };
+    },
   };
 }
 

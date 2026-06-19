@@ -17,6 +17,7 @@ import type {
   ChainAgentResult,
   ChainAgentSuggestion,
 } from './types';
+import { buildChainAgentInstruction } from './instructions';
 
 const BEDROCK_DEFAULT_MODEL = 'us.amazon.nova-pro-v1:0';
 const BEDROCK_DEFAULT_REGION = 'us-east-1';
@@ -83,13 +84,16 @@ async function buildConverseBody(
   context: ChainAgentPromptContext,
   fetchImpl: typeof fetch,
 ) {
-  const content: JsonObject[] = [{ text: chainAgentInstruction(context) }];
+  const content: JsonObject[] = [];
 
   for (const outputFile of context.previousStep.outputFiles.slice(0, 2)) {
     const media = await readAgentMedia(outputFile, fetchImpl);
     const kind = media.mediaType.startsWith('video/') ? 'video' : 'image';
     const format = mediaFormat(media.mediaType, kind);
 
+    content.push({
+      text: `${kind === 'video' ? 'Video' : 'Image'} ${content.length + 1}:`,
+    });
     content.push({
       [kind]: {
         format,
@@ -100,6 +104,8 @@ async function buildConverseBody(
     });
   }
 
+  content.push({ text: buildChainAgentInstruction(context) });
+
   return {
     messages: [
       {
@@ -109,33 +115,9 @@ async function buildConverseBody(
     ],
     inferenceConfig: {
       maxTokens: 1800,
-      temperature: context.flow.mode === 'autopilot' ? 0.35 : 0.55,
+      temperature: context.flow.mode === 'autopilot' ? 0 : 0.35,
     },
   };
-}
-
-function chainAgentInstruction(context: ChainAgentPromptContext) {
-  return [
-    'You are Chain Agent for BabyChain, an image/video generation workflow runner.',
-    'Study the previous generated media and write the best next-step generation prompt.',
-    'Return ONLY valid JSON with this shape:',
-    '{"observations":{"subject":"","background":"","color_palette":"","mood":"","quality_notes":""},"suggestions":[{"title":"","prompt":"","rationale":"","params":{}}],"selected_prompt":"","selected_params":{}}',
-    'Rules:',
-    '- suggestions must contain 3 concise, production-ready prompt options.',
-    '- selected_prompt must be the strongest option for the next model.',
-    '- selected_params must include generation_prompt and may include other safe generation_* fields only when useful.',
-    '- preserve the user seed and visible subject identity unless the current workflow clearly asks to transform it.',
-    '- for video steps, describe camera motion, subject motion, pacing, atmosphere, lighting, and continuity.',
-    '- for image refine steps, describe visual refinements while preserving the core subject.',
-    '- for video modify steps, describe improvement to motion, edit style, atmosphere, and visual polish.',
-    '',
-    `Mode: ${context.flow.mode}`,
-    `Previous step: ${context.previousStep.stepKey} (${context.previousStep.stepKind}) using ${context.previousStep.modelIdentifier}`,
-    `Next step: ${context.nextStep.stepKey} (${context.nextStep.stepKind}) using ${context.nextStep.modelIdentifier}`,
-    `Current run input JSON: ${JSON.stringify(context.currentInput)}`,
-    `Previous request params JSON: ${JSON.stringify(context.previousStep.requestParams ?? {})}`,
-    `Existing next request params JSON: ${JSON.stringify(context.nextStep.requestParams ?? {})}`,
-  ].join('\n');
 }
 
 async function fetchBedrockConverse(args: {
