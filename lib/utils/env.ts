@@ -16,6 +16,10 @@ const OptionalProviderKeySchema = z.preprocess(
   emptyStringToUndefined,
   z.string().trim().min(8).max(512).optional(),
 );
+const OptionalLongSecretSchema = z.preprocess(
+  emptyStringToUndefined,
+  z.string().trim().min(8).max(8192).optional(),
+);
 const OptionalUrlSchema = z.preprocess(
   emptyStringToUndefined,
   z.string().trim().url().optional(),
@@ -64,6 +68,10 @@ const EnvSchema = z.object({
   OPENAI_API_KEY: OptionalProviderKeySchema,
   // Runway
   RUNWAYML_API_SECRET: OptionalProviderKeySchema,
+  // AWS Bedrock / Amazon Nova for Chain Agent
+  AWS_BEARER_TOKEN_BEDROCK: OptionalLongSecretSchema,
+  BEDROCK_REGION: OptionalNonEmptyStringSchema,
+  BEDROCK_NOVA_AGENT_MODEL: OptionalNonEmptyStringSchema,
 });
 
 export type BabyChainEnv = z.infer<typeof EnvSchema>;

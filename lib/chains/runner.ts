@@ -13,6 +13,7 @@ import type {
 } from 'babysea';
 
 import { createBabySeaClient } from '@/lib/babysea';
+import { createChainAgent, type ChainAgent } from '@/lib/agents';
 import {
   getProvider,
   readByokRunConfig,
@@ -46,6 +47,7 @@ import {
 } from './templates';
 import type {
   ChainEstimate,
+  ChainAgentCheckpointRecord,
   ChainExecutionContext,
   ChainInput,
   ChainRunWithSteps,
@@ -64,8 +66,20 @@ const TRANSIENT_PROVIDER_ERROR_CODES = new Set([
   'provider_network_error',
   'provider_rate_limited',
 ]);
+const AGENT_RESERVED_PARAM_KEYS = new Set([
+  'generation_callback_url',
+  'generation_input_audio_file',
+  'generation_input_file',
+  'generation_input_image_file',
+  'generation_input_video_file',
+  'generation_last_frame',
+  'generation_output_file',
+  'generation_provider_order',
+  'generation_provider_used',
+]);
 
 export type RunnerDependencies = {
+  agent?: ChainAgent;
   babysea?: BabySea;
   store?: ChainStore;
 };
@@ -291,6 +305,27 @@ export async function processRun(
       return record;
     }
 
+    const agentCheckpoint = await prepareAgentCheckpoint({
+      agent: dependencies.agent,
+      record,
+      readyStep,
+      store,
+    });
+
+    if (agentCheckpoint.kind === 'paused') {
+      return mustGetRun(store, record.run.id);
+    }
+
+    if (agentCheckpoint.kind === 'failed') {
+      record = await failRun(
+        record,
+        store,
+        agentCheckpoint.errorCode,
+        agentCheckpoint.errorMessage,
+      );
+      continue;
+    }
+
     await startStep(
       record,
       readyStep,
@@ -298,11 +333,84 @@ export async function processRun(
       byokConfig,
       providerOverrides,
       store,
+      agentCheckpoint.checkpoint,
     );
     return mustGetRun(store, record.run.id);
   }
 
   return mustGetRun(store, record.run.id);
+}
+
+export async function continueAgentRun(
+  runId: string,
+  input: {
+    checkpointId: string;
+    selectedParams: JsonObject;
+    selectedPrompt: string;
+  },
+  dependencies: RunnerDependencies = {},
+) {
+  const store = dependencies.store ?? createChainStore();
+  const record = await mustGetRun(store, runId);
+
+  if (record.run.executionConfig.type !== 'chain_agent') {
+    throw new BabyChainError(
+      'invalid_chain_agent_run',
+      'This run is not a Chain Agent run.',
+      400,
+    );
+  }
+
+  const checkpoint = record.agentCheckpoints.find(
+    (candidate) => candidate.id === input.checkpointId,
+  );
+
+  if (!checkpoint || checkpoint.status !== 'suggested') {
+    throw new BabyChainError(
+      'invalid_agent_checkpoint',
+      'Agent checkpoint is not waiting for approval.',
+      400,
+    );
+  }
+
+  const selectedParams = normalizeAgentSelectedParams(
+    input.selectedPrompt,
+    input.selectedParams,
+  );
+  const approved = await store.approveAgentCheckpoint({
+    checkpointId: checkpoint.id,
+    selectedParams,
+    selectedPrompt: input.selectedPrompt,
+  });
+
+  if (!approved) {
+    throw new BabyChainError(
+      'invalid_agent_checkpoint',
+      'Agent checkpoint is not waiting for approval.',
+      400,
+    );
+  }
+
+  await store.updateActiveRun(runId, {
+    currentStepKey: null,
+    errorCode: null,
+    errorMessage: null,
+    status: 'queued',
+  });
+
+  const updated = await mustGetRun(store, runId);
+
+  await store.recordAuditEvent({
+    action: 'agent_checkpoint.approved',
+    apiKeyId: updated.run.apiKeyId,
+    details: {
+      checkpoint_id: checkpoint.id,
+      step_key: checkpoint.stepKey,
+    },
+    runId,
+  });
+
+  return processRun(updated, { ...dependencies, store });
 }
 
 export async function applyBabySeaWebhook(
@@ -440,6 +548,7 @@ async function startStep(
   byokConfig: ByokRunConfig | null,
   providerOverrides: { babysea?: BabySea },
   store: ChainStore,
+  agentCheckpoint: ChainAgentCheckpointRecord | null = null,
 ) {
   const stepTemplate = template.steps.find(
     (candidate) => candidate.key === step.stepKey,
@@ -465,6 +574,7 @@ async function startStep(
 
   try {
     params = stepTemplate.buildParams(context);
+    params = applyAgentParams(params, agentCheckpoint?.selectedParams ?? null);
     params = prepareStepParamsForProvider({
       input: context.input,
       params,
@@ -539,6 +649,10 @@ async function startStep(
     return;
   }
 
+  if (agentCheckpoint) {
+    await store.markAgentCheckpointApplied(agentCheckpoint.id);
+  }
+
   try {
     const result = await provider.submit({
       modelIdentifier: providerModelIdentifier,
@@ -602,6 +716,201 @@ async function startStep(
       status: 'failed',
     });
   }
+}
+
+type AgentCheckpointOutcome =
+  | { kind: 'ready'; checkpoint: ChainAgentCheckpointRecord | null }
+  | { kind: 'paused' }
+  | { kind: 'failed'; errorCode: string; errorMessage: string };
+
+async function prepareAgentCheckpoint(args: {
+  agent?: ChainAgent;
+  readyStep: ChainStepRecord;
+  record: ChainRunWithSteps;
+  store: ChainStore;
+}): Promise<AgentCheckpointOutcome> {
+  const { readyStep, record, store } = args;
+  const execution = record.run.executionConfig;
+
+  if (execution.type !== 'chain_agent' || readyStep.dependsOn.length === 0) {
+    return { kind: 'ready', checkpoint: null };
+  }
+
+  const existing =
+    record.agentCheckpoints.find(
+      (checkpoint) => checkpoint.stepKey === readyStep.stepKey,
+    ) ??
+    (await store.getAgentCheckpointForStep(record.run.id, readyStep.stepKey));
+
+  if (existing) {
+    if (existing.status === 'failed') {
+      return {
+        kind: 'failed',
+        errorCode: existing.errorCode ?? 'chain_agent_failed',
+        errorMessage: existing.errorMessage ?? 'Chain Agent checkpoint failed.',
+      };
+    }
+
+    if (existing.status === 'suggested') {
+      await store.updateActiveRun(record.run.id, {
+        currentStepKey: readyStep.stepKey,
+        status: 'awaiting_agent',
+      });
+      return { kind: 'paused' };
+    }
+
+    if (!existing.selectedParams || !existing.selectedPrompt) {
+      return {
+        kind: 'failed',
+        errorCode: 'chain_agent_invalid_checkpoint',
+        errorMessage: 'Agent checkpoint is missing selected prompt data.',
+      };
+    }
+
+    return { kind: 'ready', checkpoint: existing };
+  }
+
+  const previousStepKey = readyStep.dependsOn[readyStep.dependsOn.length - 1];
+  const previousStep = record.steps.find(
+    (step) => step.stepKey === previousStepKey && step.status === 'succeeded',
+  );
+
+  if (!previousStep) {
+    return {
+      kind: 'failed',
+      errorCode: 'chain_agent_context_missing',
+      errorMessage: 'Chain Agent could not find the previous completed step.',
+    };
+  }
+
+  try {
+    const agent = args.agent ?? createChainAgent(execution);
+    const result = await agent.suggestNextStep({
+      currentInput: record.run.input as JsonObject,
+      flow: {
+        currentStepKey: previousStep.stepKey,
+        nextStepKey: readyStep.stepKey,
+        mode: execution.mode,
+      },
+      previousStep,
+      nextStep: readyStep,
+    });
+    const selectedParams = normalizeAgentSelectedParams(
+      result.selectedPrompt,
+      result.selectedParams,
+    );
+    const checkpoint = await store.createAgentCheckpoint({
+      inputSnapshot: agentInputSnapshot(record, previousStep, readyStep),
+      mode: execution.mode,
+      modelIdentifier: execution.modelIdentifier,
+      output: {
+        observations: result.observations,
+        raw_text: result.rawText,
+        selected_params: selectedParams,
+        selected_prompt: result.selectedPrompt,
+        suggestions: result.suggestions as unknown as JsonObject['suggestions'],
+      } as JsonObject,
+      previousStepKey: previousStep.stepKey,
+      provider: execution.provider,
+      runId: record.run.id,
+      selectedParams,
+      selectedPrompt: result.selectedPrompt,
+      status: execution.mode === 'autopilot' ? 'approved' : 'suggested',
+      stepKey: readyStep.stepKey,
+    });
+
+    await store.recordAuditEvent({
+      action: 'agent_checkpoint.created',
+      apiKeyId: record.run.apiKeyId,
+      details: {
+        checkpoint_id: checkpoint.id,
+        mode: execution.mode,
+        step_key: readyStep.stepKey,
+      },
+      runId: record.run.id,
+    });
+
+    if (execution.mode === 'review') {
+      await store.updateActiveRun(record.run.id, {
+        currentStepKey: readyStep.stepKey,
+        status: 'awaiting_agent',
+      });
+      return { kind: 'paused' };
+    }
+
+    return { kind: 'ready', checkpoint };
+  } catch (error) {
+    return {
+      kind: 'failed',
+      errorCode:
+        error instanceof BabyChainError ? error.code : 'chain_agent_failed',
+      errorMessage: toErrorMessage(error),
+    };
+  }
+}
+
+function applyAgentParams(
+  params: GenerationParams,
+  selectedParams: JsonObject | null,
+): GenerationParams {
+  if (!selectedParams) {
+    return params;
+  }
+
+  return {
+    ...params,
+    ...agentTunableParams(selectedParams),
+  } as GenerationParams;
+}
+
+function normalizeAgentSelectedParams(
+  selectedPrompt: string,
+  selectedParams: JsonObject,
+): JsonObject {
+  return {
+    ...agentTunableParams(selectedParams),
+    generation_prompt: selectedPrompt,
+  } as JsonObject;
+}
+
+function agentTunableParams(params: JsonObject) {
+  return Object.fromEntries(
+    Object.entries(params).filter(
+      ([key]) =>
+        key.startsWith('generation_') && !AGENT_RESERVED_PARAM_KEYS.has(key),
+    ),
+  );
+}
+
+function agentInputSnapshot(
+  record: ChainRunWithSteps,
+  previousStep: ChainStepRecord,
+  nextStep: ChainStepRecord,
+): JsonObject {
+  return {
+    run_id: record.run.id,
+    previous_step: {
+      step_key: previousStep.stepKey,
+      step_kind: previousStep.stepKind,
+      model_identifier: previousStep.modelIdentifier,
+      output_files: previousStep.outputFiles.map(safeOutputReference),
+    },
+    next_step: {
+      step_key: nextStep.stepKey,
+      step_kind: nextStep.stepKind,
+      model_identifier: nextStep.modelIdentifier,
+    },
+  };
+}
+
+function safeOutputReference(value: string) {
+  if (!value.trim().toLowerCase().startsWith('data:')) {
+    return value;
+  }
+
+  const commaIndex = value.indexOf(',');
+  const header = commaIndex >= 0 ? value.slice(0, commaIndex) : 'data:';
+  return `${header},<inline ${value.length} chars>`;
 }
 
 async function cancelStartedGeneration(

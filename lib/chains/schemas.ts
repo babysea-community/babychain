@@ -6,6 +6,7 @@ import { BABYCHAIN_CRON_RUN_LIMIT } from './shared-constants';
 
 export const MAX_RUN_INPUT_BYTES = 64 * 1024;
 export const MAX_RUN_METADATA_BYTES = 16 * 1024;
+export const MAX_AGENT_PARAMS_BYTES = 16 * 1024;
 
 const MAX_JSON_DEPTH = 12;
 const MAX_JSON_KEYS = 200;
@@ -13,13 +14,52 @@ const MAX_JSON_ARRAY_ITEMS = 100;
 const MAX_JSON_STRING_BYTES = 8 * 1024;
 const MAX_JSON_NODES = 1_000;
 
+export const CreateRunExecutionSchema = z
+  .object({
+    type: z.enum(['canvas_flow', 'chain_agent']).default('canvas_flow'),
+    mode: z.enum(['review', 'autopilot']).optional(),
+    provider: z.literal('bedrock').optional(),
+    model_identifier: z.preprocess(
+      emptyStringToUndefined,
+      z.string().trim().min(1).max(200).optional(),
+    ),
+  })
+  .default({ type: 'canvas_flow' })
+  .superRefine((value, context) => {
+    if (value.type === 'canvas_flow') {
+      return;
+    }
+
+    if (!value.mode) {
+      context.addIssue({
+        code: 'custom',
+        message: 'execution.mode is required for Chain Agent runs.',
+        path: ['mode'],
+      });
+    }
+  });
+
 export const CreateRunRequestSchema = z.object({
   input: boundedJsonRecord('input', MAX_RUN_INPUT_BYTES).default({}),
   metadata: boundedJsonRecord('metadata', MAX_RUN_METADATA_BYTES).default({}),
+  execution: CreateRunExecutionSchema,
   webhook_url: z.preprocess(
     emptyStringToUndefined,
     z.string().trim().url().optional(),
   ),
+});
+
+export const ContinueAgentRunRequestSchema = z.object({
+  checkpoint_id: z.string().uuid(),
+  selected_prompt: z
+    .string()
+    .trim()
+    .min(1)
+    .max(8 * 1024),
+  selected_params: boundedJsonRecord(
+    'selected_params',
+    MAX_AGENT_PARAMS_BYTES,
+  ).default({}),
 });
 
 export const RunIdSchema = z.string().uuid();

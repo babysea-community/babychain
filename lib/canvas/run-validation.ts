@@ -39,10 +39,12 @@ export type CanvasFlowRunValidation =
   | { ok: false; reason: string };
 
 export function validateCanvasFlowRun({
+  agentDownstreamPrompts = false,
   fieldsByModel,
   flowNodes,
   models,
 }: {
+  agentDownstreamPrompts?: boolean;
   fieldsByModel: Record<string, CanvasRunValidationGroup | undefined>;
   flowNodes: readonly CanvasRunValidationNode[];
   models: readonly CanvasRunValidationModel[];
@@ -93,7 +95,10 @@ export function validateCanvasFlowRun({
         );
       }
 
-      if (isRequiredRunField(field) && !meaningfulCanvasValue(value)) {
+      if (
+        isRequiredRunField(field, node.data.role, { agentDownstreamPrompts }) &&
+        !meaningfulCanvasValue(value)
+      ) {
         return blocked(
           `Fill ${field.name} in the ${node.data.role}_model node.`,
         );
@@ -122,7 +127,19 @@ function shouldValidateFieldForRole(
   );
 }
 
-function isRequiredRunField(field: CanvasRunValidationField) {
+function isRequiredRunField(
+  field: CanvasRunValidationField,
+  role: ChainSchemaStepRole,
+  options: { agentDownstreamPrompts: boolean },
+) {
+  if (
+    options.agentDownstreamPrompts &&
+    role !== 'image' &&
+    field.name === 'generation_prompt'
+  ) {
+    return false;
+  }
+
   return field.required === true || field.name === 'generation_prompt';
 }
 

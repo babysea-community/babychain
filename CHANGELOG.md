@@ -6,6 +6,8 @@ All notable changes will be documented here. The format follows [Keep a Changelo
 
 ### Changed
 
+- BabyChain runs now carry an explicit execution mode, allowing the existing canvas flow runner to opt into Chain Agent Review or Autopilot without mixing agent planning into media provider routing.
+- Canvas runner cards now expose Run, Review, and Autopilot modes; Review runs pause at durable agent checkpoints for prompt approval, while Autopilot applies approved agent prompts before starting the downstream step.
 - Updated the BYOK schema source to `semantic-lady@0.4.4`, including published provider model ids, corrected provider defaults, removal of the unsupported Google Veo 3.1 `generation_audio` request field, and corrected video workflow roles for Runway Aleph, Wan Video Edit, and HappyHorse Video Edit models.
 - Removed BabyChain's hand-maintained model schema catalog and provider-side size/ratio conversion tables; model fields, defaults, enums, and provider model ids now come from Semantic Lady.
 - Workspace `Run and save` now creates a fresh Library card for each run, while saved canvas pages still update the opened canvas in place; untouched auto-generated flow names are refreshed when new Library cards are created.
@@ -35,6 +37,8 @@ All notable changes will be documented here. The format follows [Keep a Changelo
 
 ### Added
 
+- Added durable Chain Agent checkpoints in Aurora, public `agent_checkpoints` response serialization, timeline events, and `POST /api/v1/chains/continue/:runId` for approving Review-mode checkpoints.
+- Added a separate Amazon Bedrock Nova Chain Agent service boundary using `AWS_BEARER_TOKEN_BEDROCK`, `BEDROCK_REGION`, and `BEDROCK_NOVA_AGENT_MODEL`, with documented no-storage media context limits while BabyChain storage remains deferred.
 - Added authenticated run-output URLs under `GET /api/v1/chains/get/:runId/outputs/:stepKey/:outputIndex` and dashboard preview URLs under `/api/dashboard/chains/get/:runId/outputs/:stepKey/:outputIndex` so inline provider media can be fetched separately without embedding base64 payloads inside run JSON.
 - Added explicit media-driven variants for `runway/act-two`, `wan/2.2-animate-mix`, and `wan/2.2-animate-move`: Image variants run as `video_model` steps with caller reference media, while Video variants run as `modify_model` steps with the required caller companion media.
 - Added Docker Hub publishing metadata and runtime health checks for the public `babyseaoss/babychain:0.1.1` and `babyseaoss/babychain:latest` image tags.
@@ -42,6 +46,9 @@ All notable changes will be documented here. The format follows [Keep a Changelo
 
 ### Fixed
 
+- Chain Agent media reads now pin the validated DNS address for HTTPS downloads, preventing DNS rebinding between safety validation and fetch.
+- Agent-selected params can no longer override BabyChain-owned handoff, callback, provider-order, provider-used, or output fields when Review or Autopilot applies a prompt to the downstream generation step.
+- Canvas failed-run toasts now read the serialized `error.message` response shape, so provider and agent failure guidance remains visible in the dashboard.
 - Workspace `Run and save` no longer creates a Library card before a run id exists, preventing fast navigation from leaving an orphan "not run yet" card and tempting a duplicate publish.
 - Media-input and callback URL safety checks now fail closed when DNS resolution hangs, bounding how long provider submission or terminal callback delivery waits on a slow resolver.
 - `GET /api/v1/chains/get/:runId`, create-run responses, and terminal callbacks no longer serialize provider `data:*;base64,...` outputs directly in `generation_output_file`; inline media is returned as clean authenticated output URLs while normal provider URLs stay unchanged.

@@ -4,9 +4,17 @@ import type { z } from 'zod';
 export const CHAIN_RUN_STATUSES = [
   'queued',
   'running',
+  'awaiting_agent',
   'succeeded',
   'failed',
   'canceled',
+] as const;
+
+export const CHAIN_AGENT_CHECKPOINT_STATUSES = [
+  'suggested',
+  'approved',
+  'applied',
+  'failed',
 ] as const;
 
 export const CHAIN_STEP_STATUSES = [
@@ -19,6 +27,8 @@ export const CHAIN_STEP_STATUSES = [
 ] as const;
 
 export type ChainRunStatus = (typeof CHAIN_RUN_STATUSES)[number];
+export type ChainAgentCheckpointStatus =
+  (typeof CHAIN_AGENT_CHECKPOINT_STATUSES)[number];
 export type ChainStepStatus = (typeof CHAIN_STEP_STATUSES)[number];
 export type ChainStepKind = 'image' | 'video';
 
@@ -122,11 +132,44 @@ export type ChainRunRecord = {
   idempotencyKeyHash: string | null;
   estimate: JsonObject | null;
   metadata: JsonObject;
+  executionConfig: ChainExecutionConfig;
   /** Non-secret marker for server-side BYOK mode; `null` for BabySea mode. */
   byokCredentials: JsonObject | null;
   createdAt: string;
   updatedAt: string;
   completedAt: string | null;
+};
+
+export type ChainExecutionConfig =
+  | {
+      type: 'canvas_flow';
+    }
+  | {
+      type: 'chain_agent';
+      mode: 'review' | 'autopilot';
+      provider: 'bedrock';
+      modelIdentifier: string;
+    };
+
+export type ChainAgentCheckpointRecord = {
+  id: string;
+  runId: string;
+  stepKey: string;
+  previousStepKey: string;
+  mode: 'review' | 'autopilot';
+  provider: 'bedrock';
+  modelIdentifier: string;
+  status: ChainAgentCheckpointStatus;
+  inputSnapshot: JsonObject;
+  output: JsonObject;
+  selectedPrompt: string | null;
+  selectedParams: JsonObject | null;
+  errorCode: string | null;
+  errorMessage: string | null;
+  approvedAt: string | null;
+  appliedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
 };
 
 export type ChainStepRecord = {
@@ -163,6 +206,7 @@ export type ChainStepRecord = {
 export type ChainRunWithSteps = {
   run: ChainRunRecord;
   steps: ChainStepRecord[];
+  agentCheckpoints: ChainAgentCheckpointRecord[];
 };
 
 export type ApiKeyPrincipal = {

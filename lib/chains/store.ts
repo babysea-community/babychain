@@ -4,6 +4,7 @@ import { AuroraChainStore } from './aurora-store';
 import type {
   ApiKeyPrincipal,
   ChainEstimate,
+  ChainExecutionConfig,
   ChainInput,
   ChainRunStatus,
   ChainStepKind,
@@ -28,6 +29,7 @@ export type CreateChainRunInput = {
   chainVersion: string;
   clientRequestId: string | null;
   estimate: ChainEstimate | null;
+  executionConfig: ChainExecutionConfig;
   idempotencyKeyHash: string | null;
   input: ChainInput;
   metadata: JsonObject;
@@ -39,6 +41,26 @@ export type CreateChainRunInput = {
     stepKey: string;
     stepKind: ChainStepKind;
   }>;
+};
+
+export type CreateAgentCheckpointInput = {
+  inputSnapshot: JsonObject;
+  mode: 'review' | 'autopilot';
+  modelIdentifier: string;
+  output: JsonObject;
+  previousStepKey: string;
+  provider: 'bedrock';
+  runId: string;
+  selectedParams?: JsonObject | null;
+  selectedPrompt?: string | null;
+  status: 'suggested' | 'approved';
+  stepKey: string;
+};
+
+export type ApproveAgentCheckpointInput = {
+  checkpointId: string;
+  selectedParams: JsonObject;
+  selectedPrompt: string;
 };
 
 export type FindIdempotentRunInput = {

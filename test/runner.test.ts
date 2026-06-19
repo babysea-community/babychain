@@ -11,7 +11,7 @@ import {
   serializeRunWithSteps,
 } from '@/lib/chains/presenters';
 import { createDataUrlOutputResponse } from '@/lib/chains/output-files';
-import type { ChainRunWithSteps } from '@/lib/chains/types';
+import type { ChainRunWithSteps, JsonObject } from '@/lib/chains/types';
 import { BabyChainError } from '@/lib/utils/errors';
 
 describe('runner callback validation', () => {
@@ -127,7 +127,13 @@ describe('runner step claiming', () => {
       store: {} as never,
     });
 
-    expect(result.run.status).toBe('running');
+    expect({
+      run: result.run,
+      steps: result.steps,
+      checkpoints: result.agentCheckpoints,
+    }).toMatchObject({
+      run: { status: 'running' },
+    });
     expect(result.steps[0]!.status).toBe('running');
     expect(result.steps[0]!.babyseaGenerationId).toBeNull();
   });
@@ -776,6 +782,77 @@ describe('runner step claiming', () => {
       'Required previous step output is missing.',
     );
   });
+
+  it('pauses a Chain Agent Review run at the next checkpoint', async () => {
+    const record = chainAgentRecord('review');
+    let updatedRecord = record;
+    const store = createMutableAgentStore(updatedRecord, (next) => {
+      updatedRecord = next;
+    });
+    const agent = createPromptAgent({
+      selectedPrompt: 'Slow cinematic dolly-in over the finished product.',
+      selectedParams: { generation_prompt: 'Slow cinematic dolly-in.' },
+    });
+
+    const result = await processRun(record, {
+      agent,
+      babysea: {} as never,
+      store: store as never,
+    });
+
+    expect(result.run.status).toBe('awaiting_agent');
+    expect(result.run.currentStepKey).toBe('video');
+    expect(result.agentCheckpoints).toHaveLength(1);
+    expect(result.agentCheckpoints[0]).toMatchObject({
+      previousStepKey: 'image',
+      status: 'suggested',
+      stepKey: 'video',
+    });
+    expect(result.steps[1]!.status).toBe('queued');
+  });
+
+  it('applies Chain Agent Autopilot prompt without overriding media handoff', async () => {
+    const record = chainAgentRecord('autopilot');
+    let updatedRecord = record;
+    let submittedParams: Record<string, unknown> | null = null;
+    const store = createMutableAgentStore(updatedRecord, (next) => {
+      updatedRecord = next;
+    });
+    const agent = createPromptAgent({
+      selectedPrompt: 'Elegant orbit with warm highlights.',
+      selectedParams: {
+        generation_input_file: ['https://attacker.example.com/skip.png'],
+        generation_input_video_file: ['https://attacker.example.com/skip.mp4'],
+        generation_prompt: 'Elegant orbit with warm highlights.',
+      },
+    });
+    const babysea = {
+      generate: async (_model: string, params: Record<string, unknown>) => {
+        submittedParams = params;
+
+        return {
+          data: { generation_id: 'gen_agent_video' },
+          idempotency_replayed: false,
+          request_id: 'req_agent_video',
+        };
+      },
+    };
+
+    const result = await processRun(record, {
+      agent,
+      babysea: babysea as never,
+      store: store as never,
+    });
+
+    expect(result.run.status).toBe('running');
+    expect(result.run.currentStepKey).toBe('video');
+    expect(result.agentCheckpoints[0]).toMatchObject({ status: 'applied' });
+    expect(submittedParams).toMatchObject({
+      generation_input_file: ['data:image/png;base64,aW1hZ2U='],
+      generation_prompt: 'Elegant orbit with warm highlights.',
+    });
+    expect(submittedParams).not.toHaveProperty('generation_input_video_file');
+  });
 });
 
 describe('runner response presentation', () => {
@@ -1229,6 +1306,7 @@ function createRunWithSteps(
       errorCode: null,
       errorMessage: null,
       estimate: null,
+      executionConfig: { type: 'canvas_flow' },
       id: 'af252a34-977d-4fc5-81ac-502d2fb94421',
       idempotencyKeyHash: null,
       input: {
@@ -1275,5 +1353,245 @@ function createRunWithSteps(
         ...overrides.step,
       },
     ],
+    agentCheckpoints: [],
+  };
+}
+
+function chainAgentRecord(mode: 'autopilot' | 'review'): ChainRunWithSteps {
+  const base = createRunWithSteps({
+    run: {
+      executionConfig: {
+        type: 'chain_agent',
+        mode,
+        provider: 'bedrock',
+        modelIdentifier: 'amazon.nova-premier-v1:0',
+      },
+      input: {
+        image_model: 'bytedance/seedream-4.5',
+        image_model_input: {
+          generation_prompt: 'A premium product render',
+        },
+        video_model: 'bytedance/seedance-1.5-pro',
+        video_model_input: {
+          generation_duration: 4,
+          generation_prompt: 'Chain Agent will write this prompt.',
+        },
+      },
+      status: 'running',
+    },
+    step: {
+      babyseaGenerationId: 'gen_agent_image',
+      completedAt: new Date().toISOString(),
+      outputFiles: ['data:image/png;base64,aW1hZ2U='],
+      requestParams: { generation_prompt: 'A premium product render' },
+      status: 'succeeded',
+    },
+  });
+
+  return {
+    ...base,
+    steps: [
+      base.steps[0]!,
+      {
+        ...base.steps[0]!,
+        babyseaGenerationId: null,
+        completedAt: null,
+        dependsOn: ['image'],
+        id: '5f1c6f0a-95c5-4f1d-9f74-8f2f5b8f1c12',
+        modelIdentifier: 'bytedance/seedance-1.5-pro',
+        outputFiles: [],
+        requestParams: null,
+        startedAt: null,
+        status: 'queued',
+        stepIndex: 1,
+        stepKey: 'video',
+        stepKind: 'video',
+      },
+    ],
+  };
+}
+
+function createPromptAgent(input: {
+  selectedParams: JsonObject;
+  selectedPrompt: string;
+}) {
+  return {
+    suggestNextStep: async () => ({
+      observations: { mood: 'premium' },
+      rawText: '{}',
+      selectedParams: input.selectedParams,
+      selectedPrompt: input.selectedPrompt,
+      suggestions: [
+        {
+          title: 'Cinematic',
+          prompt: input.selectedPrompt,
+        },
+      ],
+    }),
+  };
+}
+
+function createMutableAgentStore(
+  initialRecord: ChainRunWithSteps,
+  setRecord: (record: ChainRunWithSteps) => void,
+) {
+  let currentRecord = initialRecord;
+  const updateRecord = (
+    updater: (record: ChainRunWithSteps) => ChainRunWithSteps,
+  ) => {
+    currentRecord = updater(currentRecord);
+    setRecord(currentRecord);
+  };
+
+  return {
+    claimQueuedStep: async (stepId: string, patch: Record<string, unknown>) => {
+      const step = currentRecord.steps.find(
+        (candidate) => candidate.id === stepId && candidate.status === 'queued',
+      );
+
+      if (!step) return null;
+
+      const updatedStep = {
+        ...step,
+        ...patch,
+      } as ChainRunWithSteps['steps'][number];
+      updateRecord((record) => ({
+        ...record,
+        steps: record.steps.map((candidate) =>
+          candidate.id === stepId ? updatedStep : candidate,
+        ),
+      }));
+
+      return updatedStep;
+    },
+    createAgentCheckpoint: async (input: {
+      inputSnapshot: JsonObject;
+      mode: 'autopilot' | 'review';
+      modelIdentifier: string;
+      output: JsonObject;
+      previousStepKey: string;
+      provider: 'bedrock';
+      runId: string;
+      selectedParams?: JsonObject | null;
+      selectedPrompt?: string | null;
+      status: 'approved' | 'suggested';
+      stepKey: string;
+    }) => {
+      const now = new Date().toISOString();
+      const checkpoint = {
+        id: '33333333-3333-4333-8333-333333333333',
+        appliedAt: null,
+        approvedAt: input.status === 'approved' ? now : null,
+        createdAt: now,
+        errorCode: null,
+        errorMessage: null,
+        inputSnapshot: input.inputSnapshot,
+        mode: input.mode,
+        modelIdentifier: input.modelIdentifier,
+        output: input.output,
+        previousStepKey: input.previousStepKey,
+        provider: input.provider,
+        runId: input.runId,
+        selectedParams: input.selectedParams ?? null,
+        selectedPrompt: input.selectedPrompt ?? null,
+        status: input.status,
+        stepKey: input.stepKey,
+        updatedAt: now,
+      } satisfies ChainRunWithSteps['agentCheckpoints'][number];
+      updateRecord((record) => ({
+        ...record,
+        agentCheckpoints: [...record.agentCheckpoints, checkpoint],
+      }));
+
+      return checkpoint;
+    },
+    getAgentCheckpointForStep: async (runId: string, stepKey: string) =>
+      currentRecord.agentCheckpoints.find(
+        (checkpoint) =>
+          checkpoint.runId === runId && checkpoint.stepKey === stepKey,
+      ) ?? null,
+    getRunWithSteps: async () => currentRecord,
+    markAgentCheckpointApplied: async (checkpointId: string) => {
+      let updated = null as
+        | ChainRunWithSteps['agentCheckpoints'][number]
+        | null;
+      updateRecord((record) => ({
+        ...record,
+        agentCheckpoints: record.agentCheckpoints.map((checkpoint) => {
+          if (checkpoint.id !== checkpointId) return checkpoint;
+          updated = {
+            ...checkpoint,
+            appliedAt: new Date().toISOString(),
+            status: 'applied',
+          };
+          return updated;
+        }),
+      }));
+      return updated;
+    },
+    recordAuditEvent: async () => undefined,
+    updateActiveRun: async (_runId: string, patch: Record<string, unknown>) => {
+      if (
+        !['queued', 'running', 'awaiting_agent'].includes(
+          currentRecord.run.status,
+        )
+      ) {
+        return null;
+      }
+
+      updateRecord((record) => ({
+        ...record,
+        run: { ...record.run, ...patch },
+      }));
+
+      return currentRecord.run;
+    },
+    updateQueuedStep: async (
+      stepId: string,
+      patch: Record<string, unknown>,
+    ) => {
+      const step = currentRecord.steps.find(
+        (candidate) => candidate.id === stepId && candidate.status === 'queued',
+      );
+
+      if (!step) return null;
+
+      const updatedStep = {
+        ...step,
+        ...patch,
+      } as ChainRunWithSteps['steps'][number];
+      updateRecord((record) => ({
+        ...record,
+        steps: record.steps.map((candidate) =>
+          candidate.id === stepId ? updatedStep : candidate,
+        ),
+      }));
+
+      return updatedStep;
+    },
+    updateRunningStep: async (
+      stepId: string,
+      patch: Record<string, unknown>,
+    ) => {
+      const step = currentRecord.steps.find(
+        (candidate) =>
+          candidate.id === stepId && candidate.status === 'running',
+      );
+
+      if (!step) return null;
+
+      const updatedStep = {
+        ...step,
+        ...patch,
+      } as ChainRunWithSteps['steps'][number];
+      updateRecord((record) => ({
+        ...record,
+        steps: record.steps.map((candidate) =>
+          candidate.id === stepId ? updatedStep : candidate,
+        ),
+      }));
+
+      return updatedStep;
+    },
   };
 }

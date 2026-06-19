@@ -1,12 +1,18 @@
 import { readByokRunConfig } from '@/lib/providers';
 import { BabyChainError } from '@/lib/utils/errors';
 
-import type { ChainInput, ChainRunRecord, JsonObject } from './types';
+import type {
+  ChainExecutionConfig,
+  ChainInput,
+  ChainRunRecord,
+  JsonObject,
+} from './types';
 
 export type IdempotentRunRequest = {
   byokProviders?: string[];
   callbackUrl: string | null;
   input: ChainInput;
+  executionConfig?: ChainExecutionConfig;
   metadata: JsonObject;
   providerMode?: 'babysea' | 'byok';
 };
@@ -23,7 +29,7 @@ export function assertIdempotentRunMatches(
 
   throw new BabyChainError(
     'idempotency_conflict',
-    'Idempotency-Key was already used with different run input, metadata, webhook_url, or provider mode.',
+    'Idempotency-Key was already used with different run input, metadata, execution, webhook_url, or provider mode.',
     409,
     { conflicts },
   );
@@ -41,6 +47,10 @@ function idempotencyConflictFields(
 
   if (!sameJsonValue(run.metadata, request.metadata)) {
     conflicts.push('metadata');
+  }
+
+  if (!sameJsonValue(run.executionConfig, normalizedExecution(request))) {
+    conflicts.push('execution');
   }
 
   if (run.callbackUrl !== request.callbackUrl) {
@@ -72,6 +82,10 @@ function byokProvidersForRun(run: ChainRunRecord) {
 
 function normalizedProviders(request: IdempotentRunRequest) {
   return [...(request.byokProviders ?? [])].sort();
+}
+
+function normalizedExecution(request: IdempotentRunRequest) {
+  return request.executionConfig ?? { type: 'canvas_flow' };
 }
 
 function sameJsonValue(left: unknown, right: unknown) {

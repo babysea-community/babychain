@@ -480,12 +480,35 @@ type RunStep = {
   generation_output_file?: string[];
 };
 
+type RunMode = 'canvas_flow' | 'agent_review' | 'agent_autopilot';
+
+type AgentCheckpointSuggestion = {
+  title?: string;
+  prompt?: string;
+  rationale?: string;
+  params?: Record<string, unknown>;
+};
+
+type AgentCheckpoint = {
+  id: string;
+  step_key: string;
+  status: string;
+  suggestions?: AgentCheckpointSuggestion[];
+  selected_prompt?: string | null;
+  selected_params?: Record<string, unknown> | null;
+};
+
 type RunJson = {
+  agent_checkpoints?: AgentCheckpoint[];
+  error?: { message?: string | null } | null;
   id: string;
   status: string;
-  error_message?: string | null;
   steps?: RunStep[];
 };
+
+function runErrorMessage(run: RunJson) {
+  return run.error?.message?.trim() || 'The run failed.';
+}
 
 type CanvasProps = {
   byokProviders: ByokProviderKey[];
@@ -502,9 +525,21 @@ type CanvasProps = {
   ) => Promise<FieldGroup>;
   runChainAction: (
     input: Record<string, unknown>,
-    options?: { canvasId?: string; flowId?: string },
+    options?: {
+      canvasId?: string;
+      execution?: Record<string, unknown>;
+      flowId?: string;
+    },
   ) => Promise<{ ok: true; run: unknown } | { ok: false; error: string }>;
   getRunAction: (runId: string) => Promise<unknown | null>;
+  continueAgentAction: (
+    runId: string,
+    input: {
+      checkpointId: string;
+      selectedParams: Record<string, unknown>;
+      selectedPrompt: string;
+    },
+  ) => Promise<{ ok: true; run: unknown } | { ok: false; error: string }>;
   cancelRunAction: (runId: string) => Promise<unknown | null>;
   saveCanvasAction: (input: {
     id: string;
@@ -814,6 +849,11 @@ type FlowNode = Node<NodeData>;
 
 type NodeStatus = { status: string; output?: string };
 
+type AgentCheckpointState = {
+  checkpoint: AgentCheckpoint;
+  runId: string;
+};
+
 type FlowMeta = {
   roles: Set<StepRole>;
   autoName: string;
@@ -826,7 +866,9 @@ type CanvasContextValue = {
   runValidationByFlow: Record<string, CanvasFlowRunValidation | undefined>;
   statusByNode: Record<string, NodeStatus | undefined>;
   runningFlowIds: ReadonlySet<string>;
+  runModeByFlow: ReadonlyMap<string, RunMode>;
   runIdsByFlow: ReadonlyMap<string, string>;
+  agentCheckpointByNode: Record<string, AgentCheckpointState | undefined>;
   flowMeta: Record<string, FlowMeta | undefined>;
   flowCount: number;
   isSavedCanvas: boolean;
@@ -840,7 +882,14 @@ type CanvasContextValue = {
   createFlowCurl: (flowId: string) => string | null;
   renameCanvas: (flowId: string, title: string) => void;
   addNodeToFlow: (flowId: string, role: StepRole) => void;
+  continueAgentCheckpoint: (
+    flowId: string,
+    checkpointId: string,
+    selectedPrompt: string,
+    selectedParams: Record<string, unknown>,
+  ) => void;
   runFlow: (flowId: string, save: boolean) => void;
+  setRunMode: (flowId: string, mode: RunMode) => void;
   stopFlow: (flowId: string) => void;
 };
 
@@ -1302,11 +1351,13 @@ function ModelNodeComponent({ id, data }: NodeProps) {
     models,
     fieldsByModel,
     statusByNode,
+    agentCheckpointByNode,
     runningFlowIds,
     flowMeta,
     isSavedCanvas,
     updateModel,
     updateValue,
+    continueAgentCheckpoint,
     removeNode,
     addNodeToFlow,
   } = useCanvas();
@@ -1323,6 +1374,7 @@ function ModelNodeComponent({ id, data }: NodeProps) {
   const HeaderIcon = inferenceIcon(model?.provider);
   const meta = flowMeta[flowId];
   const running = runningFlowIds.has(flowId);
+  const agentCheckpoint = agentCheckpointByNode[id];
   const addableRole: StepRole | null =
     role === 'image' && !meta?.roles.has('refine')
       ? 'refine'
@@ -1576,6 +1628,21 @@ function ModelNodeComponent({ id, data }: NodeProps) {
           </>
         )}
 
+        {agentCheckpoint ? (
+          <AgentCheckpointPanel
+            checkpoint={agentCheckpoint.checkpoint}
+            disabled={!running}
+            onApprove={(prompt, params) =>
+              continueAgentCheckpoint(
+                flowId,
+                agentCheckpoint.checkpoint.id,
+                prompt,
+                params,
+              )
+            }
+          />
+        ) : null}
+
         {nodeStatus?.output ? (
           <div className="border border-border">
             {/* Key by URL so a new run's output restarts the loading state
@@ -1587,6 +1654,90 @@ function ModelNodeComponent({ id, data }: NodeProps) {
             />
           </div>
         ) : null}
+      </div>
+    </div>
+  );
+}
+
+function AgentCheckpointPanel({
+  checkpoint,
+  disabled,
+  onApprove,
+}: {
+  checkpoint: AgentCheckpoint;
+  disabled: boolean;
+  onApprove: (prompt: string, params: Record<string, unknown>) => void;
+}) {
+  const suggestions = checkpoint.suggestions ?? [];
+  const [selectedIndex, setSelectedIndex] = useState(0);
+  const selected = suggestions[selectedIndex];
+  const fallbackPrompt = checkpoint.selected_prompt ?? selected?.prompt ?? '';
+  const [draft, setDraft] = useState(fallbackPrompt);
+
+  useEffect(() => {
+    setDraft(fallbackPrompt);
+  }, [fallbackPrompt]);
+
+  const approve = () => {
+    const prompt = draft.trim();
+    if (!prompt) {
+      toast.error('Choose or write a Chain Agent prompt first.');
+      return;
+    }
+
+    onApprove(prompt, {
+      ...(selected?.params ?? checkpoint.selected_params ?? {}),
+      generation_prompt: prompt,
+    });
+  };
+
+  return (
+    <div className="border border-primary/50 bg-primary/5">
+      <div className="border-b border-primary/30 px-2.5 py-1.5 text-[0.68rem] font-medium uppercase tracking-wide text-primary">
+        Chain Agent Review
+      </div>
+      <div className="space-y-2 p-2.5">
+        {suggestions.length > 0 ? (
+          <div className="grid gap-1.5">
+            {suggestions.map((suggestion, index) => (
+              <button
+                type="button"
+                key={`${checkpoint.id}:${index}`}
+                disabled={disabled}
+                onClick={() => {
+                  setSelectedIndex(index);
+                  setDraft(suggestion.prompt ?? '');
+                }}
+                className={cn(
+                  'nodrag border px-2 py-1.5 text-left text-[0.65rem] leading-4 transition disabled:opacity-60',
+                  index === selectedIndex
+                    ? 'border-primary bg-primary/10 text-foreground'
+                    : 'border-border text-muted-foreground hover:border-primary/60 hover:text-foreground',
+                )}
+              >
+                <span className="block font-medium text-foreground">
+                  {suggestion.title || `Option ${index + 1}`}
+                </span>
+                <span className="line-clamp-3">{suggestion.prompt}</span>
+              </button>
+            ))}
+          </div>
+        ) : null}
+        <textarea
+          className="nodrag min-h-24 w-full resize-y border border-border bg-input px-2.5 py-1.5 text-xs text-foreground outline-none focus-visible:border-ring disabled:opacity-50"
+          disabled={disabled}
+          value={draft}
+          onChange={(event) => setDraft(event.target.value)}
+        />
+        <Button
+          className="nodrag w-full"
+          size="sm"
+          disabled={disabled}
+          onClick={approve}
+        >
+          <FontAwesomeIcon icon="check" />
+          Continue with prompt
+        </Button>
       </div>
     </div>
   );
@@ -1752,8 +1903,11 @@ function RunnerNodeComponent({ data }: NodeProps) {
     flowCount,
     isSavedCanvas,
     runValidationByFlow,
+    runModeByFlow,
+    setRunMode,
   } = useCanvas();
   const running = runningFlowIds.has(flowId);
+  const runMode = runModeByFlow.get(flowId) ?? 'canvas_flow';
   const runValidation = runValidationByFlow[flowId] ?? {
     ok: false,
     reason: 'Loading this flow.',
@@ -1793,6 +1947,29 @@ function RunnerNodeComponent({ data }: NodeProps) {
       </div>
 
       <div className="space-y-2 p-3">
+        <div className="grid gap-1.5 border border-border p-2">
+          <span className="text-[0.65rem] font-medium uppercase tracking-wide text-muted-foreground">
+            Run type
+          </span>
+          <RunModeButton
+            active={runMode === 'canvas_flow'}
+            disabled={running}
+            label="Canvas Flow"
+            onClick={() => setRunMode(flowId, 'canvas_flow')}
+          />
+          <RunModeButton
+            active={runMode === 'agent_review'}
+            disabled={running}
+            label="Chain Agent Review"
+            onClick={() => setRunMode(flowId, 'agent_review')}
+          />
+          <RunModeButton
+            active={runMode === 'agent_autopilot'}
+            disabled={running}
+            label="Chain Agent Autopilot"
+            onClick={() => setRunMode(flowId, 'agent_autopilot')}
+          />
+        </div>
         <p className="text-[0.65rem] leading-4 text-muted-foreground">
           {isSavedCanvas ? (
             <>
@@ -1889,6 +2066,40 @@ function RunnerNodeComponent({ data }: NodeProps) {
         </span>
       </div>
     </div>
+  );
+}
+
+function RunModeButton({
+  active,
+  disabled,
+  label,
+  onClick,
+}: {
+  active: boolean;
+  disabled: boolean;
+  label: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      disabled={disabled}
+      onClick={onClick}
+      className={cn(
+        'nodrag flex h-8 items-center gap-2 border px-2 text-left text-[0.65rem] transition disabled:opacity-50',
+        active
+          ? 'border-primary bg-primary/10 text-foreground'
+          : 'border-border text-muted-foreground hover:border-ring hover:text-foreground',
+      )}
+    >
+      <span
+        className={cn(
+          'size-2.5 border',
+          active ? 'border-primary bg-primary' : 'border-muted-foreground',
+        )}
+      />
+      {label}
+    </button>
   );
 }
 
@@ -2238,6 +2449,7 @@ function buildFlowRunInput(
   nodes: FlowNode[],
   flowId: string,
   fieldsByModel: Record<string, FieldGroup | undefined>,
+  options: { agentDownstreamPrompts?: boolean } = {},
 ) {
   const flowNodes = nodes
     .filter((node) => node.type === 'model' && node.data.flowId === flowId)
@@ -2256,6 +2468,14 @@ function buildFlowRunInput(
         )
       : [];
     const params = normalizeRunParams(compact(node.data.values), group);
+
+    if (
+      options.agentDownstreamPrompts &&
+      node.data.role !== 'image' &&
+      typeof params.generation_prompt !== 'string'
+    ) {
+      params.generation_prompt = 'Chain Agent will write this prompt.';
+    }
 
     if (node.data.role === 'image') {
       normalizeInitialImageInputArrays(params);
@@ -2283,6 +2503,18 @@ function buildFlowRunInput(
   }
 
   return { flowNodes, input };
+}
+
+function runModeExecution(mode: RunMode) {
+  if (mode === 'canvas_flow') {
+    return { type: 'canvas_flow' };
+  }
+
+  return {
+    type: 'chain_agent',
+    mode: mode === 'agent_review' ? 'review' : 'autopilot',
+    provider: 'bedrock',
+  };
 }
 
 function buildFlowCurlInput(
@@ -2598,6 +2830,12 @@ function CanvasInner(props: CanvasProps) {
   const [runIdsByFlow, setRunIdsByFlow] = useState<ReadonlyMap<string, string>>(
     new Map(),
   );
+  const [runModeByFlow, setRunModeByFlow] = useState<
+    ReadonlyMap<string, RunMode>
+  >(new Map());
+  const [agentCheckpointByNode, setAgentCheckpointByNode] = useState<
+    Record<string, AgentCheckpointState | undefined>
+  >({});
   const fieldsRef = useRef<Record<string, FieldGroup>>({});
   // Active run per flow; poll callbacks check it to drop stale responses.
   const flowRunIdRef = useRef(new Map<string, string>());
@@ -2737,7 +2975,9 @@ function CanvasInner(props: CanvasProps) {
     const result: Record<string, CanvasFlowRunValidation | undefined> = {};
 
     for (const [flowId, flowNodes] of flows) {
+      const runMode = runModeByFlow.get(flowId) ?? 'canvas_flow';
       result[flowId] = validateCanvasFlowRun({
+        agentDownstreamPrompts: runMode !== 'canvas_flow',
         fieldsByModel,
         flowNodes,
         models,
@@ -2745,7 +2985,7 @@ function CanvasInner(props: CanvasProps) {
     }
 
     return result;
-  }, [fieldsByModel, flows, models]);
+  }, [fieldsByModel, flows, models, runModeByFlow]);
 
   const edges = useMemo(() => {
     // Edges referencing nodes that are not (yet) in the state are dropped by
@@ -3131,6 +3371,7 @@ function CanvasInner(props: CanvasProps) {
     setRunIdsByFlow(new Map());
     setRunningFlows(new Set());
     setStatusByNode({});
+    setAgentCheckpointByNode({});
 
     const fresh = buildDefaultFlow(120);
     const freshFlowId = fresh[0]?.data.flowId;
@@ -3195,6 +3436,25 @@ function CanvasInner(props: CanvasProps) {
       }
       return next;
     });
+    setAgentCheckpointByNode((prev) => {
+      const next = { ...prev };
+      for (const nodeId of nodeByRole.values()) {
+        delete next[nodeId];
+      }
+
+      for (const checkpoint of run.agent_checkpoints ?? []) {
+        if (checkpoint.status !== 'suggested') {
+          continue;
+        }
+
+        const nodeId = nodeByRole.get(checkpoint.step_key);
+        if (nodeId) {
+          next[nodeId] = { checkpoint, runId: run.id };
+        }
+      }
+
+      return next;
+    });
   }, []);
 
   const finishFlow = useCallback((flowId: string) => {
@@ -3244,7 +3504,7 @@ function CanvasInner(props: CanvasProps) {
       if (TERMINAL.has(run.status)) {
         finishFlow(flowId);
         if (run.status === 'failed' && notifyFailure) {
-          toast.error(run.error_message?.trim() || 'The run failed.');
+          toast.error(runErrorMessage(run));
         }
         return;
       }
@@ -3313,11 +3573,13 @@ function CanvasInner(props: CanvasProps) {
     async (flowId: string, save: boolean) => {
       let flowNodes: FlowNode[];
       let input: Record<string, unknown>;
+      const runMode = runModeByFlow.get(flowId) ?? 'canvas_flow';
       try {
         const built = buildFlowRunInput(
           nodesRef.current,
           flowId,
           fieldsRef.current,
+          { agentDownstreamPrompts: runMode !== 'canvas_flow' },
         );
         flowNodes = built.flowNodes;
         input = built.input;
@@ -3328,6 +3590,7 @@ function CanvasInner(props: CanvasProps) {
         return;
       }
       const runValidation = validateCanvasFlowRun({
+        agentDownstreamPrompts: runMode !== 'canvas_flow',
         fieldsByModel: fieldsRef.current,
         flowNodes,
         models,
@@ -3343,6 +3606,13 @@ function CanvasInner(props: CanvasProps) {
       if (existingTimer) clearTimeout(existingTimer);
       setRunningFlows((prev) => new Set(prev).add(flowId));
       setStatusByNode((prev) => {
+        const next = { ...prev };
+        for (const node of flowNodes) {
+          delete next[node.id];
+        }
+        return next;
+      });
+      setAgentCheckpointByNode((prev) => {
         const next = { ...prev };
         for (const node of flowNodes) {
           delete next[node.id];
@@ -3383,6 +3653,7 @@ function CanvasInner(props: CanvasProps) {
 
       const result = await runChainAction(input, {
         ...(save && canvasId ? { canvasId } : {}),
+        execution: runModeExecution(runMode),
         ...(!canvasId ? { flowId } : {}),
       }).catch(() => null);
       if (!result || !result.ok) {
@@ -3450,7 +3721,7 @@ function CanvasInner(props: CanvasProps) {
       if (TERMINAL.has(run.status)) {
         finishFlow(flowId);
         if (run.status === 'failed') {
-          toast.error(run.error_message?.trim() || 'The run failed.');
+          toast.error(runErrorMessage(run));
         }
         return;
       }
@@ -3462,6 +3733,7 @@ function CanvasInner(props: CanvasProps) {
     [
       canvasId,
       models,
+      runModeByFlow,
       runChainAction,
       saveCanvasAction,
       recordFlowRunAction,
@@ -3498,6 +3770,56 @@ function CanvasInner(props: CanvasProps) {
     [finishFlow, cancelRunAction, applyRunToFlow],
   );
 
+  const setRunMode = useCallback((flowId: string, mode: RunMode) => {
+    setRunModeByFlow((prev) => {
+      const next = new Map(prev);
+      next.set(flowId, mode);
+      return next;
+    });
+  }, []);
+
+  const continueAgentCheckpoint = useCallback(
+    async (
+      flowId: string,
+      checkpointId: string,
+      selectedPrompt: string,
+      selectedParams: Record<string, unknown>,
+    ) => {
+      const runId = flowRunIdRef.current.get(flowId);
+      if (!runId) {
+        toast.error('This Chain Agent run is no longer being tracked.');
+        return;
+      }
+
+      const result = await props
+        .continueAgentAction(runId, {
+          checkpointId,
+          selectedParams,
+          selectedPrompt,
+        })
+        .catch(() => null);
+
+      if (!result || !result.ok) {
+        toast.error(
+          result && !result.ok ? result.error : 'Continuing the run failed.',
+        );
+        return;
+      }
+
+      const run = result.run as RunJson;
+      applyRunToFlow(flowId, run);
+      if (TERMINAL.has(run.status)) {
+        finishFlow(flowId);
+        return;
+      }
+      pollTimersRef.current.set(
+        flowId,
+        setTimeout(() => void pollFlow(flowId, run.id), 1200),
+      );
+    },
+    [props, applyRunToFlow, finishFlow, pollFlow],
+  );
+
   const contextValue = useMemo<CanvasContextValue>(
     () => ({
       byokProviders,
@@ -3505,7 +3827,9 @@ function CanvasInner(props: CanvasProps) {
       fieldsByModel,
       runValidationByFlow,
       statusByNode,
+      agentCheckpointByNode,
       runningFlowIds: runningFlows,
+      runModeByFlow,
       runIdsByFlow,
       flowMeta,
       flowCount: flows.size,
@@ -3535,7 +3859,9 @@ function CanvasInner(props: CanvasProps) {
         }
       },
       addNodeToFlow,
+      continueAgentCheckpoint,
       runFlow: (flowId: string, save: boolean) => void runFlow(flowId, save),
+      setRunMode,
       stopFlow,
     }),
     [
@@ -3544,7 +3870,9 @@ function CanvasInner(props: CanvasProps) {
       fieldsByModel,
       runValidationByFlow,
       statusByNode,
+      agentCheckpointByNode,
       runningFlows,
+      runModeByFlow,
       runIdsByFlow,
       flowMeta,
       flows,
@@ -3558,7 +3886,9 @@ function CanvasInner(props: CanvasProps) {
       duplicateFlow,
       renameCanvasAction,
       addNodeToFlow,
+      continueAgentCheckpoint,
       runFlow,
+      setRunMode,
       stopFlow,
     ],
   );

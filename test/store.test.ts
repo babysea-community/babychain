@@ -27,6 +27,7 @@ describe('AuroraChainStore', () => {
       chainVersion: '2026-05-23',
       clientRequestId: null,
       estimate: null,
+      executionConfig: { type: 'canvas_flow' },
       idempotencyKeyHash: null,
       input: {
         video_model_input: {
@@ -90,8 +91,9 @@ function createFakeClient() {
   return {
     query: async (sql: string, values: unknown[]) => {
       if (sql.includes('insert into babychain_private.chain_run')) {
-        const input = canonicalizeJsonb(JSON.parse(values[9] as string));
-        const inputOrder = JSON.parse(values[10] as string);
+        const executionConfig = JSON.parse(values[8] as string);
+        const input = canonicalizeJsonb(JSON.parse(values[10] as string));
+        const inputOrder = JSON.parse(values[11] as string);
 
         return {
           rows: [
@@ -105,6 +107,7 @@ function createFakeClient() {
               chain_version: values[5],
               client_request_id: null,
               estimate: null,
+              execution_config: executionConfig,
               idempotency_key_hash: null,
               input,
               input_order: inputOrder,

@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation';
 import { NextRequest } from 'next/server';
 
 import { POST as cancelRunRoute } from '@/app/api/v1/chains/cancel/[runId]/route';
+import { POST as continueRunRoute } from '@/app/api/v1/chains/continue/[runId]/route';
 import { GET as getRunRoute } from '@/app/api/v1/chains/get/[runId]/route';
 import { POST as createRunRoute } from '@/app/api/v1/chains/runs/route';
 import { requireOwnerSession } from '@/lib/auth/owner';
@@ -398,7 +399,11 @@ function withDashboardOutputUrls(value: unknown): unknown {
 
 async function runChainAction(
   input: Record<string, unknown>,
-  options?: { canvasId?: string; flowId?: string },
+  options?: {
+    canvasId?: string;
+    execution?: Record<string, unknown>;
+    flowId?: string;
+  },
 ): Promise<{ ok: true; run: unknown } | { ok: false; error: string }> {
   'use server';
   const session = await requireOwnerSession();
@@ -410,7 +415,7 @@ async function runChainAction(
           authorization: `Bearer ${callerKey()}`,
           'content-type': 'application/json',
         },
-        body: JSON.stringify({ input }),
+        body: JSON.stringify({ input, execution: options?.execution }),
         cache: 'no-store',
       }),
     );
@@ -432,6 +437,46 @@ async function runChainAction(
         options.flowId,
         json.id,
       ).catch(() => undefined);
+    }
+    return { ok: true, run: withDashboardOutputUrls(json) };
+  } catch (error) {
+    return {
+      ok: false,
+      error: formatCanvasActionError(error),
+    };
+  }
+}
+
+async function continueAgentAction(
+  runId: string,
+  input: {
+    checkpointId: string;
+    selectedParams: Record<string, unknown>;
+    selectedPrompt: string;
+  },
+): Promise<{ ok: true; run: unknown } | { ok: false; error: string }> {
+  'use server';
+  await requireOwnerSession();
+  try {
+    const response = await continueRunRoute(
+      internalRequest('/api/v1/chains/continue/internal', {
+        method: 'POST',
+        headers: {
+          authorization: `Bearer ${callerKey()}`,
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({
+          checkpoint_id: input.checkpointId,
+          selected_params: input.selectedParams,
+          selected_prompt: input.selectedPrompt,
+        }),
+        cache: 'no-store',
+      }),
+      { params: { runId } },
+    );
+    const json = (await response.json()) as Record<string, unknown>;
+    if (!response.ok) {
+      return { ok: false, error: extractError(json) };
     }
     return { ok: true, run: withDashboardOutputUrls(json) };
   } catch (error) {
@@ -597,6 +642,7 @@ export async function CanvasPageView({ canvasId }: { canvasId?: string } = {}) {
         getModelFieldsAction={getModelFieldsAction}
         runChainAction={runChainAction}
         getRunAction={getRunAction}
+        continueAgentAction={continueAgentAction}
         cancelRunAction={cancelRunAction}
         saveCanvasAction={saveCanvasAction}
         saveWorkspaceAction={saveWorkspaceAction}

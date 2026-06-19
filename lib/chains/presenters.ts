@@ -23,6 +23,7 @@ export type RunResponseMode = 'babysea' | 'byok';
  */
 
 type Step = ChainRunWithSteps['steps'][number];
+type AgentCheckpoint = ChainRunWithSteps['agentCheckpoints'][number];
 type OutputReferenceMap = Map<string, Map<string, string>>;
 
 export function getRunResponseMode(record: ChainRunWithSteps): RunResponseMode {
@@ -155,7 +156,7 @@ function serializeStep(
 }
 
 export function serializeRunTimeline(record: ChainRunWithSteps): JsonObject[] {
-  return record.steps.map((step) => {
+  const stepEvents = record.steps.map((step) => {
     const event: JsonObject = {
       object: 'chain_run_timeline_event',
       step_index: step.stepIndex,
@@ -198,6 +199,41 @@ export function serializeRunTimeline(record: ChainRunWithSteps): JsonObject[] {
 
     return event;
   });
+
+  const agentEvents = record.agentCheckpoints.map((checkpoint) => {
+    const event: JsonObject = {
+      object: 'chain_run_timeline_event',
+      event_type: 'agent_checkpoint',
+      checkpoint_id: checkpoint.id,
+      step_key: checkpoint.stepKey,
+      status: checkpoint.status,
+      created_at: checkpoint.createdAt,
+      updated_at: checkpoint.updatedAt,
+    };
+
+    if (checkpoint.approvedAt) {
+      event.approved_at = checkpoint.approvedAt;
+    }
+
+    if (checkpoint.appliedAt) {
+      event.applied_at = checkpoint.appliedAt;
+    }
+
+    if (checkpoint.errorCode) {
+      event.error = serializePublicError(
+        checkpoint.errorCode,
+        checkpoint.errorMessage ?? 'Agent checkpoint failed.',
+      );
+    }
+
+    return event;
+  });
+
+  return [...stepEvents, ...agentEvents].sort(
+    (left, right) =>
+      Date.parse(String(left.created_at)) -
+      Date.parse(String(right.created_at)),
+  );
 }
 
 function stepDurationMs(step: Step) {
@@ -411,7 +447,59 @@ function serializeCurrentStepKey(record: ChainRunWithSteps) {
     return 'canceled';
   }
 
+  if (record.run.status === 'awaiting_agent') {
+    return record.run.currentStepKey ?? 'awaiting_agent';
+  }
+
   return record.run.currentStepKey ?? 'processing';
+}
+
+function serializeExecution(record: ChainRunWithSteps): JsonObject {
+  const execution = record.run.executionConfig;
+
+  if (execution.type === 'canvas_flow') {
+    return { type: 'canvas_flow' };
+  }
+
+  return {
+    type: 'chain_agent',
+    mode: execution.mode,
+    provider: execution.provider,
+    model_identifier: execution.modelIdentifier,
+  };
+}
+
+function serializeAgentCheckpoint(checkpoint: AgentCheckpoint): JsonObject {
+  const output = checkpoint.output;
+
+  return {
+    id: checkpoint.id,
+    object: 'chain_agent_checkpoint',
+    step_key: checkpoint.stepKey,
+    previous_step_key: checkpoint.previousStepKey,
+    mode: checkpoint.mode,
+    provider: checkpoint.provider,
+    model_identifier: checkpoint.modelIdentifier,
+    status: checkpoint.status,
+    created_at: checkpoint.createdAt,
+    updated_at: checkpoint.updatedAt,
+    suggestions: output.suggestions ?? [],
+    observations: output.observations ?? {},
+    selected_prompt:
+      checkpoint.selectedPrompt ?? output.selected_prompt ?? null,
+    selected_params:
+      checkpoint.selectedParams ?? output.selected_params ?? null,
+    approved_at: checkpoint.approvedAt,
+    applied_at: checkpoint.appliedAt,
+    ...(checkpoint.errorCode
+      ? {
+          error: serializePublicError(
+            checkpoint.errorCode,
+            checkpoint.errorMessage ?? 'Agent checkpoint failed.',
+          ),
+        }
+      : {}),
+  };
 }
 
 export function serializeRunWithSteps(record: ChainRunWithSteps) {
@@ -427,6 +515,7 @@ export function serializeRunWithSteps(record: ChainRunWithSteps) {
     chain_slug: record.run.chainSlug,
     chain_version: record.run.chainVersion,
     mode,
+    execution: serializeExecution(record),
     status: record.run.status,
     input: serializeRunInput(record),
     created_at: record.run.createdAt,
@@ -451,6 +540,9 @@ export function serializeRunWithSteps(record: ChainRunWithSteps) {
 
   response.steps = record.steps.map((step) =>
     serializeStep(step, mode, record.run.id, outputReferenceMap),
+  );
+  response.agent_checkpoints = record.agentCheckpoints.map(
+    serializeAgentCheckpoint,
   );
   response.timeline = serializeRunTimeline(record);
 

@@ -37,6 +37,16 @@ describe('Aurora migration', () => {
     expect(migration).toContain('provider_metadata jsonb');
   });
 
+  it('creates Chain Agent checkpoint storage', () => {
+    expect(migration).toContain('execution_config jsonb');
+    expect(migration).toContain(
+      'create table if not exists babychain_private.chain_agent_checkpoint',
+    );
+    expect(migration).toContain("'awaiting_agent'");
+    expect(migration).toContain('idx_bc_agent_checkpoint_run_step');
+    expect(migration).toContain('trg_bc_agent_checkpoint_touch');
+  });
+
   it('creates the owner-scoped canvas table', () => {
     expect(migration).toContain(
       'create table if not exists babychain_private.canvas',

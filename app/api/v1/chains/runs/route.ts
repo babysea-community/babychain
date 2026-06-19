@@ -8,6 +8,7 @@ import {
   readJsonBody,
 } from '@/lib/api';
 import { createBabySeaClient, isBabySeaConfigured } from '@/lib/babysea';
+import { defaultBedrockNovaModelIdentifier } from '@/lib/agents/bedrock-nova';
 import {
   assertIdempotentRunMatches,
   type IdempotentRunRequest,
@@ -28,7 +29,11 @@ import {
   resolveStepModel,
   selectChainTemplateSteps,
 } from '@/lib/chains/templates';
-import type { ChainRunWithSteps, JsonObject } from '@/lib/chains/types';
+import type {
+  ChainExecutionConfig,
+  ChainRunWithSteps,
+  JsonObject,
+} from '@/lib/chains/types';
 import {
   resolveProvider,
   resolveServerByokConfig,
@@ -66,6 +71,7 @@ export async function POST(request: NextRequest) {
     );
     const body = await readJsonBody(request);
     const payload = parseSchema(CreateRunRequestSchema, body);
+    const executionConfig = executionConfigFromPayload(payload.execution);
     const byokConfig = resolveServerByokConfig();
     const directProviderMode = byokConfig !== null;
     const providerMode: 'babysea' | 'byok' = byokConfig ? 'byok' : 'babysea';
@@ -77,6 +83,7 @@ export async function POST(request: NextRequest) {
     );
     const input = preserveInputOrder(parsedInput, payload.input);
     assertChainInputRequirements(template, input, {
+      agentDownstreamPrompts: executionConfig.type === 'chain_agent',
       byokMode: directProviderMode,
     });
     const selectedSteps = selectChainTemplateSteps(template, input);
@@ -97,6 +104,7 @@ export async function POST(request: NextRequest) {
     const replayRequest: IdempotentRunRequest = {
       callbackUrl: payload.webhook_url ?? null,
       byokProviders,
+      executionConfig,
       input,
       metadata: payload.metadata as JsonObject,
       providerMode,
@@ -136,6 +144,7 @@ export async function POST(request: NextRequest) {
       chainVersion: template.version,
       clientRequestId: getClientRequestId(request),
       estimate,
+      executionConfig,
       idempotencyKeyHash,
       input,
       metadata: replayRequest.metadata,
@@ -159,6 +168,7 @@ export async function POST(request: NextRequest) {
         idempotency_replayed: record.run.status !== 'queued',
         byok_providers: byokProviders,
         provider_mode: providerMode,
+        execution: executionConfig,
       },
       runId: record.run.id,
     });
@@ -169,6 +179,22 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     return await jsonError(error);
   }
+}
+
+function executionConfigFromPayload(
+  value: ReturnType<typeof CreateRunRequestSchema.parse>['execution'],
+): ChainExecutionConfig {
+  if (value.type !== 'chain_agent') {
+    return { type: 'canvas_flow' };
+  }
+
+  return {
+    type: 'chain_agent',
+    mode: value.mode ?? 'review',
+    provider: value.provider ?? 'bedrock',
+    modelIdentifier:
+      value.model_identifier ?? defaultBedrockNovaModelIdentifier(),
+  };
 }
 
 function requiredByokProvidersForInput(

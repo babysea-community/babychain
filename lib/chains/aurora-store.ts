@@ -8,12 +8,17 @@ import { auroraQuery, auroraTransaction } from '@/lib/database/aurora';
 import { assertIdempotentRunMatches } from './idempotency';
 import { applyInputOrder, captureInputOrder } from './input-order';
 import type {
+  ApproveAgentCheckpointInput,
+  CreateAgentCheckpointInput,
   CreateChainRunInput,
   ChainRunPatch,
   ChainStepPatch,
   FindIdempotentRunInput,
 } from './store';
 import type {
+  ChainAgentCheckpointRecord,
+  ChainAgentCheckpointStatus,
+  ChainExecutionConfig,
   ChainRunRecord,
   ChainRunStatus,
   ChainRunWithSteps,
@@ -95,10 +100,11 @@ export class AuroraChainStore implements ApiKeyLookupStore {
           `insert into ${SCHEMA}.chain_run (
              api_key_id, api_key_prefix, byok_credentials, callback_url,
              chain_slug, chain_version, client_request_id, estimate,
-             idempotency_key_hash, input, input_order, metadata, status
+             execution_config, idempotency_key_hash, input, input_order,
+             metadata, status
            ) values (
-             $1, $2, $3::jsonb, $4, $5, $6, $7, $8::jsonb, $9, $10::jsonb,
-             $11::jsonb, $12::jsonb, 'queued'
+             $1, $2, $3::jsonb, $4, $5, $6, $7, $8::jsonb, $9::jsonb,
+             $10, $11::jsonb, $12::jsonb, $13::jsonb, 'queued'
            ) returning *`,
           [
             input.principal.apiKeyId,
@@ -109,6 +115,7 @@ export class AuroraChainStore implements ApiKeyLookupStore {
             input.chainVersion,
             input.clientRequestId,
             jsonParam(input.estimate as JsonObject | null),
+            jsonParam(input.executionConfig as unknown as JsonObject),
             input.idempotencyKeyHash,
             jsonParam(input.input as JsonObject),
             jsonParam(captureInputOrder(input.input) as JsonObject),
@@ -119,7 +126,7 @@ export class AuroraChainStore implements ApiKeyLookupStore {
         const run = toRunRecord(runResult.rows[0]!);
         const steps = await insertSteps(client, run.id, input.steps);
 
-        return { run, steps };
+        return { run, steps, agentCheckpoints: [] };
       });
     } catch (error) {
       if (isUniqueViolation(error) && input.idempotencyKeyHash) {
@@ -150,7 +157,8 @@ export class AuroraChainStore implements ApiKeyLookupStore {
     }
 
     const steps = await this.fetchSteps(runId);
-    return { run: toRunRecord(runRow), steps };
+    const agentCheckpoints = await this.fetchAgentCheckpoints(runId);
+    return { run: toRunRecord(runRow), steps, agentCheckpoints };
   }
 
   private async fetchSteps(runId: string): Promise<ChainStepRecord[]> {
@@ -159,6 +167,18 @@ export class AuroraChainStore implements ApiKeyLookupStore {
       [runId],
     );
     return result.rows.map(toStepRecord);
+  }
+
+  private async fetchAgentCheckpoints(
+    runId: string,
+  ): Promise<ChainAgentCheckpointRecord[]> {
+    const result = await auroraQuery<Row>(
+      `select * from ${SCHEMA}.chain_agent_checkpoint
+        where run_id = $1
+        order by created_at asc`,
+      [runId],
+    );
+    return result.rows.map(toAgentCheckpointRecord);
   }
 
   async findRunsToProcess(limit: number): Promise<ChainRunWithSteps[]> {
@@ -287,7 +307,7 @@ export class AuroraChainStore implements ApiKeyLookupStore {
     const result = await auroraQuery<Row>(
       `update ${SCHEMA}.chain_run set ${built.fragments.join(', ')}
         where id = $${built.values.length + 1}
-          and status in ('queued','running')
+          and status in ('queued','running','awaiting_agent')
         returning *`,
       [...built.values, runId],
     );
@@ -477,6 +497,118 @@ export class AuroraChainStore implements ApiKeyLookupStore {
       ],
     );
   }
+
+  async getAgentCheckpointForStep(
+    runId: string,
+    stepKey: string,
+  ): Promise<ChainAgentCheckpointRecord | null> {
+    const result = await auroraQuery<Row>(
+      `select * from ${SCHEMA}.chain_agent_checkpoint
+        where run_id = $1 and step_key = $2
+        limit 1`,
+      [runId, stepKey],
+    );
+    const row = result.rows[0];
+    return row ? toAgentCheckpointRecord(row) : null;
+  }
+
+  async createAgentCheckpoint(
+    input: CreateAgentCheckpointInput,
+  ): Promise<ChainAgentCheckpointRecord> {
+    const result = await auroraQuery<Row>(
+      `insert into ${SCHEMA}.chain_agent_checkpoint (
+         run_id, step_key, previous_step_key, mode, provider,
+         model_identifier, status, input_snapshot, output,
+         selected_prompt, selected_params, approved_at
+       ) values (
+         $1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9::jsonb,
+         $10, $11::jsonb, case when $7 = 'approved' then now() else null end
+       )
+       on conflict (run_id, step_key) do nothing
+       returning *`,
+      [
+        input.runId,
+        input.stepKey,
+        input.previousStepKey,
+        input.mode,
+        input.provider,
+        input.modelIdentifier,
+        input.status,
+        jsonParam(input.inputSnapshot),
+        jsonParam(input.output),
+        input.selectedPrompt ?? null,
+        jsonParam(input.selectedParams ?? null),
+      ],
+    );
+    const row = result.rows[0];
+
+    if (row) {
+      return toAgentCheckpointRecord(row);
+    }
+
+    const existing = await this.getAgentCheckpointForStep(
+      input.runId,
+      input.stepKey,
+    );
+
+    if (!existing) {
+      throw new Error('Agent checkpoint insert failed.');
+    }
+
+    return existing;
+  }
+
+  async approveAgentCheckpoint(
+    input: ApproveAgentCheckpointInput,
+  ): Promise<ChainAgentCheckpointRecord | null> {
+    const result = await auroraQuery<Row>(
+      `update ${SCHEMA}.chain_agent_checkpoint
+          set status = 'approved',
+              selected_prompt = $2,
+              selected_params = $3::jsonb,
+              approved_at = now(),
+              error_code = null,
+              error_message = null
+        where id = $1 and status = 'suggested'
+        returning *`,
+      [
+        input.checkpointId,
+        input.selectedPrompt,
+        jsonParam(input.selectedParams),
+      ],
+    );
+    const row = result.rows[0];
+    return row ? toAgentCheckpointRecord(row) : null;
+  }
+
+  async markAgentCheckpointApplied(
+    checkpointId: string,
+  ): Promise<ChainAgentCheckpointRecord | null> {
+    const result = await auroraQuery<Row>(
+      `update ${SCHEMA}.chain_agent_checkpoint
+          set status = 'applied', applied_at = coalesce(applied_at, now())
+        where id = $1 and status in ('approved','applied')
+        returning *`,
+      [checkpointId],
+    );
+    const row = result.rows[0];
+    return row ? toAgentCheckpointRecord(row) : null;
+  }
+
+  async markAgentCheckpointFailed(
+    checkpointId: string,
+    input: { errorCode: string; errorMessage: string },
+  ): Promise<ChainAgentCheckpointRecord | null> {
+    const result = await auroraQuery<Row>(
+      `update ${SCHEMA}.chain_agent_checkpoint
+          set status = 'failed', error_code = $2, error_message = $3
+        where id = $1 and status <> 'applied'
+        returning *`,
+      [checkpointId, input.errorCode, input.errorMessage],
+    );
+    const row = result.rows[0];
+    return row ? toAgentCheckpointRecord(row) : null;
+  }
 }
 
 // ----------------------------------------------------------------------------
@@ -611,6 +743,7 @@ function toRunRecord(row: Row): ChainRunRecord {
     idempotencyKeyHash: (row.idempotency_key_hash as string | null) ?? null,
     estimate: objOrNull(row.estimate),
     metadata: obj(row.metadata),
+    executionConfig: executionConfig(row.execution_config),
     byokCredentials: objOrNull(row.byok_credentials),
     createdAt: iso(row.created_at),
     updatedAt: iso(row.updated_at),
@@ -645,6 +778,54 @@ function toStepRecord(row: Row): ChainStepRecord {
     createdAt: iso(row.created_at),
     updatedAt: iso(row.updated_at),
   };
+}
+
+function toAgentCheckpointRecord(row: Row): ChainAgentCheckpointRecord {
+  return {
+    id: row.id as string,
+    runId: row.run_id as string,
+    stepKey: row.step_key as string,
+    previousStepKey: row.previous_step_key as string,
+    mode: row.mode as 'review' | 'autopilot',
+    provider: row.provider as 'bedrock',
+    modelIdentifier: row.model_identifier as string,
+    status: row.status as ChainAgentCheckpointStatus,
+    inputSnapshot: obj(row.input_snapshot),
+    output: obj(row.output),
+    selectedPrompt: (row.selected_prompt as string | null) ?? null,
+    selectedParams: objOrNull(row.selected_params),
+    errorCode: (row.error_code as string | null) ?? null,
+    errorMessage: (row.error_message as string | null) ?? null,
+    approvedAt: isoOrNull(row.approved_at),
+    appliedAt: isoOrNull(row.applied_at),
+    createdAt: iso(row.created_at),
+    updatedAt: iso(row.updated_at),
+  };
+}
+
+function executionConfig(value: unknown): ChainExecutionConfig {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return { type: 'canvas_flow' };
+  }
+
+  const config = value as Record<string, unknown>;
+
+  if (
+    config.type === 'chain_agent' &&
+    (config.mode === 'review' || config.mode === 'autopilot') &&
+    config.provider === 'bedrock' &&
+    typeof config.modelIdentifier === 'string' &&
+    config.modelIdentifier.length > 0
+  ) {
+    return {
+      type: 'chain_agent',
+      mode: config.mode,
+      provider: 'bedrock',
+      modelIdentifier: config.modelIdentifier,
+    };
+  }
+
+  return { type: 'canvas_flow' };
 }
 
 function iso(value: unknown): string {

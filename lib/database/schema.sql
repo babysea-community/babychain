@@ -44,6 +44,7 @@ create table if not exists babychain_private.chain_run (
   idempotency_key_hash text,
   estimate jsonb,
   metadata jsonb not null default '{}'::jsonb,
+  execution_config jsonb not null default '{"type":"canvas_flow"}'::jsonb,
   completed_at timestamptz,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
@@ -76,6 +77,28 @@ create table if not exists babychain_private.chain_step (
   updated_at timestamptz not null default now(),
   provider_metadata jsonb,
   unique (run_id, step_index),
+  unique (run_id, step_key)
+);
+
+create table if not exists babychain_private.chain_agent_checkpoint (
+  id uuid primary key default gen_random_uuid(),
+  run_id uuid not null references babychain_private.chain_run(id) on delete cascade,
+  step_key text not null,
+  previous_step_key text not null,
+  mode text not null check (mode in ('review','autopilot')),
+  provider text not null check (provider in ('bedrock')),
+  model_identifier text not null,
+  status text not null default 'suggested' check (status in ('suggested','approved','applied','failed')),
+  input_snapshot jsonb not null default '{}'::jsonb,
+  output jsonb not null default '{}'::jsonb,
+  selected_prompt text,
+  selected_params jsonb,
+  error_code text,
+  error_message text,
+  approved_at timestamptz,
+  applied_at timestamptz,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
   unique (run_id, step_key)
 );
 
@@ -135,10 +158,22 @@ create unique index if not exists idx_bc_run_idempotency on babychain_private.ch
 ) where idempotency_key_hash is not null;
 create index if not exists idx_bc_step_run_index on babychain_private.chain_step (run_id, step_index);
 create index if not exists idx_bc_step_generation on babychain_private.chain_step (babysea_generation_id) where babysea_generation_id is not null;
+create index if not exists idx_bc_agent_checkpoint_run_step on babychain_private.chain_agent_checkpoint (run_id, step_key);
+create index if not exists idx_bc_agent_checkpoint_status on babychain_private.chain_agent_checkpoint (status, created_at);
 create index if not exists idx_bc_callback_run on babychain_private.callback_delivery (run_id, created_at desc);
 create index if not exists idx_bc_audit_run on babychain_private.audit_event (run_id, created_at desc);
 create index if not exists idx_bc_canvas_owner_updated on babychain_private.canvas (owner_email, updated_at desc);
 create index if not exists idx_bc_canvas_owner_created on babychain_private.canvas (owner_email, created_at desc);
+
+alter table babychain_private.chain_run
+  add column if not exists execution_config jsonb not null default '{"type":"canvas_flow"}'::jsonb;
+
+alter table babychain_private.chain_run
+  drop constraint if exists chain_run_status_check;
+
+alter table babychain_private.chain_run
+  add constraint chain_run_status_check
+  check (status in ('queued','running','awaiting_agent','succeeded','failed','canceled'));
 
 do $$ begin
   if not exists (select 1 from pg_trigger where tgname = 'trg_bc_api_key_touch') then
@@ -151,6 +186,10 @@ do $$ begin
   end if;
   if not exists (select 1 from pg_trigger where tgname = 'trg_bc_step_touch') then
     create trigger trg_bc_step_touch before update on babychain_private.chain_step
+      for each row execute function babychain_private.touch_updated_at();
+  end if;
+  if not exists (select 1 from pg_trigger where tgname = 'trg_bc_agent_checkpoint_touch') then
+    create trigger trg_bc_agent_checkpoint_touch before update on babychain_private.chain_agent_checkpoint
       for each row execute function babychain_private.touch_updated_at();
   end if;
   if not exists (select 1 from pg_trigger where tgname = 'trg_bc_canvas_touch') then

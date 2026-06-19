@@ -50,7 +50,7 @@ Canvas studio and durable chain API for image and video model workflows with one
 
 <strong>One-click deploy</strong>
 
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fbabysea-community%2Fbabychain&project-name=babychain&repository-name=babychain&env=NEXT_PUBLIC_SITE_URL,OWNER_EMAIL,OWNER_PASSWORD,OWNER_SESSION_SECRET,DATABASE_URL,BABYCHAIN_API_KEY,BABYCHAIN_CRON_SECRET,BABYCHAIN_CALLBACK_SECRET,BABYCHAIN_PROVIDER_MODE,DASHSCOPE_API_KEY,BFL_API_KEY,BFL_REGION,BFL_API_BASE_URL,ARK_API_KEY,GEMINI_API_KEY,OPENAI_API_KEY,RUNWAYML_API_SECRET)
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fbabysea-community%2Fbabychain&project-name=babychain&repository-name=babychain&env=NEXT_PUBLIC_SITE_URL,OWNER_EMAIL,OWNER_PASSWORD,OWNER_SESSION_SECRET,DATABASE_URL,BABYCHAIN_API_KEY,BABYCHAIN_CRON_SECRET,BABYCHAIN_CALLBACK_SECRET,BABYCHAIN_PROVIDER_MODE,DASHSCOPE_API_KEY,BFL_API_KEY,BFL_REGION,BFL_API_BASE_URL,ARK_API_KEY,GEMINI_API_KEY,OPENAI_API_KEY,RUNWAYML_API_SECRET,AWS_BEARER_TOKEN_BEDROCK,BEDROCK_REGION,BEDROCK_NOVA_AGENT_MODEL)
 
 <br />
 
@@ -458,14 +458,37 @@ BabySea mode relies on the BabySea SDK's normalized `generation_*` contract. BYO
 
 All modes keep caller applications on BabyChain API keys. Provider credentials never belong in frontend code or caller requests.
 
+### Chain Agent
+
+BabyChain supports three run types:
+
+| Run type                  | What it does                                                                                                                                        |
+| :------------------------ | :-------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Canvas Flow**           | Runs the current canvas prompts end-to-end. This is the default behavior.                                                                           |
+| **Chain Agent Review**    | Runs the first step from the user's seed prompt, then pauses at each downstream checkpoint so the user can approve or edit the agent's next prompt. |
+| **Chain Agent Autopilot** | Runs the first step from the user's seed prompt, then lets the agent write each downstream prompt and continue automatically.                       |
+
+Chain Agent uses Amazon Nova through Amazon Bedrock as a prompt-planning layer. It does not add a fifth model role to `chain_models`; the media workflow remains `image_model`, optional `refine_model`, `video_model`, and optional `modify_model`. The agent stores checkpoint suggestions and selected prompts in Aurora alongside the run timeline.
+
+Configure Chain Agent with:
+
+```bash
+AWS_BEARER_TOKEN_BEDROCK=
+BEDROCK_REGION=us-east-1
+BEDROCK_NOVA_AGENT_MODEL=amazon.nova-premier-v1:0
+```
+
+Until BabyChain Media Storage is enabled, Chain Agent reads previous outputs from the existing provider URL or inline data URL. Provider URLs can expire, redirect, or exceed the temporary 24MB checkpoint media limit, so storage should be added before relying on long-running or large-video agent workflows in production.
+
 ### API
 
-| Action       | Method and path                      |
-| :----------- | :----------------------------------- |
-| List chains  | `GET /api/v1/chains`                 |
-| Create chain | `POST /api/v1/chains/runs`           |
-| Get run      | `GET /api/v1/chains/get/{runId}`     |
-| Cancel run   | `POST /api/v1/chains/cancel/{runId}` |
+| Action                          | Method and path                        |
+| :------------------------------ | :------------------------------------- |
+| List chains                     | `GET /api/v1/chains`                   |
+| Create chain                    | `POST /api/v1/chains/runs`             |
+| Get run                         | `GET /api/v1/chains/get/{runId}`       |
+| Continue Chain Agent Review run | `POST /api/v1/chains/continue/{runId}` |
+| Cancel run                      | `POST /api/v1/chains/cancel/{runId}`   |
 
 All requests require `Authorization: Bearer <API key>`. Keys are bootstrapped from [`.env.example`](.env.example) or provisioned in the `babychain_private.api_key` table.
 
@@ -474,6 +497,7 @@ BYOK callers should read request field definitions from Semantic Lady model sche
 **Response details:**
 
 - `timeline`: ordered array of step status, timing, provider, output count, and error details. Renders the full run history without reshaping the raw `steps` payload.
+- `agent_checkpoints`: Chain Agent suggestions, selected prompt data, and checkpoint status for Review/Autopilot runs.
 - `guidance.what_to_try_next`: actionable list on error responses covering provider failures, invalid model fields, missing credentials, and chain incompatibilities.
 
 ### Runtime
@@ -501,6 +525,7 @@ The shared contract checks that each adapter returns zero-cost direct estimates 
 | UI         | `app/page.tsx`, `app/dashboard/canvas/page.tsx`, `app/dashboard/canvas/canvas.tsx`                      |
 | Chains     | `lib/chains/templates.ts`, `lib/chains/types.ts`, `test/templates.test.ts`                              |
 | Runner     | `lib/chains/runner.ts`                                                                                  |
+| Agent      | `lib/agents`, `app/api/v1/chains/continue/[runId]/route.ts`                                             |
 | Responses  | `lib/chains/presenters.ts`                                                                              |
 | Auth       | `lib/api/auth.ts`, `lib/api/index.ts`, `scripts/aurora-migrate.mjs`                                     |
 | Storage    | `lib/chains/store.ts`, `scripts/aurora-migrate.mjs`                                                     |
@@ -522,7 +547,7 @@ The shared contract checks that each adapter returns zero-cost direct estimates 
 
 ### Vercel
 
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fbabysea-community%2Fbabychain&project-name=babychain&repository-name=babychain&env=NEXT_PUBLIC_SITE_URL,OWNER_EMAIL,OWNER_PASSWORD,OWNER_SESSION_SECRET,DATABASE_URL,BABYCHAIN_API_KEY,BABYCHAIN_CRON_SECRET,BABYCHAIN_CALLBACK_SECRET,BABYCHAIN_PROVIDER_MODE,DASHSCOPE_API_KEY,BFL_API_KEY,BFL_REGION,BFL_API_BASE_URL,ARK_API_KEY,GEMINI_API_KEY,OPENAI_API_KEY,RUNWAYML_API_SECRET)
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fbabysea-community%2Fbabychain&project-name=babychain&repository-name=babychain&env=NEXT_PUBLIC_SITE_URL,OWNER_EMAIL,OWNER_PASSWORD,OWNER_SESSION_SECRET,DATABASE_URL,BABYCHAIN_API_KEY,BABYCHAIN_CRON_SECRET,BABYCHAIN_CALLBACK_SECRET,BABYCHAIN_PROVIDER_MODE,DASHSCOPE_API_KEY,BFL_API_KEY,BFL_REGION,BFL_API_BASE_URL,ARK_API_KEY,GEMINI_API_KEY,OPENAI_API_KEY,RUNWAYML_API_SECRET,AWS_BEARER_TOKEN_BEDROCK,BEDROCK_REGION,BEDROCK_NOVA_AGENT_MODEL)
 
 Use the Vercel button to clone the starter and create the project. Then set every value from [`.env.example`](.env.example) in the Vercel project, especially `NEXT_PUBLIC_SITE_URL`, `DATABASE_URL`, the `OWNER_*` dashboard credentials, the `BABYCHAIN_*` secrets, and the provider keys for your chosen mode.
 
