@@ -640,7 +640,7 @@ function genFlowId(): string {
 
 const FLOW_X = 40;
 const FLOW_COL_W = 520;
-const FLOW_CHECKPOINT_COL_W = 360;
+const FLOW_CHECKPOINT_COL_W = 520;
 const FLOW_ROW_H = 980;
 const FLOW_UTILITY_STACK_Y = 420;
 
@@ -797,13 +797,6 @@ function utilityCardPosition(last: FlowNode, kind: 'api' | 'runner') {
   };
 }
 
-function checkpointCardPosition(target: FlowNode) {
-  return {
-    x: target.position.x - FLOW_CHECKPOINT_COL_W,
-    y: target.position.y,
-  };
-}
-
 /** Re-place one flow's cards in rank order along its own row. */
 function relayoutFlow(nodes: FlowNode[], flowId: string): FlowNode[] {
   const flowNodes = nodes
@@ -811,10 +804,13 @@ function relayoutFlow(nodes: FlowNode[], flowId: string): FlowNode[] {
     .sort((a, b) => ROLE_RANK[a.data.role] - ROLE_RANK[b.data.role]);
   const rowY = Math.min(...flowNodes.map((node) => node.position.y));
   const positions = new Map<string, { x: number; y: number }>();
+  const hasCheckpointCards = nodes.some(
+    (node) => node.type === 'checkpoint' && node.data.flowId === flowId,
+  );
   let x = FLOW_X + INFO_COL_W;
 
   flowNodes.forEach((node, index) => {
-    if (index > 0) {
+    if (hasCheckpointCards && index > 0) {
       positions.set(checkpointNodeId(flowId, node.data.role), {
         x,
         y: rowY,
@@ -842,6 +838,14 @@ function relayoutFlow(nodes: FlowNode[], flowId: string): FlowNode[] {
       ? { ...node, position: positions.get(node.id)! }
       : node,
   );
+}
+
+function relayoutFlows(nodes: FlowNode[], flowIds: Iterable<string>) {
+  let next = nodes;
+  for (const flowId of flowIds) {
+    next = relayoutFlow(next, flowId);
+  }
+  return next;
 }
 
 function nextFlowY(nodes: FlowNode[]): number {
@@ -1707,17 +1711,22 @@ function AgentCheckpointPanel({
   onApprove: (prompt: string, params: Record<string, unknown>) => void;
 }) {
   const suggestions = checkpoint.suggestions ?? [];
-  const [selectedIndex, setSelectedIndex] = useState(0);
+  const initialSelectedIndex = Math.max(
+    suggestions.findIndex(
+      (suggestion) => suggestion.prompt === checkpoint.selected_prompt,
+    ),
+    0,
+  );
+  const [selectedIndex, setSelectedIndex] = useState(initialSelectedIndex);
   const selected = suggestions[selectedIndex];
-  const fallbackPrompt = checkpoint.selected_prompt ?? selected?.prompt ?? '';
-  const [draft, setDraft] = useState(fallbackPrompt);
+  const approvedPrompt = checkpoint.selected_prompt ?? '';
 
   useEffect(() => {
-    setDraft(fallbackPrompt);
-  }, [fallbackPrompt]);
+    setSelectedIndex(initialSelectedIndex);
+  }, [checkpoint.id, initialSelectedIndex]);
 
   const approve = () => {
-    const prompt = draft.trim();
+    const prompt = (selected?.prompt ?? approvedPrompt).trim();
     if (!prompt) {
       toast.error('Choose or write a Chain Agent prompt first.');
       return;
@@ -1751,35 +1760,35 @@ function AgentCheckpointPanel({
                 disabled={disabled}
                 onClick={() => {
                   setSelectedIndex(index);
-                  setDraft(suggestion.prompt ?? '');
                 }}
                 className={cn(
                   'nodrag border px-2 py-1.5 text-left text-[0.65rem] leading-4 transition disabled:opacity-60',
-                  index === selectedIndex
-                    ? 'border-ring bg-muted text-foreground'
+                  index === selectedIndex ||
+                    suggestion.prompt === checkpoint.selected_prompt
+                    ? 'border-blue-400 bg-blue-500/10 text-foreground'
                     : 'border-border text-muted-foreground hover:border-ring hover:text-foreground',
                 )}
               >
                 <span className="block font-medium text-foreground">
                   {suggestion.title || `Option ${index + 1}`}
                 </span>
-                <span className="line-clamp-3">{suggestion.prompt}</span>
+                <span className="mt-1 block whitespace-pre-wrap break-words">
+                  {suggestion.prompt}
+                </span>
               </button>
             ))}
           </div>
         ) : null}
-        <textarea
-          className="nodrag min-h-24 w-full resize-y border border-border bg-input px-2.5 py-1.5 text-xs text-foreground outline-none focus-visible:border-ring disabled:opacity-50"
-          disabled={disabled || isAutopilot || pending}
-          placeholder="Agent prompt will appear here."
-          value={draft}
-          onChange={(event) => setDraft(event.target.value)}
-        />
+        {!pending && suggestions.length === 0 && approvedPrompt ? (
+          <div className="whitespace-pre-wrap break-words border border-blue-400 bg-blue-500/10 px-2 py-1.5 text-xs leading-5 text-foreground">
+            {approvedPrompt}
+          </div>
+        ) : null}
         {!isAutopilot ? (
           <Button
             className="nodrag w-full"
             size="sm"
-            disabled={disabled || pending}
+            disabled={disabled || pending || !selected}
             onClick={approve}
           >
             <FontAwesomeIcon icon="check" />
@@ -1807,7 +1816,7 @@ function CheckpointNodeComponent({ data }: NodeProps) {
     state?.checkpoint ?? createPendingCheckpointPlaceholder(role, runMode);
 
   return (
-    <div className="w-[280px] border border-border bg-card shadow-lg">
+    <div className="w-[400px] border border-border bg-card shadow-lg">
       <div className="h-1.5 w-full" style={{ backgroundColor: RUNNER_COLOR }} />
       <Handle
         type="target"
@@ -2175,13 +2184,6 @@ const RUN_MODE_OPTIONS: Array<{ label: string; value: RunMode }> = [
   { label: 'Agent (Autopilot)', value: 'agent_autopilot' },
 ];
 
-function runModeLabel(mode: RunMode) {
-  return (
-    RUN_MODE_OPTIONS.find((option) => option.value === mode)?.label ??
-    'Self Control'
-  );
-}
-
 function RunnerActionLabel({ children }: { children: ReactNode }) {
   return (
     <code className="border border-border bg-muted/40 px-1 py-0.5 font-mono text-[0.62rem] text-foreground">
@@ -2397,9 +2399,6 @@ function InfoNodeComponent({ id, data }: NodeProps) {
                 </option>
               ))}
             </select>
-            <span className="text-[0.65rem] leading-4 text-muted-foreground">
-              {runModeLabel(runMode)}
-            </span>
           </div>
         </div>
       </div>
@@ -2556,7 +2555,6 @@ function buildFlowRunInput(
   nodes: FlowNode[],
   flowId: string,
   fieldsByModel: Record<string, FieldGroup | undefined>,
-  options: { agentDownstreamPrompts?: boolean } = {},
 ) {
   const flowNodes = nodes
     .filter((node) => node.type === 'model' && node.data.flowId === flowId)
@@ -2575,14 +2573,6 @@ function buildFlowRunInput(
         )
       : [];
     const params = normalizeRunParams(compact(node.data.values), group);
-
-    if (
-      options.agentDownstreamPrompts &&
-      node.data.role !== 'image' &&
-      typeof params.generation_prompt !== 'string'
-    ) {
-      params.generation_prompt = 'Chain Agent will write this prompt.';
-    }
 
     if (node.data.role === 'image') {
       normalizeInitialImageInputArrays(params);
@@ -3081,9 +3071,7 @@ function CanvasInner(props: CanvasProps) {
     const result: Record<string, CanvasFlowRunValidation | undefined> = {};
 
     for (const [flowId, flowNodes] of flows) {
-      const runMode = runModeByFlow.get(flowId) ?? 'self_control';
       result[flowId] = validateCanvasFlowRun({
-        agentDownstreamPrompts: runMode !== 'self_control',
         fieldsByModel,
         flowNodes,
         models,
@@ -3244,7 +3232,7 @@ function CanvasInner(props: CanvasProps) {
               next.push({
                 id: checkpointId,
                 type: 'checkpoint',
-                position: checkpointCardPosition(target),
+                position: target.position,
                 data: {
                   role: target.data.role,
                   modelId: target.data.modelId,
@@ -3290,7 +3278,7 @@ function CanvasInner(props: CanvasProps) {
       // Orphaned info/curl/runner cards (their flow was removed) are dropped.
       if (matched !== auxById.size) changed = true;
 
-      return changed ? next : current;
+      return changed ? relayoutFlows(next, currentFlows.keys()) : current;
     });
   }, [nodes, initialTitle, runModeByFlow, setNodes]);
 
@@ -3794,7 +3782,6 @@ function CanvasInner(props: CanvasProps) {
           nodesRef.current,
           flowId,
           fieldsRef.current,
-          { agentDownstreamPrompts: runMode !== 'self_control' },
         );
         flowNodes = built.flowNodes;
         input = built.input;
@@ -3805,7 +3792,6 @@ function CanvasInner(props: CanvasProps) {
         return;
       }
       const runValidation = validateCanvasFlowRun({
-        agentDownstreamPrompts: runMode !== 'self_control',
         fieldsByModel: fieldsRef.current,
         flowNodes,
         models,

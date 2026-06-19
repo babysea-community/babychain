@@ -788,6 +788,7 @@ describe('runner step claiming', () => {
     const record = chainAgentRecord('review');
     let updatedRecord = record;
     let nextStepSchema: JsonObject | null = null;
+    let nextStepRequestParams: JsonObject | null = null;
     const store = createMutableAgentStore(updatedRecord, (next) => {
       updatedRecord = next;
     });
@@ -800,6 +801,8 @@ describe('runner step claiming', () => {
       selectedParams: { generation_prompt: 'Slow cinematic dolly-in.' },
       onContext: (context) => {
         nextStepSchema = (context.nextStep.schema ?? null) as JsonObject | null;
+        nextStepRequestParams = (context.nextStep.requestParams ??
+          null) as JsonObject | null;
       },
     });
 
@@ -827,6 +830,10 @@ describe('runner step claiming', () => {
         generation_prompt: expect.any(Object),
       },
     });
+    expect(nextStepRequestParams).toMatchObject({
+      generation_duration: 4,
+      generation_prompt: 'A user-filled downstream video prompt.',
+    });
     expect(result.steps[1]!.status).toBe('queued');
   });
 
@@ -840,7 +847,6 @@ describe('runner step claiming', () => {
     const agent = createPromptAgent({
       selectedPrompt: 'Elegant orbit with warm highlights.',
       selectedParams: {
-        generation_duration: 6,
         generation_input_file: ['https://attacker.example.com/skip.png'],
         generation_input_video_file: ['https://attacker.example.com/skip.mp4'],
         generation_prompt: 'Elegant orbit with warm highlights.',
@@ -868,7 +874,7 @@ describe('runner step claiming', () => {
     expect(result.run.currentStepKey).toBe('video');
     expect(result.agentCheckpoints[0]).toMatchObject({ status: 'applied' });
     expect(submittedParams).toMatchObject({
-      generation_duration: 6,
+      generation_duration: 4,
       generation_input_file: ['data:image/png;base64,aW1hZ2U='],
       generation_prompt: 'Elegant orbit with warm highlights.',
     });
@@ -1395,7 +1401,7 @@ function chainAgentRecord(mode: 'autopilot' | 'review'): ChainRunWithSteps {
         video_model: 'bytedance/seedance-1.5-pro',
         video_model_input: {
           generation_duration: 4,
-          generation_prompt: 'Chain Agent will write this prompt.',
+          generation_prompt: 'A user-filled downstream video prompt.',
         },
       },
       status: 'running',

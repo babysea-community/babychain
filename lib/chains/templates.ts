@@ -330,7 +330,7 @@ export function parseTemplateInput(
 export function assertChainInputRequirements(
   template: ChainTemplate,
   input: ChainInput,
-  options: { agentDownstreamPrompts?: boolean; byokMode?: boolean } = {},
+  options: { byokMode?: boolean } = {},
 ) {
   normalizeEmptyModelInputPlaceholders(input);
   const byokMode = options.byokMode ?? false;
@@ -366,9 +366,7 @@ export function assertChainInputRequirements(
   rejectChainWiredImageInputs(input);
 
   if (byokMode) {
-    assertByokGenerationFieldsForSteps(input, {
-      agentDownstreamPrompts: options.agentDownstreamPrompts === true,
-    });
+    assertByokGenerationFieldsForSteps(input);
   }
 }
 
@@ -440,13 +438,10 @@ const STEP_MODEL_INPUT_PAIRS = [
  * unified field present in a step model input must exist in the model's
  * Semantic Lady schema and satisfy its value constraints.
  */
-function assertByokGenerationFieldsForSteps(
-  input: ChainInput,
-  options: { agentDownstreamPrompts?: boolean } = {},
-) {
+function assertByokGenerationFieldsForSteps(input: ChainInput) {
   for (const [modelKey, paramsKey, role] of STEP_MODEL_INPUT_PAIRS) {
     const modelIdentifier = optionalString(input[modelKey]);
-    const params = agentPromptValidationParams(input[paramsKey], role, options);
+    const params = input[paramsKey];
 
     if (!modelIdentifier) {
       continue;
@@ -457,31 +452,6 @@ function assertByokGenerationFieldsForSteps(
       chainFieldMode: chainFieldModeForRole(role),
     });
   }
-}
-
-function agentPromptValidationParams(
-  params: unknown,
-  role: (typeof STEP_MODEL_INPUT_PAIRS)[number][2],
-  options: { agentDownstreamPrompts?: boolean },
-) {
-  if (!options.agentDownstreamPrompts || role === 'image') {
-    return params;
-  }
-
-  if (!params || typeof params !== 'object' || Array.isArray(params)) {
-    return { generation_prompt: 'Chain Agent will write this prompt.' };
-  }
-
-  const paramsRecord = params as Record<string, unknown>;
-
-  if (hasProvidedInputValue(paramsRecord.generation_prompt)) {
-    return params;
-  }
-
-  return {
-    ...paramsRecord,
-    generation_prompt: 'Chain Agent will write this prompt.',
-  };
 }
 
 function requireImageGenerationModel(input: ChainInput) {

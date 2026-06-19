@@ -17,7 +17,7 @@ export const CHAIN_AGENT_PERSONA = [
 export const CHAIN_AGENT_TONE_AND_VIBE = [
   'Visual taste: refined, concrete, camera-literate, and production-ready.',
   'Writing style: concise but vivid; avoid vague adjectives without observable detail.',
-  'Planning style: choose dependable schema values over speculative fields.',
+  'Planning style: transform a baseline prompt into a stronger next-step direction instead of copying it.',
 ].join('\n');
 
 export const CHAIN_AGENT_OUTPUT_SCHEMA = {
@@ -61,15 +61,15 @@ export function buildChainAgentInstruction(
     '- You MUST return only valid JSON. Do not include markdown fences, commentary, or preamble.',
     '- Use the Internal Tool Results as authoritative context. These are already executed by BabyChain; do not invent additional tool calls.',
     '- suggestions MUST contain exactly 3 concise, production-ready prompt options.',
+    '- Each suggestion MUST be meaningfully different in camera motion, subject action, emotional beat, scene direction, or edit style.',
+    '- DO NOT copy the previous prompt or existing next prompt. Use them as baseline context only.',
     '- selected_prompt MUST be the strongest option for the next model.',
     '- selected_params MUST include generation_prompt exactly matching selected_prompt.',
-    '- selected_params MAY include other generation_* fields only when useful and supported by the downstream schema.',
-    '- In Autopilot mode, fill every required downstream schema field that BabyChain does not own.',
-    '- For enum fields, choose one exact enum value from the schema.',
-    '- For numeric fields, choose a value within min/max bounds when provided.',
+    '- selected_params MUST NOT include any field except generation_prompt. The user-filled model fields are already validated before the run starts.',
     '- Do not set media handoff, callback, output, provider routing, or BabyChain-owned fields.',
     '- Preserve the user seed and visible subject identity unless the workflow clearly asks to transform it.',
     '- For video steps, describe camera motion, subject motion, pacing, atmosphere, lighting, and continuity.',
+    '- For image-to-video steps, add motion and temporal direction that cannot be inferred from a static image prompt alone.',
     '- For image refine steps, describe visual refinements while preserving the core subject.',
     '- For video modify steps, describe improvements to motion, edit style, atmosphere, and visual polish.',
     ...(options.repairError

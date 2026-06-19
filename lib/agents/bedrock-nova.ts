@@ -296,11 +296,17 @@ function validateAgentResult(
   context: ChainAgentPromptContext,
 ): AgentValidationResult {
   const schema = context.nextStep.schema;
-  const params = result.selectedParams;
-  const checkedParams = Object.keys(params).sort();
+  const baseParams = isRecord(context.nextStep.requestParams)
+    ? toJsonObject(context.nextStep.requestParams)
+    : {};
+  const params: JsonObject = {
+    ...baseParams,
+    generation_prompt: result.selectedPrompt,
+  };
+  const checkedParams = ['generation_prompt'];
 
   if (!schema || typeof schema !== 'object') {
-    return { ok: true, checkedParams };
+    return validatePromptEnhancement(result, context, checkedParams);
   }
 
   const required = Array.isArray(schema.required)
@@ -320,7 +326,7 @@ function validateAgentResult(
       return {
         ok: false,
         checkedParams,
-        error: `${fieldName} is required by the downstream schema.`,
+        error: `${fieldName} must be filled by the user before the agent run starts.`,
       };
     }
   }
@@ -342,7 +348,65 @@ function validateAgentResult(
     }
   }
 
+  return validatePromptEnhancement(result, context, checkedParams);
+}
+
+function validatePromptEnhancement(
+  result: ChainAgentResult,
+  context: ChainAgentPromptContext,
+  checkedParams: string[],
+): AgentValidationResult {
+  const selected = normalizeComparablePrompt(result.selectedPrompt);
+  const existing = normalizeComparablePrompt(
+    stringValue(
+      isRecord(context.nextStep.requestParams)
+        ? context.nextStep.requestParams.generation_prompt
+        : undefined,
+    ) ?? '',
+  );
+  const previous = normalizeComparablePrompt(
+    stringValue(
+      isRecord(context.previousStep.requestParams)
+        ? context.previousStep.requestParams.generation_prompt
+        : undefined,
+    ) ?? '',
+  );
+  const prompts = result.suggestions.map((suggestion) =>
+    normalizeComparablePrompt(suggestion.prompt),
+  );
+  const uniquePrompts = new Set(prompts.filter(Boolean));
+
+  if (existing && selected === existing) {
+    return {
+      ok: false,
+      checkedParams,
+      error:
+        'selected_prompt is the same as the existing downstream prompt. Rewrite it with clearly improved motion, camera, pacing, and continuity details.',
+    };
+  }
+
+  if (previous && selected === previous) {
+    return {
+      ok: false,
+      checkedParams,
+      error:
+        'selected_prompt is the same as the previous step prompt. Rewrite it for the next step instead of copying the source prompt.',
+    };
+  }
+
+  if (uniquePrompts.size < Math.min(3, result.suggestions.length)) {
+    return {
+      ok: false,
+      checkedParams,
+      error: 'suggestions must be meaningfully distinct from each other.',
+    };
+  }
+
   return { ok: true, checkedParams };
+}
+
+function normalizeComparablePrompt(value: string) {
+  return value.toLowerCase().replace(/\s+/g, ' ').trim();
 }
 
 function validateAgentFieldValue(
@@ -421,7 +485,7 @@ function withObservability(
       model_identifier: input.modelIdentifier,
       repair_attempted: input.repaired,
       request_count: input.requestCount,
-      schema_version: schemaVersion(result),
+      schema_version: schemaVersion(),
       selected_suggestion_index: selectedSuggestionIndex(result),
       token_usage: input.usage,
       validation: input.validation as unknown as JsonObject,
@@ -435,7 +499,7 @@ function selectedSuggestionIndex(result: ChainAgentResult) {
   );
 }
 
-function schemaVersion(_result: ChainAgentResult) {
+function schemaVersion() {
   return 'semantic-lady-runtime-schema';
 }
 
@@ -500,12 +564,7 @@ function normalizeSuggestions(value: unknown): ChainAgentSuggestion[] {
 }
 
 function normalizeSelectedParams(value: unknown, selectedPrompt: string) {
-  const params = isRecord(value) ? toJsonObject(value) : {};
-
   return {
-    ...Object.fromEntries(
-      Object.entries(params).filter(([key]) => key.startsWith('generation_')),
-    ),
     generation_prompt: selectedPrompt,
   } satisfies JsonObject;
 }

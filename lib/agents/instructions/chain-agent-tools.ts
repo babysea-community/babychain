@@ -16,9 +16,9 @@ export type ChainAgentToolResult = {
 };
 
 export const CHAIN_AGENT_TOOL_STRATEGY = {
-  current: 'schema_context_only',
+  current: 'prompt_planning_context_only',
   tools: [],
-  note: 'BabyChain currently passes the downstream Semantic Lady schema directly in the prompt. Bedrock tool calling is not required until the agent needs external retrieval or multi-step API actions.',
+  note: 'BabyChain currently passes previous-step context and downstream Semantic Lady schema as read-only planning context. Bedrock tool calling is not required until the agent needs external retrieval or multi-step API actions.',
 } satisfies JsonObject;
 
 export const CHAIN_AGENT_RESERVED_TOOL_FIELDS = [
@@ -100,6 +100,7 @@ function selectSchemaDefaults(
     name: 'select_schema_defaults',
     output: {
       defaults,
+      note: 'Defaults are read-only context. The agent must only return generation_prompt; user-filled fields are validated before the run starts.',
       required: Array.isArray(schema?.required) ? schema.required : [],
     },
   };

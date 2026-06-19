@@ -67,7 +67,7 @@ describe('Bedrock Nova Chain Agent', () => {
     });
   });
 
-  it('repairs invalid selected params once and records observability', async () => {
+  it('repairs copied prompts once and records observability', async () => {
     setMinimalEnv();
     const responses = [
       {
@@ -80,10 +80,9 @@ describe('Bedrock Nova Chain Agent', () => {
                   suggestions: [
                     { title: 'Bad', prompt: 'Move too long.', params: {} },
                   ],
-                  selected_prompt: 'Move too long.',
+                  selected_prompt: 'Animate the frame.',
                   selected_params: {
-                    generation_duration: 99,
-                    generation_prompt: 'Move too long.',
+                    generation_prompt: 'Animate the frame.',
                   },
                 }),
               },
@@ -100,12 +99,30 @@ describe('Bedrock Nova Chain Agent', () => {
                 text: JSON.stringify({
                   observations: {},
                   suggestions: [
-                    { title: 'Fixed', prompt: 'Move gently.', params: {} },
+                    {
+                      title: 'Dolly Drift',
+                      prompt:
+                        'A gentle handheld dolly follows her through the crosswalk as neon reflections slide across her hoodie, with small head turns and natural walking rhythm.',
+                      params: {},
+                    },
+                    {
+                      title: 'Street Pulse',
+                      prompt:
+                        'She moves past storefronts in a slow documentary tracking shot, background lights stretching into soft bokeh while her shoulders subtly shift with each step.',
+                      params: {},
+                    },
+                    {
+                      title: 'Quiet Turn',
+                      prompt:
+                        'The camera trails behind, then arcs slightly as she glances toward passing traffic, keeping the city alive with layered motion and shallow focus.',
+                      params: {},
+                    },
                   ],
-                  selected_prompt: 'Move gently.',
+                  selected_prompt:
+                    'A gentle handheld dolly follows her through the crosswalk as neon reflections slide across her hoodie, with small head turns and natural walking rhythm.',
                   selected_params: {
-                    generation_duration: 4,
-                    generation_prompt: 'Move gently.',
+                    generation_prompt:
+                      'A gentle handheld dolly follows her through the crosswalk as neon reflections slide across her hoodie, with small head turns and natural walking rhythm.',
                   },
                 }),
               },
@@ -134,7 +151,10 @@ describe('Bedrock Nova Chain Agent', () => {
       },
       nextStep: {
         modelIdentifier: 'google/veo-3.1-lite',
-        requestParams: null,
+        requestParams: {
+          generation_duration: 4,
+          generation_prompt: 'Animate the frame.',
+        },
         schema: {
           type: 'object',
           required: ['generation_prompt', 'generation_duration'],
@@ -157,9 +177,10 @@ describe('Bedrock Nova Chain Agent', () => {
 
     expect(fetchImpl).toHaveBeenCalledTimes(2);
     expect(result.selectedParams).toMatchObject({
-      generation_duration: 4,
-      generation_prompt: 'Move gently.',
+      generation_prompt:
+        'A gentle handheld dolly follows her through the crosswalk as neon reflections slide across her hoodie, with small head turns and natural walking rhythm.',
     });
+    expect(result.selectedParams).not.toHaveProperty('generation_duration');
     expect(result.observability).toMatchObject({
       model_identifier: 'us.amazon.nova-pro-v1:0',
       repair_attempted: true,

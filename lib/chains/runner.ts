@@ -801,6 +801,7 @@ async function prepareAgentCheckpoint(args: {
       previousStep,
       nextStep: {
         ...readyStep,
+        requestParams: agentStepRequestParams(record, readyStep),
         schema: agentStepSchema(readyStep),
       },
     });
@@ -859,6 +860,36 @@ async function prepareAgentCheckpoint(args: {
   }
 }
 
+function agentStepRequestParams(
+  record: ChainRunWithSteps,
+  step: ChainStepRecord,
+): JsonObject | null {
+  const paramsKey = stepInputKey(step.stepKey);
+  if (!paramsKey) return null;
+
+  const params = record.run.input[paramsKey];
+  if (!params || typeof params !== 'object' || Array.isArray(params)) {
+    return null;
+  }
+
+  return params as JsonObject;
+}
+
+function stepInputKey(stepKey: string) {
+  switch (stepKey) {
+    case 'image':
+      return 'image_model_input';
+    case 'refine':
+      return 'refine_model_input';
+    case 'video':
+      return 'video_model_input';
+    case 'modify':
+      return 'modify_model_input';
+    default:
+      return null;
+  }
+}
+
 function agentStepSchema(step: ChainStepRecord): JsonObject {
   const stepRole = toChainSchemaStepRole(step.stepKey);
 
@@ -909,7 +940,7 @@ function agentTunableParams(params: JsonObject) {
   return Object.fromEntries(
     Object.entries(params).filter(
       ([key]) =>
-        key.startsWith('generation_') && !AGENT_RESERVED_PARAM_KEYS.has(key),
+        key === 'generation_prompt' && !AGENT_RESERVED_PARAM_KEYS.has(key),
     ),
   );
 }
