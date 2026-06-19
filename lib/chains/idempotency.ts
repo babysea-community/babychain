@@ -85,7 +85,7 @@ function normalizedProviders(request: IdempotentRunRequest) {
 }
 
 function normalizedExecution(request: IdempotentRunRequest) {
-  return request.executionConfig ?? { type: 'canvas_flow' };
+  return request.executionConfig ?? { type: 'self_control' };
 }
 
 function sameJsonValue(left: unknown, right: unknown) {

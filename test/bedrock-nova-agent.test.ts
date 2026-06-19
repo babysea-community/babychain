@@ -66,6 +66,108 @@ describe('Bedrock Nova Chain Agent', () => {
       status: 502,
     });
   });
+
+  it('repairs invalid selected params once and records observability', async () => {
+    setMinimalEnv();
+    const responses = [
+      {
+        output: {
+          message: {
+            content: [
+              {
+                text: JSON.stringify({
+                  observations: {},
+                  suggestions: [
+                    { title: 'Bad', prompt: 'Move too long.', params: {} },
+                  ],
+                  selected_prompt: 'Move too long.',
+                  selected_params: {
+                    generation_duration: 99,
+                    generation_prompt: 'Move too long.',
+                  },
+                }),
+              },
+            ],
+          },
+        },
+        usage: { inputTokens: 10, outputTokens: 20 },
+      },
+      {
+        output: {
+          message: {
+            content: [
+              {
+                text: JSON.stringify({
+                  observations: {},
+                  suggestions: [
+                    { title: 'Fixed', prompt: 'Move gently.', params: {} },
+                  ],
+                  selected_prompt: 'Move gently.',
+                  selected_params: {
+                    generation_duration: 4,
+                    generation_prompt: 'Move gently.',
+                  },
+                }),
+              },
+            ],
+          },
+        },
+        usage: { inputTokens: 11, outputTokens: 21 },
+      },
+    ];
+    const fetchImpl = vi.fn(async () => Response.json(responses.shift()));
+
+    const { createBedrockNovaAgent } =
+      await import('@/lib/agents/bedrock-nova');
+    const agent = createBedrockNovaAgent({
+      apiKey: 'bedrock_test_key_12345678',
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+      modelIdentifier: 'us.amazon.nova-pro-v1:0',
+      region: 'us-east-1',
+    });
+    const result = await agent.suggestNextStep({
+      currentInput: {},
+      flow: {
+        currentStepKey: 'image',
+        mode: 'autopilot',
+        nextStepKey: 'video',
+      },
+      nextStep: {
+        modelIdentifier: 'google/veo-3.1-lite',
+        requestParams: null,
+        schema: {
+          type: 'object',
+          required: ['generation_prompt', 'generation_duration'],
+          properties: {
+            generation_prompt: { type: 'string' },
+            generation_duration: { type: 'number', minimum: 1, maximum: 8 },
+          },
+        },
+        stepKey: 'video',
+        stepKind: 'video',
+      },
+      previousStep: {
+        modelIdentifier: 'bfl/flux-1.1-pro',
+        outputFiles: [],
+        requestParams: { generation_prompt: 'A product render' },
+        stepKey: 'image',
+        stepKind: 'image',
+      },
+    });
+
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
+    expect(result.selectedParams).toMatchObject({
+      generation_duration: 4,
+      generation_prompt: 'Move gently.',
+    });
+    expect(result.observability).toMatchObject({
+      model_identifier: 'us.amazon.nova-pro-v1:0',
+      repair_attempted: true,
+      request_count: 2,
+      token_usage: { inputTokens: 21, outputTokens: 41 },
+      validation: { ok: true },
+    });
+  });
 });
 
 function setMinimalEnv() {

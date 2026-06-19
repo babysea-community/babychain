@@ -460,15 +460,17 @@ All modes keep caller applications on BabyChain API keys. Provider credentials n
 
 ### Chain Agent
 
-BabyChain supports three run types:
+BabyChain supports three `chain_runner` modes:
 
-| Run type                  | What it does                                                                                                                                        |
-| :------------------------ | :-------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Canvas Flow**           | Runs the current canvas prompts end-to-end. This is the default behavior.                                                                           |
-| **Chain Agent Review**    | Runs the first step from the user's seed prompt, then pauses at each downstream checkpoint so the user can approve or edit the agent's next prompt. |
-| **Chain Agent Autopilot** | Runs the first step from the user's seed prompt, then lets the agent write each downstream prompt and continue automatically.                       |
+| chain_runner          | What it does                                                                                                                                        |
+| --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Self Control**      | Runs the current canvas prompts end-to-end using `execution.type = "self_control"`.                                                                 |
+| **Agent (Review)**    | Runs the first step from the user's seed prompt, then pauses at each downstream checkpoint so the user can approve or edit the agent's next prompt. |
+| **Agent (Autopilot)** | Runs the first step from the user's seed prompt, then lets the agent write each downstream prompt and schema-valid required fields automatically.   |
 
-Chain Agent uses Amazon Nova through Amazon Bedrock as a prompt-planning layer. It does not add a fifth model role to `chain_models`; the media workflow remains `image_model`, optional `refine_model`, `video_model`, and optional `modify_model`. The agent stores checkpoint suggestions and selected prompts in Aurora alongside the run timeline.
+Chain Agent uses Amazon Nova through Amazon Bedrock as a prompt-planning layer. It does not add a fifth model role to `chain_models`; the media workflow remains `image_model`, optional `refine_model`, `video_model`, and optional `modify_model`. The agent stores checkpoint suggestions, selected prompts, validation outcomes, repair attempts, instruction version, schema version, model id, latency, and token usage in Aurora alongside the run timeline.
+
+Agent prompts live under `lib/agents/instructions`. BabyChain currently uses a typed internal tool boundary (`read_downstream_schema`, `read_previous_step_summary`, `select_schema_defaults`, `retrieve_brand_context`) to ground Nova before prompting. Bedrock tool calling and Knowledge Bases are not required for the current flow; add a Knowledge Base later only for durable brand/style memory across runs.
 
 Configure Chain Agent with:
 

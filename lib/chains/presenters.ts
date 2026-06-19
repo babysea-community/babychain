@@ -457,8 +457,8 @@ function serializeCurrentStepKey(record: ChainRunWithSteps) {
 function serializeExecution(record: ChainRunWithSteps): JsonObject {
   const execution = record.run.executionConfig;
 
-  if (execution.type === 'canvas_flow') {
-    return { type: 'canvas_flow' };
+  if (execution.type === 'self_control') {
+    return { type: 'self_control' };
   }
 
   return {
@@ -485,6 +485,7 @@ function serializeAgentCheckpoint(checkpoint: AgentCheckpoint): JsonObject {
     updated_at: checkpoint.updatedAt,
     suggestions: output.suggestions ?? [],
     observations: output.observations ?? {},
+    observability: output.observability ?? {},
     selected_prompt:
       checkpoint.selectedPrompt ?? output.selected_prompt ?? null,
     selected_params:

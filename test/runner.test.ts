@@ -793,6 +793,10 @@ describe('runner step claiming', () => {
     });
     const agent = createPromptAgent({
       selectedPrompt: 'Slow cinematic dolly-in over the finished product.',
+      observability: {
+        instruction_version: 'test-version',
+        validation: { ok: true },
+      },
       selectedParams: { generation_prompt: 'Slow cinematic dolly-in.' },
       onContext: (context) => {
         nextStepSchema = (context.nextStep.schema ?? null) as JsonObject | null;
@@ -812,6 +816,10 @@ describe('runner step claiming', () => {
       previousStepKey: 'image',
       status: 'suggested',
       stepKey: 'video',
+    });
+    expect(result.agentCheckpoints[0]!.output.observability).toMatchObject({
+      instruction_version: 'test-version',
+      validation: { ok: true },
     });
     expect(nextStepSchema).toMatchObject({
       properties: {
@@ -1319,7 +1327,7 @@ function createRunWithSteps(
       errorCode: null,
       errorMessage: null,
       estimate: null,
-      executionConfig: { type: 'canvas_flow' },
+      executionConfig: { type: 'self_control' },
       id: 'af252a34-977d-4fc5-81ac-502d2fb94421',
       idempotencyKeyHash: null,
       input: {
@@ -1426,6 +1434,7 @@ function chainAgentRecord(mode: 'autopilot' | 'review'): ChainRunWithSteps {
 
 function createPromptAgent(input: {
   onContext?: (context: Parameters<ChainAgent['suggestNextStep']>[0]) => void;
+  observability?: JsonObject;
   selectedParams: JsonObject;
   selectedPrompt: string;
 }): ChainAgent {
@@ -1435,6 +1444,7 @@ function createPromptAgent(input: {
 
       return {
         observations: { mood: 'premium' },
+        observability: input.observability ?? {},
         rawText: '{}',
         selectedParams: input.selectedParams,
         selectedPrompt: input.selectedPrompt,

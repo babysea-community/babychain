@@ -3,6 +3,9 @@ import 'server-only';
 import type { JsonObject } from '@/lib/chains/types';
 
 import type { ChainAgentPromptContext } from '../types';
+import { runChainAgentTools } from './chain-agent-tools';
+
+export const CHAIN_AGENT_INSTRUCTION_VERSION = '2026-06-19.2';
 
 export const CHAIN_AGENT_PERSONA = [
   'You are Chain Agent for BabyChain, a production image/video workflow planner.',
@@ -37,7 +40,12 @@ export const CHAIN_AGENT_OUTPUT_SCHEMA = {
   selected_params: {},
 } satisfies JsonObject;
 
-export function buildChainAgentInstruction(context: ChainAgentPromptContext) {
+export function buildChainAgentInstruction(
+  context: ChainAgentPromptContext,
+  options: { repairError?: string | null; previousJson?: string | null } = {},
+) {
+  const toolResults = runChainAgentTools(context);
+
   return [
     '## Task Summary',
     'Study the previous generated media and plan the next BabyChain generation step.',
@@ -51,6 +59,7 @@ export function buildChainAgentInstruction(context: ChainAgentPromptContext) {
     '',
     '## Model Instructions',
     '- You MUST return only valid JSON. Do not include markdown fences, commentary, or preamble.',
+    '- Use the Internal Tool Results as authoritative context. These are already executed by BabyChain; do not invent additional tool calls.',
     '- suggestions MUST contain exactly 3 concise, production-ready prompt options.',
     '- selected_prompt MUST be the strongest option for the next model.',
     '- selected_params MUST include generation_prompt exactly matching selected_prompt.',
@@ -63,11 +72,18 @@ export function buildChainAgentInstruction(context: ChainAgentPromptContext) {
     '- For video steps, describe camera motion, subject motion, pacing, atmosphere, lighting, and continuity.',
     '- For image refine steps, describe visual refinements while preserving the core subject.',
     '- For video modify steps, describe improvements to motion, edit style, atmosphere, and visual polish.',
+    ...(options.repairError
+      ? [
+          '- REPAIR MODE: Return the same JSON shape, but repair only selected_prompt and selected_params so they satisfy the validation error.',
+          '- In repair mode, do not change observations unless needed, and keep suggestions concise.',
+        ]
+      : []),
     '',
     '## Response Style And Format Requirements',
     `Output JSON schema: ${JSON.stringify(CHAIN_AGENT_OUTPUT_SCHEMA)}`,
     '',
     '## Runtime Context',
+    `Instruction version: ${CHAIN_AGENT_INSTRUCTION_VERSION}`,
     `Mode: ${context.flow.mode}`,
     `Previous step: ${context.previousStep.stepKey} (${context.previousStep.stepKind}) using ${context.previousStep.modelIdentifier}`,
     `Next step: ${context.nextStep.stepKey} (${context.nextStep.stepKind}) using ${context.nextStep.modelIdentifier}`,
@@ -75,5 +91,16 @@ export function buildChainAgentInstruction(context: ChainAgentPromptContext) {
     `Previous request params JSON: ${JSON.stringify(context.previousStep.requestParams ?? {})}`,
     `Existing next request params JSON: ${JSON.stringify(context.nextStep.requestParams ?? {})}`,
     `Downstream schema JSON: ${JSON.stringify(context.nextStep.schema ?? {})}`,
+    '',
+    '## Internal Tool Results',
+    JSON.stringify(toolResults),
+    ...(options.repairError
+      ? [
+          '',
+          '## Repair Context',
+          `Validation error: ${options.repairError}`,
+          `Previous JSON: ${options.previousJson ?? ''}`,
+        ]
+      : []),
   ].join('\n');
 }

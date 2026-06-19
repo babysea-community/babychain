@@ -480,7 +480,7 @@ type RunStep = {
   generation_output_file?: string[];
 };
 
-type RunMode = 'canvas_flow' | 'agent_review' | 'agent_autopilot';
+type RunMode = 'self_control' | 'agent_review' | 'agent_autopilot';
 
 type AgentCheckpointSuggestion = {
   title?: string;
@@ -502,7 +502,7 @@ type RunJson = {
   agent_checkpoints?: AgentCheckpoint[];
   error?: { message?: string | null } | null;
   execution?:
-    | { type: 'canvas_flow' }
+    | { type: 'self_control' }
     | { mode?: 'autopilot' | 'review'; type: 'chain_agent' }
     | null;
   id: string;
@@ -640,6 +640,7 @@ function genFlowId(): string {
 
 const FLOW_X = 40;
 const FLOW_COL_W = 520;
+const FLOW_CHECKPOINT_COL_W = 360;
 const FLOW_ROW_H = 980;
 const FLOW_UTILITY_STACK_Y = 420;
 
@@ -764,7 +765,7 @@ function needsFlowAuxReconcile(
     if (!first || !last) continue;
 
     expectedAux.set(`info_${flowId}`, 'info');
-    if ((runModeByFlow.get(flowId) ?? 'canvas_flow') !== 'canvas_flow') {
+    if ((runModeByFlow.get(flowId) ?? 'self_control') !== 'self_control') {
       for (let index = 1; index < flowNodes.length; index += 1) {
         const target = flowNodes[index];
         if (target) {
@@ -798,8 +799,8 @@ function utilityCardPosition(last: FlowNode, kind: 'api' | 'runner') {
 
 function checkpointCardPosition(target: FlowNode) {
   return {
-    x: target.position.x,
-    y: target.position.y - 260,
+    x: target.position.x - FLOW_CHECKPOINT_COL_W,
+    y: target.position.y,
   };
 }
 
@@ -809,33 +810,30 @@ function relayoutFlow(nodes: FlowNode[], flowId: string): FlowNode[] {
     .filter((node) => node.type === 'model' && node.data.flowId === flowId)
     .sort((a, b) => ROLE_RANK[a.data.role] - ROLE_RANK[b.data.role]);
   const rowY = Math.min(...flowNodes.map((node) => node.position.y));
-  const positions = new Map(
-    flowNodes.map((node, index) => [
-      node.id,
-      { x: FLOW_X + INFO_COL_W + index * FLOW_COL_W, y: rowY },
-    ]),
-  );
+  const positions = new Map<string, { x: number; y: number }>();
+  let x = FLOW_X + INFO_COL_W;
+
+  flowNodes.forEach((node, index) => {
+    if (index > 0) {
+      positions.set(checkpointNodeId(flowId, node.data.role), {
+        x,
+        y: rowY,
+      });
+      x += FLOW_CHECKPOINT_COL_W;
+    }
+
+    positions.set(node.id, { x, y: rowY });
+    x += FLOW_COL_W;
+  });
   // Info card leads the flow; runner and API sit separately in the final
   // utility column. Checkpoints sit above their downstream model cards.
   positions.set(`info_${flowId}`, { x: FLOW_X, y: rowY });
-  for (let index = 1; index < flowNodes.length; index += 1) {
-    const target = flowNodes[index];
-    if (target) {
-      positions.set(
-        checkpointNodeId(flowId, target.data.role),
-        checkpointCardPosition({
-          ...target,
-          position: positions.get(target.id) ?? target.position,
-        }),
-      );
-    }
-  }
   positions.set(`runner_${flowId}`, {
-    x: FLOW_X + INFO_COL_W + flowNodes.length * FLOW_COL_W,
+    x,
     y: rowY,
   });
   positions.set(`curl_${flowId}`, {
-    x: FLOW_X + INFO_COL_W + flowNodes.length * FLOW_COL_W,
+    x,
     y: rowY + FLOW_UTILITY_STACK_Y,
   });
 
@@ -1423,7 +1421,7 @@ function ModelNodeComponent({ id, data }: NodeProps) {
   const HeaderIcon = inferenceIcon(model?.provider);
   const meta = flowMeta[flowId];
   const running = runningFlowIds.has(flowId);
-  const runMode = runModeByFlow.get(flowId) ?? 'canvas_flow';
+  const runMode = runModeByFlow.get(flowId) ?? 'self_control';
   const lockedByAutopilot = runMode === 'agent_autopilot' && role !== 'image';
   const controlsDisabled = running || lockedByAutopilot;
   const addableRole: StepRole | null =
@@ -1733,9 +1731,9 @@ function AgentCheckpointPanel({
   const isAutopilot = mode === 'agent_autopilot';
 
   return (
-    <div className="border border-primary/50 bg-primary/5">
-      <div className="border-b border-primary/30 px-2.5 py-1.5 text-[0.68rem] font-medium uppercase tracking-wide text-primary">
-        {isAutopilot ? 'Chain Agent Autopilot' : 'Chain Agent Review'}
+    <div className="border border-border bg-muted/20">
+      <div className="border-b border-border px-2.5 py-1.5 text-[0.68rem] font-medium uppercase tracking-wide text-muted-foreground">
+        {isAutopilot ? 'Agent (Autopilot)' : 'Agent (Review)'}
       </div>
       <div className="space-y-2 p-2.5">
         {pending ? (
@@ -1758,8 +1756,8 @@ function AgentCheckpointPanel({
                 className={cn(
                   'nodrag border px-2 py-1.5 text-left text-[0.65rem] leading-4 transition disabled:opacity-60',
                   index === selectedIndex
-                    ? 'border-primary bg-primary/10 text-foreground'
-                    : 'border-border text-muted-foreground hover:border-primary/60 hover:text-foreground',
+                    ? 'border-ring bg-muted text-foreground'
+                    : 'border-border text-muted-foreground hover:border-ring hover:text-foreground',
                 )}
               >
                 <span className="block font-medium text-foreground">
@@ -1802,31 +1800,36 @@ function CheckpointNodeComponent({ data }: NodeProps) {
     runningFlowIds,
     runModeByFlow,
   } = useCanvas();
-  const runMode = runModeByFlow.get(flowId) ?? 'canvas_flow';
+  const runMode = runModeByFlow.get(flowId) ?? 'self_control';
   const state = agentCheckpointByNode[checkpointNodeId(flowId, role)];
   const running = runningFlowIds.has(flowId);
   const checkpoint =
     state?.checkpoint ?? createPendingCheckpointPlaceholder(role, runMode);
 
   return (
-    <div className="w-[400px] border border-primary/50 bg-card shadow-lg">
-      <div className="h-1.5 w-full bg-primary" />
+    <div className="w-[280px] border border-border bg-card shadow-lg">
+      <div className="h-1.5 w-full" style={{ backgroundColor: RUNNER_COLOR }} />
       <Handle
         type="target"
         position={Position.Left}
         className="!size-3 !border-2 !border-background"
+        style={{ backgroundColor: RUNNER_COLOR }}
       />
       <Handle
         type="source"
         position={Position.Right}
         className="!size-3 !border-2 !border-background"
+        style={{ backgroundColor: RUNNER_COLOR }}
       />
 
       <div className="flex items-center justify-between gap-2 border-b border-border px-3 py-2.5">
-        <div className="font-mono text-xs font-semibold text-primary">
+        <div
+          className="font-mono text-xs font-semibold"
+          style={{ color: RUNNER_COLOR }}
+        >
           checkpoint_{role}
         </div>
-        <span className="border border-primary/50 px-1.5 py-0.5 text-[0.6rem] font-medium uppercase tracking-wide text-primary">
+        <span className="border border-border px-1.5 py-0.5 text-[0.6rem] font-medium uppercase tracking-wide text-muted-foreground">
           {runMode === 'agent_autopilot' ? 'Autopilot' : 'Review'}
         </span>
       </div>
@@ -2166,37 +2169,16 @@ function RunnerNodeComponent({ data }: NodeProps) {
   );
 }
 
-function RunModeButton({
-  active,
-  disabled,
-  label,
-  onClick,
-}: {
-  active: boolean;
-  disabled: boolean;
-  label: string;
-  onClick: () => void;
-}) {
+const RUN_MODE_OPTIONS: Array<{ label: string; value: RunMode }> = [
+  { label: 'Self Control', value: 'self_control' },
+  { label: 'Agent (Review)', value: 'agent_review' },
+  { label: 'Agent (Autopilot)', value: 'agent_autopilot' },
+];
+
+function runModeLabel(mode: RunMode) {
   return (
-    <button
-      type="button"
-      disabled={disabled}
-      onClick={onClick}
-      className={cn(
-        'nodrag flex h-8 items-center gap-2 border px-2 text-left text-[0.65rem] transition disabled:opacity-50',
-        active
-          ? 'border-primary bg-primary/10 text-foreground'
-          : 'border-border text-muted-foreground hover:border-ring hover:text-foreground',
-      )}
-    >
-      <span
-        className={cn(
-          'size-2.5 border',
-          active ? 'border-primary bg-primary' : 'border-muted-foreground',
-        )}
-      />
-      {label}
-    </button>
+    RUN_MODE_OPTIONS.find((option) => option.value === mode)?.label ??
+    'Self Control'
   );
 }
 
@@ -2227,7 +2209,7 @@ function InfoNodeComponent({ id, data }: NodeProps) {
   } = useCanvas();
   const { getZoom } = useReactFlow();
   const running = runningFlowIds.has(flowId);
-  const runMode = runModeByFlow.get(flowId) ?? 'canvas_flow';
+  const runMode = runModeByFlow.get(flowId) ?? 'self_control';
   const nameValue = typeof values.name === 'string' ? values.name : '';
   const autoName = flowMeta[flowId]?.autoName ?? 'Untitled canvas';
 
@@ -2398,26 +2380,26 @@ function InfoNodeComponent({ id, data }: NodeProps) {
           <CanvasModeBadge mode={providerMode} byokProviders={byokProviders} />
           <div className="grid gap-1.5 border border-border p-2">
             <span className="text-[0.65rem] font-medium uppercase tracking-wide text-muted-foreground">
-              Run type
+              chain_runner
             </span>
-            <RunModeButton
-              active={runMode === 'canvas_flow'}
+            <select
+              aria-label="chain_runner"
+              className="nodrag h-8 w-full border border-border bg-input px-2 text-xs text-foreground outline-none focus-visible:border-ring disabled:opacity-50"
               disabled={running}
-              label="Default"
-              onClick={() => setRunMode(flowId, 'canvas_flow')}
-            />
-            <RunModeButton
-              active={runMode === 'agent_review'}
-              disabled={running}
-              label="Chain Agent Review"
-              onClick={() => setRunMode(flowId, 'agent_review')}
-            />
-            <RunModeButton
-              active={runMode === 'agent_autopilot'}
-              disabled={running}
-              label="Chain Agent Autopilot"
-              onClick={() => setRunMode(flowId, 'agent_autopilot')}
-            />
+              value={runMode}
+              onChange={(event) =>
+                setRunMode(flowId, event.target.value as RunMode)
+              }
+            >
+              {RUN_MODE_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+            <span className="text-[0.65rem] leading-4 text-muted-foreground">
+              {runModeLabel(runMode)}
+            </span>
           </div>
         </div>
       </div>
@@ -2631,8 +2613,8 @@ function buildFlowRunInput(
 }
 
 function runModeExecution(mode: RunMode) {
-  if (mode === 'canvas_flow') {
-    return { type: 'canvas_flow' };
+  if (mode === 'self_control') {
+    return { type: 'self_control' };
   }
 
   return {
@@ -3099,9 +3081,9 @@ function CanvasInner(props: CanvasProps) {
     const result: Record<string, CanvasFlowRunValidation | undefined> = {};
 
     for (const [flowId, flowNodes] of flows) {
-      const runMode = runModeByFlow.get(flowId) ?? 'canvas_flow';
+      const runMode = runModeByFlow.get(flowId) ?? 'self_control';
       result[flowId] = validateCanvasFlowRun({
-        agentDownstreamPrompts: runMode !== 'canvas_flow',
+        agentDownstreamPrompts: runMode !== 'self_control',
         fieldsByModel,
         flowNodes,
         models,
@@ -3248,7 +3230,7 @@ function CanvasInner(props: CanvasProps) {
           });
         }
 
-        if ((runModeByFlow.get(flowId) ?? 'canvas_flow') !== 'canvas_flow') {
+        if ((runModeByFlow.get(flowId) ?? 'self_control') !== 'self_control') {
           for (let index = 1; index < flowNodes.length; index += 1) {
             const target = flowNodes[index];
             if (!target) continue;
@@ -3806,13 +3788,13 @@ function CanvasInner(props: CanvasProps) {
     async (flowId: string, save: boolean) => {
       let flowNodes: FlowNode[];
       let input: Record<string, unknown>;
-      const runMode = runModeByFlow.get(flowId) ?? 'canvas_flow';
+      const runMode = runModeByFlow.get(flowId) ?? 'self_control';
       try {
         const built = buildFlowRunInput(
           nodesRef.current,
           flowId,
           fieldsRef.current,
-          { agentDownstreamPrompts: runMode !== 'canvas_flow' },
+          { agentDownstreamPrompts: runMode !== 'self_control' },
         );
         flowNodes = built.flowNodes;
         input = built.input;
@@ -3823,7 +3805,7 @@ function CanvasInner(props: CanvasProps) {
         return;
       }
       const runValidation = validateCanvasFlowRun({
-        agentDownstreamPrompts: runMode !== 'canvas_flow',
+        agentDownstreamPrompts: runMode !== 'self_control',
         fieldsByModel: fieldsRef.current,
         flowNodes,
         models,

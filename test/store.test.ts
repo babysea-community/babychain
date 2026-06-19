@@ -27,7 +27,7 @@ describe('AuroraChainStore', () => {
       chainVersion: '2026-05-23',
       clientRequestId: null,
       estimate: null,
-      executionConfig: { type: 'canvas_flow' },
+      executionConfig: { type: 'self_control' },
       idempotencyKeyHash: null,
       input: {
         video_model_input: {

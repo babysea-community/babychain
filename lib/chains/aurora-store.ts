@@ -805,7 +805,7 @@ function toAgentCheckpointRecord(row: Row): ChainAgentCheckpointRecord {
 
 function executionConfig(value: unknown): ChainExecutionConfig {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
-    return { type: 'canvas_flow' };
+    return { type: 'self_control' };
   }
 
   const config = value as Record<string, unknown>;
@@ -825,7 +825,7 @@ function executionConfig(value: unknown): ChainExecutionConfig {
     };
   }
 
-  return { type: 'canvas_flow' };
+  return { type: 'self_control' };
 }
 
 function iso(value: unknown): string {

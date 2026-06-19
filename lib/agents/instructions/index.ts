@@ -1,6 +1,9 @@
 import 'server-only';
 
-export { buildChainAgentInstruction } from './chain-agent-instruction';
+export {
+  buildChainAgentInstruction,
+  CHAIN_AGENT_INSTRUCTION_VERSION,
+} from './chain-agent-instruction';
 export {
   CHAIN_AGENT_RESERVED_TOOL_FIELDS,
   CHAIN_AGENT_TOOL_STRATEGY,

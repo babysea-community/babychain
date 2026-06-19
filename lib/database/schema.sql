@@ -44,7 +44,7 @@ create table if not exists babychain_private.chain_run (
   idempotency_key_hash text,
   estimate jsonb,
   metadata jsonb not null default '{}'::jsonb,
-  execution_config jsonb not null default '{"type":"canvas_flow"}'::jsonb,
+  execution_config jsonb not null default '{"type":"self_control"}'::jsonb,
   completed_at timestamptz,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
@@ -166,7 +166,7 @@ create index if not exists idx_bc_canvas_owner_updated on babychain_private.canv
 create index if not exists idx_bc_canvas_owner_created on babychain_private.canvas (owner_email, created_at desc);
 
 alter table babychain_private.chain_run
-  add column if not exists execution_config jsonb not null default '{"type":"canvas_flow"}'::jsonb;
+  add column if not exists execution_config jsonb not null default '{"type":"self_control"}'::jsonb;
 
 alter table babychain_private.chain_run
   drop constraint if exists chain_run_status_check;

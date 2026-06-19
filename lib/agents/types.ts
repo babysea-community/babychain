@@ -43,6 +43,7 @@ export type ChainAgentSuggestion = {
 
 export type ChainAgentResult = {
   observations: JsonObject;
+  observability?: JsonObject;
   suggestions: ChainAgentSuggestion[];
   selectedPrompt: string;
   selectedParams: JsonObject;

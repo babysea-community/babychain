@@ -185,7 +185,7 @@ function executionConfigFromPayload(
   value: ReturnType<typeof CreateRunRequestSchema.parse>['execution'],
 ): ChainExecutionConfig {
   if (value.type !== 'chain_agent') {
-    return { type: 'canvas_flow' };
+    return { type: 'self_control' };
   }
 
   return {

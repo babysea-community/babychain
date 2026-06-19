@@ -558,7 +558,7 @@ function createRun(overrides: Partial<ChainRunRecord> = {}): ChainRunRecord {
     errorCode: null,
     errorMessage: null,
     estimate: null,
-    executionConfig: { type: 'canvas_flow' },
+    executionConfig: { type: 'self_control' },
     id: 'af252a34-977d-4fc5-81ac-502d2fb94421',
     idempotencyKeyHash: null,
     input: {

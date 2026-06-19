@@ -39,6 +39,7 @@ describe('Aurora migration', () => {
 
   it('creates Chain Agent checkpoint storage', () => {
     expect(migration).toContain('execution_config jsonb');
+    expect(migration).toContain('{"type":"self_control"}');
     expect(migration).toContain(
       'create table if not exists babychain_private.chain_agent_checkpoint',
     );

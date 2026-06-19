@@ -814,6 +814,7 @@ async function prepareAgentCheckpoint(args: {
       modelIdentifier: execution.modelIdentifier,
       output: {
         observations: result.observations,
+        observability: result.observability ?? {},
         raw_text: result.rawText,
         selected_params: selectedParams,
         selected_prompt: result.selectedPrompt,

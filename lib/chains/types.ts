@@ -142,7 +142,7 @@ export type ChainRunRecord = {
 
 export type ChainExecutionConfig =
   | {
-      type: 'canvas_flow';
+      type: 'self_control';
     }
   | {
       type: 'chain_agent';

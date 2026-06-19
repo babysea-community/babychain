@@ -17,7 +17,10 @@ import type {
   ChainAgentResult,
   ChainAgentSuggestion,
 } from './types';
-import { buildChainAgentInstruction } from './instructions';
+import {
+  buildChainAgentInstruction,
+  CHAIN_AGENT_INSTRUCTION_VERSION,
+} from './instructions';
 
 const BEDROCK_DEFAULT_MODEL = 'us.amazon.nova-pro-v1:0';
 const BEDROCK_DEFAULT_REGION = 'us-east-1';
@@ -61,17 +64,54 @@ export function createBedrockNovaAgent(
         );
       }
 
-      const body = await buildConverseBody(input, fetchImpl);
-      const response = await fetchBedrockConverse({
+      const startedAt = Date.now();
+      const first = await invokeAgent({
         apiKey,
-        body,
+        context: input,
         fetchImpl,
         modelIdentifier,
         region,
       });
-      const rawText = extractTextResponse(response);
+      const firstValidation = validateAgentResult(first.result, input);
 
-      return normalizeAgentOutput(rawText);
+      if (firstValidation.ok) {
+        return withObservability(first.result, {
+          latencyMs: Date.now() - startedAt,
+          modelIdentifier,
+          repaired: false,
+          requestCount: 1,
+          usage: first.usage,
+          validation: firstValidation,
+        });
+      }
+
+      const repair = await invokeAgent({
+        apiKey,
+        context: input,
+        fetchImpl,
+        modelIdentifier,
+        previousJson: first.result.rawText,
+        region,
+        repairError: firstValidation.error,
+      });
+      const repairValidation = validateAgentResult(repair.result, input);
+
+      if (!repairValidation.ok) {
+        throw new BabyChainError(
+          'chain_agent_invalid_response',
+          `Chain Agent repair failed validation: ${repairValidation.error}`,
+          502,
+        );
+      }
+
+      return withObservability(repair.result, {
+        latencyMs: Date.now() - startedAt,
+        modelIdentifier,
+        repaired: true,
+        requestCount: 2,
+        usage: mergeUsage(first.usage, repair.usage),
+        validation: repairValidation,
+      });
     },
   };
 }
@@ -80,9 +120,38 @@ export function defaultBedrockNovaModelIdentifier() {
   return getEnv().BEDROCK_NOVA_AGENT_MODEL ?? BEDROCK_DEFAULT_MODEL;
 }
 
+async function invokeAgent(args: {
+  apiKey: string;
+  context: ChainAgentPromptContext;
+  fetchImpl: typeof fetch;
+  modelIdentifier: string;
+  previousJson?: string | null;
+  region: string;
+  repairError?: string | null;
+}) {
+  const body = await buildConverseBody(args.context, args.fetchImpl, {
+    previousJson: args.previousJson ?? null,
+    repairError: args.repairError ?? null,
+  });
+  const response = await fetchBedrockConverse({
+    apiKey: args.apiKey,
+    body,
+    fetchImpl: args.fetchImpl,
+    modelIdentifier: args.modelIdentifier,
+    region: args.region,
+  });
+  const rawText = extractTextResponse(response);
+
+  return {
+    result: normalizeAgentOutput(rawText),
+    usage: isRecord(response.usage) ? toJsonObject(response.usage) : {},
+  };
+}
+
 async function buildConverseBody(
   context: ChainAgentPromptContext,
   fetchImpl: typeof fetch,
+  options: { repairError?: string | null; previousJson?: string | null } = {},
 ) {
   const content: JsonObject[] = [];
 
@@ -104,7 +173,7 @@ async function buildConverseBody(
     });
   }
 
-  content.push({ text: buildChainAgentInstruction(context) });
+  content.push({ text: buildChainAgentInstruction(context, options) });
 
   return {
     messages: [
@@ -210,11 +279,178 @@ function normalizeAgentOutput(rawText: string): ChainAgentResult {
     observations: isRecord(parsed.observations)
       ? toJsonObject(parsed.observations)
       : {},
+    observability: {},
     suggestions,
     selectedPrompt,
     selectedParams,
     rawText,
   };
+}
+
+type AgentValidationResult =
+  | { ok: true; checkedParams: string[] }
+  | { ok: false; checkedParams: string[]; error: string };
+
+function validateAgentResult(
+  result: ChainAgentResult,
+  context: ChainAgentPromptContext,
+): AgentValidationResult {
+  const schema = context.nextStep.schema;
+  const params = result.selectedParams;
+  const checkedParams = Object.keys(params).sort();
+
+  if (!schema || typeof schema !== 'object') {
+    return { ok: true, checkedParams };
+  }
+
+  const required = Array.isArray(schema.required)
+    ? schema.required.filter(
+        (entry): entry is string => typeof entry === 'string',
+      )
+    : [];
+  const properties =
+    schema.properties &&
+    typeof schema.properties === 'object' &&
+    !Array.isArray(schema.properties)
+      ? (schema.properties as Record<string, JsonObject>)
+      : {};
+
+  for (const fieldName of required) {
+    if (!hasProvidedAgentValue(params[fieldName])) {
+      return {
+        ok: false,
+        checkedParams,
+        error: `${fieldName} is required by the downstream schema.`,
+      };
+    }
+  }
+
+  for (const [key, value] of Object.entries(params)) {
+    const field = properties[key];
+
+    if (!field) {
+      return {
+        ok: false,
+        checkedParams,
+        error: `${key} is not supported by the downstream schema.`,
+      };
+    }
+
+    const error = validateAgentFieldValue(key, value, field);
+    if (error) {
+      return { ok: false, checkedParams, error };
+    }
+  }
+
+  return { ok: true, checkedParams };
+}
+
+function validateAgentFieldValue(
+  key: string,
+  value: JsonValue,
+  field: JsonObject,
+) {
+  const enumValues = Array.isArray(field.enum) ? field.enum : [];
+  if (enumValues.length > 0 && !enumValues.includes(value)) {
+    return `${key} must be one of: ${enumValues.join(', ')}.`;
+  }
+
+  if (field.type === 'number' || field.type === 'integer') {
+    if (typeof value !== 'number' || !Number.isFinite(value)) {
+      return `${key} must be a finite number.`;
+    }
+
+    if (field.type === 'integer' && !Number.isInteger(value)) {
+      return `${key} must be an integer.`;
+    }
+
+    if (typeof field.minimum === 'number' && value < field.minimum) {
+      return `${key} must be >= ${field.minimum}.`;
+    }
+
+    if (typeof field.maximum === 'number' && value > field.maximum) {
+      return `${key} must be <= ${field.maximum}.`;
+    }
+  }
+
+  if (field.type === 'boolean' && typeof value !== 'boolean') {
+    return `${key} must be a boolean.`;
+  }
+
+  if (field.type === 'string' && typeof value !== 'string') {
+    return `${key} must be a string.`;
+  }
+
+  if (field.type === 'array' && !Array.isArray(value)) {
+    return `${key} must be an array.`;
+  }
+
+  if (
+    field.type === 'object' &&
+    (!value || typeof value !== 'object' || Array.isArray(value))
+  ) {
+    return `${key} must be an object.`;
+  }
+
+  return null;
+}
+
+function hasProvidedAgentValue(value: JsonValue | undefined) {
+  if (value === undefined || value === null) return false;
+  if (typeof value === 'string') return value.trim().length > 0;
+  if (Array.isArray(value)) return value.length > 0;
+  return true;
+}
+
+function withObservability(
+  result: ChainAgentResult,
+  input: {
+    latencyMs: number;
+    modelIdentifier: string;
+    repaired: boolean;
+    requestCount: number;
+    usage: JsonObject;
+    validation: AgentValidationResult;
+  },
+): ChainAgentResult {
+  return {
+    ...result,
+    observability: {
+      instruction_version: CHAIN_AGENT_INSTRUCTION_VERSION,
+      latency_ms: input.latencyMs,
+      model_identifier: input.modelIdentifier,
+      repair_attempted: input.repaired,
+      request_count: input.requestCount,
+      schema_version: schemaVersion(result),
+      selected_suggestion_index: selectedSuggestionIndex(result),
+      token_usage: input.usage,
+      validation: input.validation as unknown as JsonObject,
+    },
+  };
+}
+
+function selectedSuggestionIndex(result: ChainAgentResult) {
+  return result.suggestions.findIndex(
+    (suggestion) => suggestion.prompt === result.selectedPrompt,
+  );
+}
+
+function schemaVersion(_result: ChainAgentResult) {
+  return 'semantic-lady-runtime-schema';
+}
+
+function mergeUsage(left: JsonObject, right: JsonObject) {
+  const merged: JsonObject = { ...left };
+
+  for (const [key, value] of Object.entries(right)) {
+    const existing = merged[key];
+    merged[key] =
+      typeof existing === 'number' && typeof value === 'number'
+        ? existing + value
+        : value;
+  }
+
+  return merged;
 }
 
 function parseAgentJson(rawText: string) {

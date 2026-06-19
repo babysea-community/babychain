@@ -2,6 +2,19 @@ import 'server-only';
 
 import type { JsonObject } from '@/lib/chains/types';
 
+import type { ChainAgentPromptContext } from '../types';
+
+export type ChainAgentToolName =
+  | 'read_downstream_schema'
+  | 'read_previous_step_summary'
+  | 'select_schema_defaults'
+  | 'retrieve_brand_context';
+
+export type ChainAgentToolResult = {
+  name: ChainAgentToolName;
+  output: JsonObject;
+};
+
 export const CHAIN_AGENT_TOOL_STRATEGY = {
   current: 'schema_context_only',
   tools: [],
@@ -19,3 +32,86 @@ export const CHAIN_AGENT_RESERVED_TOOL_FIELDS = [
   'generation_provider_order',
   'generation_provider_used',
 ];
+
+export function runChainAgentTools(
+  context: ChainAgentPromptContext,
+): ChainAgentToolResult[] {
+  return [
+    readDownstreamSchema(context),
+    readPreviousStepSummary(context),
+    selectSchemaDefaults(context),
+    retrieveBrandContext(),
+  ];
+}
+
+function readDownstreamSchema(
+  context: ChainAgentPromptContext,
+): ChainAgentToolResult {
+  return {
+    name: 'read_downstream_schema',
+    output: {
+      model_identifier: context.nextStep.modelIdentifier,
+      schema: context.nextStep.schema ?? {},
+      step_key: context.nextStep.stepKey,
+      step_kind: context.nextStep.stepKind,
+    },
+  };
+}
+
+function readPreviousStepSummary(
+  context: ChainAgentPromptContext,
+): ChainAgentToolResult {
+  return {
+    name: 'read_previous_step_summary',
+    output: {
+      model_identifier: context.previousStep.modelIdentifier,
+      output_count: context.previousStep.outputFiles.length,
+      request_params: context.previousStep.requestParams ?? {},
+      step_key: context.previousStep.stepKey,
+      step_kind: context.previousStep.stepKind,
+    },
+  };
+}
+
+function selectSchemaDefaults(
+  context: ChainAgentPromptContext,
+): ChainAgentToolResult {
+  const schema = context.nextStep.schema;
+  const properties =
+    schema &&
+    typeof schema.properties === 'object' &&
+    !Array.isArray(schema.properties)
+      ? (schema.properties as Record<string, JsonObject>)
+      : {};
+  const defaults: JsonObject = {};
+
+  for (const [key, value] of Object.entries(properties)) {
+    if (
+      value &&
+      typeof value === 'object' &&
+      !Array.isArray(value) &&
+      'default' in value
+    ) {
+      defaults[key] = value.default;
+    }
+  }
+
+  return {
+    name: 'select_schema_defaults',
+    output: {
+      defaults,
+      required: Array.isArray(schema?.required) ? schema.required : [],
+    },
+  };
+}
+
+function retrieveBrandContext(): ChainAgentToolResult {
+  return {
+    name: 'retrieve_brand_context',
+    output: {
+      available: false,
+      reason:
+        'No Bedrock Knowledge Base is configured yet. Use current run context, media, and downstream schema only.',
+    },
+  };
+}

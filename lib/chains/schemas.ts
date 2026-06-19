@@ -16,7 +16,7 @@ const MAX_JSON_NODES = 1_000;
 
 export const CreateRunExecutionSchema = z
   .object({
-    type: z.enum(['canvas_flow', 'chain_agent']).default('canvas_flow'),
+    type: z.enum(['self_control', 'chain_agent']).default('self_control'),
     mode: z.enum(['review', 'autopilot']).optional(),
     provider: z.literal('bedrock').optional(),
     model_identifier: z.preprocess(
@@ -24,9 +24,9 @@ export const CreateRunExecutionSchema = z
       z.string().trim().min(1).max(200).optional(),
     ),
   })
-  .default({ type: 'canvas_flow' })
+  .default({ type: 'self_control' })
   .superRefine((value, context) => {
-    if (value.type === 'canvas_flow') {
+    if (value.type === 'self_control') {
       return;
     }
 
