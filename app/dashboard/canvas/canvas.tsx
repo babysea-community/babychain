@@ -2649,7 +2649,6 @@ function CanvasInner(props: CanvasProps) {
     pendingFitFlowIdsRef.current = null;
     window.requestAnimationFrame(() => {
       void fitView({
-        duration: 500,
         maxZoom: 0.95,
         nodes: targetNodes,
         padding: 0.24,
