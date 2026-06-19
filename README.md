@@ -128,7 +128,7 @@ BabyChain is a visual studio for chaining generative media models, backed by a d
 BabyChain turns model-to-model media workflows into durable backend runs. Compose flows on the canvas or send one API request. Either way, BabyChain starts the chain, persists every step, hands generated media from one model to the next, and sends one signed callback when the final result is ready.
 
 - **Multi-flow canvas studio**: run many independent image → video flows side by side on one permanent workspace. Every edit autosaves to Aurora and survives reloads, logout, and device switches; only an explicit reset clears it.
-- **Run in place, save what matters**: each flow ends in a runner card. "Run only" streams step outputs onto the canvas; "Run and save" also snapshots the flow into the Library with its results.
+- **Run in place, save what matters**: each flow ends in a runner card. "Run only" streams step outputs onto the canvas; "RUN + SAVE" also snapshots the flow into the Library with its results.
 - **Same contract for products**: the canvas drives `POST /api/v1/chains/runs`, the exact API your product code calls. There is no separate studio-only contract.
 - **Self-hosted control plane**: deploy on Vercel with your own environment and secrets.
 - **Server-side credentials**: keep inference provider keys or BabySea keys inside your backend. Caller apps only use BabyChain API keys.

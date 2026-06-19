@@ -2076,7 +2076,7 @@ function ApiCurlDropdown({
 
 // Dedicated per-flow runner card, rendered as the last node of every flow.
 // It is derived from the flow (never persisted) and carries the run
-// controls: "Run only" executes in place; "Run and save" also publishes the
+// controls: "Run only" executes in place; "RUN + SAVE" also publishes the
 // flow to the Library.
 function RunnerNodeComponent({ data }: NodeProps) {
   const { flowId } = data as NodeData;
@@ -2135,14 +2135,14 @@ function RunnerNodeComponent({ data }: NodeProps) {
             <>
               <RunnerActionLabel>Run only</RunnerActionLabel> tests this flow
               without changing what is saved.{' '}
-              <RunnerActionLabel>Run and save</RunnerActionLabel> overwrites
-              this canvas with the new results.
+              <RunnerActionLabel>RUN + SAVE</RunnerActionLabel> overwrites this
+              canvas with the new results.
             </>
           ) : (
             <>
               <RunnerActionLabel>Run only</RunnerActionLabel> keeps results
-              here. <RunnerActionLabel>Run and save</RunnerActionLabel> creates
-              a new Library card for this flow.
+              here. <RunnerActionLabel>RUN + SAVE</RunnerActionLabel> creates a
+              new Library card for this flow.
             </>
           )}
         </p>
@@ -2171,7 +2171,7 @@ function RunnerNodeComponent({ data }: NodeProps) {
             onClick={() => runFlow(flowId, true)}
           >
             <FontAwesomeIcon icon="floppy-disk" />
-            Run and save
+            RUN + SAVE
           </Button>
           {runDisabledReason && !running ? (
             <span className="pointer-events-none absolute left-1/2 top-full z-20 mt-1.5 hidden w-64 -translate-x-1/2 border border-border bg-card px-2.5 py-1.5 text-center text-[0.65rem] leading-4 text-foreground shadow-xl group-hover:block">
@@ -2245,7 +2245,7 @@ function RunnerActionLabel({ children }: { children: ReactNode }) {
 
 // Flow info card: the first card of every flow. It carries the flow's Library
 // identity after publish, and the name (pencil to edit) becomes the Library
-// title on "Run and save".
+// title on "RUN + SAVE".
 function InfoNodeComponent({ id, data }: NodeProps) {
   const node = data as NodeData;
   const { flowId, values } = node;
@@ -3945,7 +3945,7 @@ function CanvasInner(props: CanvasProps) {
       }
       const run = result.run as RunJson;
 
-      // "Run and save": only create/update the Library card after a run id
+      // "RUN + SAVE": only create/update the Library card after a run id
       // exists, so navigating away cannot leave a saved canvas that says
       // "not run yet". On the workspace every publish creates a fresh Library
       // canvas card. On a saved canvas page the page id is reused.
