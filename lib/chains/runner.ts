@@ -14,6 +14,7 @@ import type {
 
 import { createBabySeaClient } from '@/lib/babysea';
 import { createChainAgent, type ChainAgent } from '@/lib/agents';
+import { validateChainAgentResult } from '@/lib/agents/validation';
 import {
   getProvider,
   readByokRunConfig,
@@ -383,6 +384,21 @@ export async function continueAgentRun(
     input.selectedPrompt,
     input.selectedParams,
   );
+  const validation = validateAgentCheckpointApproval(
+    record,
+    checkpoint,
+    selectedParams,
+    input.selectedPrompt,
+  );
+
+  if (!validation.ok) {
+    throw new BabyChainError(
+      'chain_agent_invalid_checkpoint',
+      `Agent checkpoint approval is invalid: ${validation.error}`,
+      400,
+    );
+  }
+
   const approved = await store.approveAgentCheckpoint({
     checkpointId: checkpoint.id,
     selectedParams,
@@ -417,6 +433,66 @@ export async function continueAgentRun(
   });
 
   return processRun(updated, { ...dependencies, store });
+}
+
+function validateAgentCheckpointApproval(
+  record: ChainRunWithSteps,
+  checkpoint: ChainAgentCheckpointRecord,
+  selectedParams: JsonObject,
+  selectedPrompt: string,
+) {
+  const previousStep = record.steps.find(
+    (step) => step.stepKey === checkpoint.previousStepKey,
+  );
+  const nextStep = record.steps.find(
+    (step) => step.stepKey === checkpoint.stepKey,
+  );
+
+  if (!previousStep || !nextStep) {
+    return {
+      ok: false as const,
+      checkedParams: Object.keys(selectedParams).sort(),
+      error: 'checkpoint step context is missing.',
+    };
+  }
+
+  const suggestions = Array.isArray(checkpoint.output.suggestions)
+    ? (
+        checkpoint.output.suggestions as Array<{
+          params?: JsonObject;
+          prompt?: string;
+          rationale?: string | null;
+          title?: string;
+        }>
+      ).map((suggestion, index) => ({
+        title: suggestion.title ?? `Option ${index + 1}`,
+        prompt: suggestion.prompt ?? selectedPrompt,
+        ...(suggestion.params ? { params: suggestion.params } : {}),
+        ...(suggestion.rationale ? { rationale: suggestion.rationale } : {}),
+      }))
+    : [];
+
+  return validateChainAgentResult(
+    {
+      selectedParams,
+      selectedPrompt,
+      suggestions,
+    },
+    {
+      currentInput: record.run.input as JsonObject,
+      flow: {
+        currentStepKey: checkpoint.previousStepKey,
+        mode: checkpoint.mode,
+        nextStepKey: checkpoint.stepKey,
+      },
+      previousStep,
+      nextStep: {
+        ...nextStep,
+        requestParams: agentStepRequestParams(record, nextStep),
+        schema: agentStepSchema(nextStep),
+      },
+    },
+  );
 }
 
 export async function applyBabySeaWebhook(
@@ -940,7 +1016,7 @@ function agentTunableParams(params: JsonObject) {
   return Object.fromEntries(
     Object.entries(params).filter(
       ([key]) =>
-        key === 'generation_prompt' && !AGENT_RESERVED_PARAM_KEYS.has(key),
+        key.startsWith('generation_') && !AGENT_RESERVED_PARAM_KEYS.has(key),
     ),
   );
 }

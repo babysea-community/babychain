@@ -39,10 +39,12 @@ export type CanvasFlowRunValidation =
   | { ok: false; reason: string };
 
 export function validateCanvasFlowRun({
+  agentDownstreamInputs = false,
   fieldsByModel,
   flowNodes,
   models,
 }: {
+  agentDownstreamInputs?: boolean;
   fieldsByModel: Record<string, CanvasRunValidationGroup | undefined>;
   flowNodes: readonly CanvasRunValidationNode[];
   models: readonly CanvasRunValidationModel[];
@@ -82,18 +84,28 @@ export function validateCanvasFlowRun({
     const fields = [...fieldGroup.core, ...fieldGroup.advanced].filter(
       (field) => shouldValidateFieldForRole(field, node.data.role),
     );
+    const agentWillPlanStep =
+      agentDownstreamInputs && node.data.role !== 'image';
 
     for (const field of fields) {
       const value = node.data.values[field.name];
       const requestValue = meaningfulCanvasValue(value) ? value : field.default;
 
-      if (shouldBlockZeroValue(field) && isZeroValue(requestValue, field)) {
+      if (
+        !agentWillPlanStep &&
+        shouldBlockZeroValue(field) &&
+        isZeroValue(requestValue, field)
+      ) {
         return blocked(
           `${field.name} cannot be 0 in the ${node.data.role}_model node.`,
         );
       }
 
-      if (isRequiredRunField(field) && !meaningfulCanvasValue(value)) {
+      if (
+        !agentWillPlanStep &&
+        isRequiredRunField(field) &&
+        !meaningfulCanvasValue(value)
+      ) {
         return blocked(
           `Fill ${field.name} in the ${node.data.role}_model node.`,
         );

@@ -67,7 +67,7 @@ describe('Bedrock Nova Chain Agent', () => {
     });
   });
 
-  it('repairs copied prompts once and records observability', async () => {
+  it('repairs invalid selected params once and records observability', async () => {
     setMinimalEnv();
     const responses = [
       {
@@ -121,6 +121,7 @@ describe('Bedrock Nova Chain Agent', () => {
                   selected_prompt:
                     'A gentle handheld dolly follows her through the crosswalk as neon reflections slide across her hoodie, with small head turns and natural walking rhythm.',
                   selected_params: {
+                    generation_duration: 4,
                     generation_prompt:
                       'A gentle handheld dolly follows her through the crosswalk as neon reflections slide across her hoodie, with small head turns and natural walking rhythm.',
                   },
@@ -151,10 +152,7 @@ describe('Bedrock Nova Chain Agent', () => {
       },
       nextStep: {
         modelIdentifier: 'google/veo-3.1-lite',
-        requestParams: {
-          generation_duration: 4,
-          generation_prompt: 'Animate the frame.',
-        },
+        requestParams: null,
         schema: {
           type: 'object',
           required: ['generation_prompt', 'generation_duration'],
@@ -177,10 +175,10 @@ describe('Bedrock Nova Chain Agent', () => {
 
     expect(fetchImpl).toHaveBeenCalledTimes(2);
     expect(result.selectedParams).toMatchObject({
+      generation_duration: 4,
       generation_prompt:
         'A gentle handheld dolly follows her through the crosswalk as neon reflections slide across her hoodie, with small head turns and natural walking rhythm.',
     });
-    expect(result.selectedParams).not.toHaveProperty('generation_duration');
     expect(result.observability).toMatchObject({
       model_identifier: 'us.amazon.nova-pro-v1:0',
       repair_attempted: true,

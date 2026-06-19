@@ -330,12 +330,13 @@ export function parseTemplateInput(
 export function assertChainInputRequirements(
   template: ChainTemplate,
   input: ChainInput,
-  options: { byokMode?: boolean } = {},
+  options: { agentDownstreamInputs?: boolean; byokMode?: boolean } = {},
 ) {
   normalizeEmptyModelInputPlaceholders(input);
   const byokMode = options.byokMode ?? false;
+  const agentDownstreamInputs = options.agentDownstreamInputs === true;
 
-  if (!byokMode) {
+  if (!byokMode && !agentDownstreamInputs) {
     requireVideoDuration(input);
   }
 
@@ -366,7 +367,7 @@ export function assertChainInputRequirements(
   rejectChainWiredImageInputs(input);
 
   if (byokMode) {
-    assertByokGenerationFieldsForSteps(input);
+    assertByokGenerationFieldsForSteps(input, { agentDownstreamInputs });
   }
 }
 
@@ -438,12 +439,19 @@ const STEP_MODEL_INPUT_PAIRS = [
  * unified field present in a step model input must exist in the model's
  * Semantic Lady schema and satisfy its value constraints.
  */
-function assertByokGenerationFieldsForSteps(input: ChainInput) {
+function assertByokGenerationFieldsForSteps(
+  input: ChainInput,
+  options: { agentDownstreamInputs?: boolean } = {},
+) {
   for (const [modelKey, paramsKey, role] of STEP_MODEL_INPUT_PAIRS) {
     const modelIdentifier = optionalString(input[modelKey]);
     const params = input[paramsKey];
 
     if (!modelIdentifier) {
+      continue;
+    }
+
+    if (options.agentDownstreamInputs && role !== 'image') {
       continue;
     }
 

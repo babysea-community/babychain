@@ -21,6 +21,10 @@ import {
   buildChainAgentInstruction,
   CHAIN_AGENT_INSTRUCTION_VERSION,
 } from './instructions';
+import {
+  validateChainAgentResult,
+  type ChainAgentValidationResult,
+} from './validation';
 
 const BEDROCK_DEFAULT_MODEL = 'us.amazon.nova-pro-v1:0';
 const BEDROCK_DEFAULT_REGION = 'us-east-1';
@@ -72,7 +76,7 @@ export function createBedrockNovaAgent(
         modelIdentifier,
         region,
       });
-      const firstValidation = validateAgentResult(first.result, input);
+      const firstValidation = validateChainAgentResult(first.result, input);
 
       if (firstValidation.ok) {
         return withObservability(first.result, {
@@ -94,7 +98,7 @@ export function createBedrockNovaAgent(
         region,
         repairError: firstValidation.error,
       });
-      const repairValidation = validateAgentResult(repair.result, input);
+      const repairValidation = validateChainAgentResult(repair.result, input);
 
       if (!repairValidation.ok) {
         throw new BabyChainError(
@@ -287,185 +291,6 @@ function normalizeAgentOutput(rawText: string): ChainAgentResult {
   };
 }
 
-type AgentValidationResult =
-  | { ok: true; checkedParams: string[] }
-  | { ok: false; checkedParams: string[]; error: string };
-
-function validateAgentResult(
-  result: ChainAgentResult,
-  context: ChainAgentPromptContext,
-): AgentValidationResult {
-  const schema = context.nextStep.schema;
-  const baseParams = isRecord(context.nextStep.requestParams)
-    ? toJsonObject(context.nextStep.requestParams)
-    : {};
-  const params: JsonObject = {
-    ...baseParams,
-    generation_prompt: result.selectedPrompt,
-  };
-  const checkedParams = ['generation_prompt'];
-
-  if (!schema || typeof schema !== 'object') {
-    return validatePromptEnhancement(result, context, checkedParams);
-  }
-
-  const required = Array.isArray(schema.required)
-    ? schema.required.filter(
-        (entry): entry is string => typeof entry === 'string',
-      )
-    : [];
-  const properties =
-    schema.properties &&
-    typeof schema.properties === 'object' &&
-    !Array.isArray(schema.properties)
-      ? (schema.properties as Record<string, JsonObject>)
-      : {};
-
-  for (const fieldName of required) {
-    if (!hasProvidedAgentValue(params[fieldName])) {
-      return {
-        ok: false,
-        checkedParams,
-        error: `${fieldName} must be filled by the user before the agent run starts.`,
-      };
-    }
-  }
-
-  for (const [key, value] of Object.entries(params)) {
-    const field = properties[key];
-
-    if (!field) {
-      return {
-        ok: false,
-        checkedParams,
-        error: `${key} is not supported by the downstream schema.`,
-      };
-    }
-
-    const error = validateAgentFieldValue(key, value, field);
-    if (error) {
-      return { ok: false, checkedParams, error };
-    }
-  }
-
-  return validatePromptEnhancement(result, context, checkedParams);
-}
-
-function validatePromptEnhancement(
-  result: ChainAgentResult,
-  context: ChainAgentPromptContext,
-  checkedParams: string[],
-): AgentValidationResult {
-  const selected = normalizeComparablePrompt(result.selectedPrompt);
-  const existing = normalizeComparablePrompt(
-    stringValue(
-      isRecord(context.nextStep.requestParams)
-        ? context.nextStep.requestParams.generation_prompt
-        : undefined,
-    ) ?? '',
-  );
-  const previous = normalizeComparablePrompt(
-    stringValue(
-      isRecord(context.previousStep.requestParams)
-        ? context.previousStep.requestParams.generation_prompt
-        : undefined,
-    ) ?? '',
-  );
-  const prompts = result.suggestions.map((suggestion) =>
-    normalizeComparablePrompt(suggestion.prompt),
-  );
-  const uniquePrompts = new Set(prompts.filter(Boolean));
-
-  if (existing && selected === existing) {
-    return {
-      ok: false,
-      checkedParams,
-      error:
-        'selected_prompt is the same as the existing downstream prompt. Rewrite it with clearly improved motion, camera, pacing, and continuity details.',
-    };
-  }
-
-  if (previous && selected === previous) {
-    return {
-      ok: false,
-      checkedParams,
-      error:
-        'selected_prompt is the same as the previous step prompt. Rewrite it for the next step instead of copying the source prompt.',
-    };
-  }
-
-  if (uniquePrompts.size < Math.min(3, result.suggestions.length)) {
-    return {
-      ok: false,
-      checkedParams,
-      error: 'suggestions must be meaningfully distinct from each other.',
-    };
-  }
-
-  return { ok: true, checkedParams };
-}
-
-function normalizeComparablePrompt(value: string) {
-  return value.toLowerCase().replace(/\s+/g, ' ').trim();
-}
-
-function validateAgentFieldValue(
-  key: string,
-  value: JsonValue,
-  field: JsonObject,
-) {
-  const enumValues = Array.isArray(field.enum) ? field.enum : [];
-  if (enumValues.length > 0 && !enumValues.includes(value)) {
-    return `${key} must be one of: ${enumValues.join(', ')}.`;
-  }
-
-  if (field.type === 'number' || field.type === 'integer') {
-    if (typeof value !== 'number' || !Number.isFinite(value)) {
-      return `${key} must be a finite number.`;
-    }
-
-    if (field.type === 'integer' && !Number.isInteger(value)) {
-      return `${key} must be an integer.`;
-    }
-
-    if (typeof field.minimum === 'number' && value < field.minimum) {
-      return `${key} must be >= ${field.minimum}.`;
-    }
-
-    if (typeof field.maximum === 'number' && value > field.maximum) {
-      return `${key} must be <= ${field.maximum}.`;
-    }
-  }
-
-  if (field.type === 'boolean' && typeof value !== 'boolean') {
-    return `${key} must be a boolean.`;
-  }
-
-  if (field.type === 'string' && typeof value !== 'string') {
-    return `${key} must be a string.`;
-  }
-
-  if (field.type === 'array' && !Array.isArray(value)) {
-    return `${key} must be an array.`;
-  }
-
-  if (
-    field.type === 'object' &&
-    (!value || typeof value !== 'object' || Array.isArray(value))
-  ) {
-    return `${key} must be an object.`;
-  }
-
-  return null;
-}
-
-function hasProvidedAgentValue(value: JsonValue | undefined) {
-  if (value === undefined || value === null) return false;
-  if (typeof value === 'string') return value.trim().length > 0;
-  if (Array.isArray(value)) return value.length > 0;
-  return true;
-}
-
 function withObservability(
   result: ChainAgentResult,
   input: {
@@ -474,7 +299,7 @@ function withObservability(
     repaired: boolean;
     requestCount: number;
     usage: JsonObject;
-    validation: AgentValidationResult;
+    validation: ChainAgentValidationResult;
   },
 ): ChainAgentResult {
   return {
@@ -564,7 +389,12 @@ function normalizeSuggestions(value: unknown): ChainAgentSuggestion[] {
 }
 
 function normalizeSelectedParams(value: unknown, selectedPrompt: string) {
+  const params = isRecord(value) ? toJsonObject(value) : {};
+
   return {
+    ...Object.fromEntries(
+      Object.entries(params).filter(([key]) => key.startsWith('generation_')),
+    ),
     generation_prompt: selectedPrompt,
   } satisfies JsonObject;
 }

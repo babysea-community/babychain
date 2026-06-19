@@ -498,6 +498,28 @@ type AgentCheckpoint = {
   selected_params?: Record<string, unknown> | null;
 };
 
+function stringFieldValue(value: unknown): FieldValue | null {
+  if (
+    typeof value === 'string' ||
+    typeof value === 'number' ||
+    typeof value === 'boolean'
+  ) {
+    return value;
+  }
+
+  if (Array.isArray(value)) {
+    return value.every((entry) => typeof entry === 'string')
+      ? value.join('\n')
+      : JSON.stringify(value, null, 2);
+  }
+
+  if (value && typeof value === 'object') {
+    return JSON.stringify(value, null, 2);
+  }
+
+  return null;
+}
+
 type RunJson = {
   agent_checkpoints?: AgentCheckpoint[];
   error?: { message?: string | null } | null;
@@ -1720,6 +1742,7 @@ function AgentCheckpointPanel({
   const [selectedIndex, setSelectedIndex] = useState(initialSelectedIndex);
   const selected = suggestions[selectedIndex];
   const approvedPrompt = checkpoint.selected_prompt ?? '';
+  const selectedParams = selected?.params ?? checkpoint.selected_params ?? {};
 
   useEffect(() => {
     setSelectedIndex(initialSelectedIndex);
@@ -1784,6 +1807,26 @@ function AgentCheckpointPanel({
             {approvedPrompt}
           </div>
         ) : null}
+        {!pending && Object.keys(selectedParams).length > 0 ? (
+          <div className="overflow-hidden border border-border">
+            <div className="border-b border-border px-2 py-1 text-[0.62rem] font-medium uppercase tracking-wide text-muted-foreground">
+              proposed_fields
+            </div>
+            <div className="divide-y divide-border">
+              {Object.entries(selectedParams).map(([key, value]) => (
+                <div
+                  key={key}
+                  className="grid grid-cols-[8rem_minmax(0,1fr)] gap-2 px-2 py-1.5 text-[0.65rem] leading-4"
+                >
+                  <span className="font-mono text-muted-foreground">{key}</span>
+                  <span className="whitespace-pre-wrap break-words text-foreground">
+                    {formatCheckpointValue(value)}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : null}
         {!isAutopilot ? (
           <Button
             className="nodrag w-full"
@@ -1798,6 +1841,14 @@ function AgentCheckpointPanel({
       </div>
     </div>
   );
+}
+
+function formatCheckpointValue(value: unknown) {
+  if (value === null || value === undefined) return '';
+  if (typeof value === 'string') return value;
+  if (typeof value === 'number' || typeof value === 'boolean')
+    return String(value);
+  return JSON.stringify(value, null, 2);
 }
 
 function CheckpointNodeComponent({ data }: NodeProps) {
@@ -3072,6 +3123,8 @@ function CanvasInner(props: CanvasProps) {
 
     for (const [flowId, flowNodes] of flows) {
       result[flowId] = validateCanvasFlowRun({
+        agentDownstreamInputs:
+          (runModeByFlow.get(flowId) ?? 'self_control') !== 'self_control',
         fieldsByModel,
         flowNodes,
         models,
@@ -3610,16 +3663,23 @@ function CanvasInner(props: CanvasProps) {
     });
     setNodes((current) => {
       let changed = false;
-      const selectedPromptByRole = new Map<string, string>();
+      const selectedParamsByRole = new Map<string, string>();
 
       for (const checkpoint of run.agent_checkpoints ?? []) {
-        const prompt = checkpoint.selected_prompt?.trim();
-        if (prompt && nodeByRole.has(checkpoint.step_key)) {
-          selectedPromptByRole.set(checkpoint.step_key, prompt);
+        if (nodeByRole.has(checkpoint.step_key)) {
+          const selectedParams = checkpoint.selected_params ?? {};
+          const prompt = checkpoint.selected_prompt?.trim();
+          selectedParamsByRole.set(
+            checkpoint.step_key,
+            JSON.stringify({
+              ...selectedParams,
+              ...(prompt ? { generation_prompt: prompt } : {}),
+            }),
+          );
         }
       }
 
-      if (selectedPromptByRole.size === 0) {
+      if (selectedParamsByRole.size === 0) {
         return current;
       }
 
@@ -3628,8 +3688,26 @@ function CanvasInner(props: CanvasProps) {
           return node;
         }
 
-        const prompt = selectedPromptByRole.get(node.data.role);
-        if (!prompt || node.data.values.generation_prompt === prompt) {
+        const serializedParams = selectedParamsByRole.get(node.data.role);
+        if (!serializedParams) {
+          return node;
+        }
+
+        const params = JSON.parse(serializedParams) as Record<string, unknown>;
+        const values = Object.fromEntries(
+          Object.entries(params)
+            .map(([key, value]) => [key, stringFieldValue(value)] as const)
+            .filter(
+              (entry): entry is readonly [string, FieldValue] =>
+                entry[1] !== null,
+            ),
+        );
+
+        if (
+          Object.entries(values).every(
+            ([key, value]) => node.data.values[key] === value,
+          )
+        ) {
           return node;
         }
 
@@ -3640,7 +3718,7 @@ function CanvasInner(props: CanvasProps) {
             ...node.data,
             values: {
               ...node.data.values,
-              generation_prompt: prompt,
+              ...values,
             },
           },
         };
@@ -3792,6 +3870,7 @@ function CanvasInner(props: CanvasProps) {
         return;
       }
       const runValidation = validateCanvasFlowRun({
+        agentDownstreamInputs: runMode !== 'self_control',
         fieldsByModel: fieldsRef.current,
         flowNodes,
         models,

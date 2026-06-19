@@ -83,6 +83,7 @@ export async function POST(request: NextRequest) {
     );
     const input = preserveInputOrder(parsedInput, payload.input);
     assertChainInputRequirements(template, input, {
+      agentDownstreamInputs: executionConfig.type === 'chain_agent',
       byokMode: directProviderMode,
     });
     const selectedSteps = selectChainTemplateSteps(template, input);

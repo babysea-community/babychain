@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   assertSafeCallbackUrl,
   cancelRun,
+  continueAgentRun,
   prepareStepParamsForProvider,
   processRun,
 } from '@/lib/chains/runner';
@@ -847,6 +848,7 @@ describe('runner step claiming', () => {
     const agent = createPromptAgent({
       selectedPrompt: 'Elegant orbit with warm highlights.',
       selectedParams: {
+        generation_duration: 6,
         generation_input_file: ['https://attacker.example.com/skip.png'],
         generation_input_video_file: ['https://attacker.example.com/skip.mp4'],
         generation_prompt: 'Elegant orbit with warm highlights.',
@@ -874,11 +876,51 @@ describe('runner step claiming', () => {
     expect(result.run.currentStepKey).toBe('video');
     expect(result.agentCheckpoints[0]).toMatchObject({ status: 'applied' });
     expect(submittedParams).toMatchObject({
-      generation_duration: 4,
+      generation_duration: 6,
       generation_input_file: ['data:image/png;base64,aW1hZ2U='],
       generation_prompt: 'Elegant orbit with warm highlights.',
     });
     expect(submittedParams).not.toHaveProperty('generation_input_video_file');
+  });
+
+  it('rejects invalid Chain Agent Review approval params', async () => {
+    const record = chainAgentRecord('review');
+    let updatedRecord = record;
+    const store = createMutableAgentStore(updatedRecord, (next) => {
+      updatedRecord = next;
+    });
+    const agent = createPromptAgent({
+      selectedPrompt: 'Slow cinematic dolly-in over the finished product.',
+      selectedParams: {
+        generation_duration: 4,
+        generation_prompt: 'Slow cinematic dolly-in over the finished product.',
+      },
+    });
+    const paused = await processRun(record, {
+      agent,
+      babysea: {} as never,
+      store: store as never,
+    });
+    const checkpointId = paused.agentCheckpoints[0]!.id;
+
+    await expect(
+      continueAgentRun(
+        paused.run.id,
+        {
+          checkpointId,
+          selectedParams: {
+            generation_duration: 99,
+            generation_prompt:
+              'Slow cinematic dolly-in over the finished product.',
+          },
+          selectedPrompt: 'Slow cinematic dolly-in over the finished product.',
+        },
+        { babysea: {} as never, store: store as never },
+      ),
+    ).rejects.toMatchObject({
+      code: 'chain_agent_invalid_checkpoint',
+      status: 400,
+    });
   });
 });
 
