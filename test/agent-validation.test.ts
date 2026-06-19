@@ -11,7 +11,7 @@ describe('validateChainAgentResult', () => {
     const result = validateChainAgentResult(
       resultWithPrompt({
         selectedPrompt:
-          'The portrait stays in place as she blinks and the film grain breathes.',
+          'A young Japanese woman walks through a park with flowers and greenery.',
         generationPrompt:
           'A young Japanese woman walks through a park with flowers and greenery.',
       }),
@@ -54,11 +54,58 @@ describe('validateChainAgentResult', () => {
 
     expect(result).toMatchObject({ ok: true });
   });
+
+  it('requires advanced downstream generation fields to be planned', () => {
+    const result = validateChainAgentResult(
+      resultWithPrompt({
+        selectedPrompt:
+          'The color-film portrait gently animates with subtle breathing, soft bokeh motion, and a slow camera push.',
+        generationPrompt:
+          'The color-film portrait gently animates with subtle breathing, soft bokeh motion, and a slow camera push.',
+      }),
+      contextWithCurrentInput({}, true),
+    );
+
+    expect(result).toMatchObject({
+      ok: false,
+      error:
+        'generation_negative_prompt is must be planned by the downstream schema.',
+    });
+  });
+
+  it('rejects selected prompt that does not match selected params prompt', () => {
+    const result = validateChainAgentResult(
+      resultWithPrompt({
+        selectedPrompt: 'Short title prompt.',
+        generationPrompt:
+          'A complete generation prompt with camera motion, continuity, and detailed subject movement.',
+      }),
+      contextWithCurrentInput({}),
+    );
+
+    expect(result).toMatchObject({
+      ok: false,
+      error:
+        'selected_prompt must exactly match selected_params.generation_prompt.',
+    });
+  });
 });
 
 function contextWithCurrentInput(
   currentInput: ChainAgentPromptContext['currentInput'],
+  includeAdvancedFields = false,
 ): ChainAgentPromptContext {
+  const properties = {
+    generation_prompt: { type: 'string' },
+    generation_duration: { type: 'number', minimum: 1, maximum: 8 },
+    ...(includeAdvancedFields
+      ? {
+          generation_negative_prompt: { type: 'string' },
+          generation_seed: { type: 'integer', minimum: 0, maximum: 2147483647 },
+        }
+      : {}),
+  };
+
   return {
     currentInput,
     flow: {
@@ -72,10 +119,7 @@ function contextWithCurrentInput(
       schema: {
         type: 'object',
         required: ['generation_prompt', 'generation_duration'],
-        properties: {
-          generation_prompt: { type: 'string' },
-          generation_duration: { type: 'number', minimum: 1, maximum: 8 },
-        },
+        properties,
       },
       stepKey: 'video',
       stepKind: 'video',

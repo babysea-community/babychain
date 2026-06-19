@@ -995,7 +995,7 @@ const INFO_COL_W = 400;
 
 type FlowNode = Node<NodeData>;
 
-type NodeStatus = { status: string; output?: string };
+type NodeStatus = { status: string; outputs?: string[] };
 
 type AgentCheckpointState = {
   checkpoint: AgentCheckpoint;
@@ -1777,15 +1777,11 @@ function ModelNodeComponent({ id, data }: NodeProps) {
           </>
         )}
 
-        {nodeStatus?.output ? (
-          <div className="border border-border">
-            {/* Key by URL so a new run's output restarts the loading state
-                instead of inheriting the previous result's. */}
-            <MediaPreview
-              key={nodeStatus.output}
-              url={nodeStatus.output}
-              kind={kind}
-            />
+        {nodeStatus?.outputs?.length ? (
+          <div className="grid gap-2 border border-border p-2">
+            {nodeStatus.outputs.map((outputUrl) => (
+              <MediaPreview key={outputUrl} url={outputUrl} kind={kind} />
+            ))}
           </div>
         ) : null}
       </div>
@@ -2671,6 +2667,7 @@ function buildFlowRunInput(
   nodes: FlowNode[],
   flowId: string,
   fieldsByModel: Record<string, FieldGroup | undefined>,
+  options: { agentDownstreamInputs?: boolean } = {},
 ) {
   const flowNodes = nodes
     .filter((node) => node.type === 'model' && node.data.flowId === flowId)
@@ -2688,7 +2685,11 @@ function buildFlowRunInput(
           shouldRenderFieldForRole(field, node.data.role),
         )
       : [];
-    const params = normalizeRunParams(compact(node.data.values), group);
+    const values =
+      options.agentDownstreamInputs && node.data.role !== 'image'
+        ? resetAgentPlannedValues(node.data.values, schemaFields)
+        : node.data.values;
+    const params = normalizeRunParams(compact(values), group);
 
     if (node.data.role === 'image') {
       normalizeInitialImageInputArrays(params);
@@ -2716,6 +2717,61 @@ function buildFlowRunInput(
   }
 
   return { flowNodes, input };
+}
+
+function resetAgentPlannedValues(
+  values: Record<string, FieldValue>,
+  fields: FieldSpec[],
+) {
+  const fieldNames = new Set(fields.map((field) => field.name));
+
+  return Object.fromEntries(
+    Object.entries(values).filter(([key]) => !fieldNames.has(key)),
+  ) as Record<string, FieldValue>;
+}
+
+function resetAgentPlannedFlowValues(
+  nodes: FlowNode[],
+  flowId: string,
+  fieldsByModel: Record<string, FieldGroup | undefined>,
+) {
+  let changed = false;
+
+  const next = nodes.map((node) => {
+    if (node.type !== 'model' || node.data.flowId !== flowId) {
+      return node;
+    }
+
+    if (node.data.role === 'image') {
+      return node;
+    }
+
+    const group =
+      fieldsByModel[modelSchemaCacheKey(node.data.role, node.data.modelId)];
+    if (!group) {
+      return node;
+    }
+
+    const schemaFields = [...group.core, ...group.advanced].filter((field) =>
+      shouldRenderFieldForRole(field, node.data.role),
+    );
+    const values = resetAgentPlannedValues(node.data.values, schemaFields);
+
+    if (Object.keys(values).length === Object.keys(node.data.values).length) {
+      return node;
+    }
+
+    changed = true;
+    return {
+      ...node,
+      data: {
+        ...node.data,
+        values,
+      },
+    };
+  });
+
+  return { changed, nodes: next };
 }
 
 function runModeExecution(mode: RunMode) {
@@ -3701,9 +3757,12 @@ function CanvasInner(props: CanvasProps) {
       for (const step of run.steps ?? []) {
         const nodeId = nodeByRole.get(step.step_key);
         if (nodeId) {
+          const outputs = (step.generation_output_file ?? []).filter(
+            (outputFile) => outputFile.trim().length > 0,
+          );
           next[nodeId] = {
             status: step.status,
-            output: step.generation_output_file?.[0],
+            outputs: outputs.length > 0 ? outputs : undefined,
           };
         }
       }
@@ -3734,11 +3793,18 @@ function CanvasInner(props: CanvasProps) {
         if (nodeByRole.has(checkpoint.step_key)) {
           const selectedParams = checkpoint.selected_params ?? {};
           const prompt = checkpoint.selected_prompt?.trim();
+          const selectedParamsPrompt =
+            typeof selectedParams.generation_prompt === 'string' &&
+            selectedParams.generation_prompt.trim().length > 0
+              ? selectedParams.generation_prompt
+              : null;
           selectedParamsByRole.set(
             checkpoint.step_key,
             JSON.stringify({
               ...selectedParams,
-              ...(prompt ? { generation_prompt: prompt } : {}),
+              ...(!selectedParamsPrompt && prompt
+                ? { generation_prompt: prompt }
+                : {}),
             }),
           );
         }
@@ -3920,11 +3986,30 @@ function CanvasInner(props: CanvasProps) {
       let flowNodes: FlowNode[];
       let input: Record<string, unknown>;
       const runMode = runModeByFlow.get(flowId) ?? 'self_control';
-      try {
-        const built = buildFlowRunInput(
-          nodesRef.current,
+      const agentDownstreamInputs = runMode !== 'self_control';
+      let nodesForRun = nodesRef.current;
+
+      if (agentDownstreamInputs) {
+        const reset = resetAgentPlannedFlowValues(
+          nodesForRun,
           flowId,
           fieldsRef.current,
+        );
+
+        if (reset.changed) {
+          nodesForRun = reset.nodes;
+          nodesRef.current = reset.nodes;
+          setNodes(reset.nodes);
+          dirtyRef.current = true;
+        }
+      }
+
+      try {
+        const built = buildFlowRunInput(
+          nodesForRun,
+          flowId,
+          fieldsRef.current,
+          { agentDownstreamInputs },
         );
         flowNodes = built.flowNodes;
         input = built.input;
@@ -3935,7 +4020,7 @@ function CanvasInner(props: CanvasProps) {
         return;
       }
       const runValidation = validateCanvasFlowRun({
-        agentDownstreamInputs: runMode !== 'self_control',
+        agentDownstreamInputs,
         fieldsByModel: fieldsRef.current,
         flowNodes,
         models,
@@ -3960,13 +4045,13 @@ function CanvasInner(props: CanvasProps) {
       setAgentCheckpointByNode((prev) => {
         const next = { ...prev };
         for (const node of flowNodes) {
-          delete next[node.id];
+          delete next[checkpointNodeId(flowId, node.data.role)];
         }
         return next;
       });
 
       let savedCanvasId: string | undefined;
-      const workingNodes = nodesRef.current;
+      const workingNodes = nodesForRun;
 
       if (save) {
         savedCanvasId = canvasId ?? createCanvasId();

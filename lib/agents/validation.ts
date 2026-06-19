@@ -17,6 +17,16 @@ export function validateChainAgentResult(
   const schema = context.nextStep.schema;
   const params = result.selectedParams;
   const checkedParams = Object.keys(params).sort();
+  const selectedParamsPrompt = promptString(params);
+
+  if (selectedParamsPrompt && selectedParamsPrompt !== result.selectedPrompt) {
+    return {
+      ok: false,
+      checkedParams,
+      error:
+        'selected_prompt must exactly match selected_params.generation_prompt.',
+    };
+  }
 
   if (!schema || typeof schema !== 'object') {
     return validatePromptEnhancement(result, context, checkedParams);
@@ -33,13 +43,17 @@ export function validateChainAgentResult(
     !Array.isArray(schema.properties)
       ? (schema.properties as Record<string, JsonObject>)
       : {};
+  const plannedFields = agentPlannedSchemaFields(properties);
 
-  for (const fieldName of required) {
+  for (const fieldName of plannedFields) {
     if (!hasProvidedAgentValue(params[fieldName])) {
+      const requirement = required.includes(fieldName)
+        ? 'required'
+        : 'must be planned';
       return {
         ok: false,
         checkedParams,
-        error: `${fieldName} is required by the downstream schema.`,
+        error: `${fieldName} is ${requirement} by the downstream schema.`,
       };
     }
   }
@@ -63,6 +77,28 @@ export function validateChainAgentResult(
 
   return validatePromptEnhancement(result, context, checkedParams);
 }
+
+function agentPlannedSchemaFields(properties: Record<string, JsonObject>) {
+  return Object.keys(properties)
+    .filter(
+      (fieldName) =>
+        fieldName.startsWith('generation_') &&
+        !AGENT_RESERVED_SCHEMA_FIELDS.has(fieldName),
+    )
+    .sort();
+}
+
+const AGENT_RESERVED_SCHEMA_FIELDS = new Set([
+  'generation_callback_url',
+  'generation_input_audio_file',
+  'generation_input_file',
+  'generation_input_image_file',
+  'generation_input_video_file',
+  'generation_last_frame',
+  'generation_output_file',
+  'generation_provider_order',
+  'generation_provider_used',
+]);
 
 function validatePromptEnhancement(
   result: Pick<

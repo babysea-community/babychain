@@ -36,12 +36,7 @@ export const CHAIN_AGENT_RESERVED_TOOL_FIELDS = [
 export function runChainAgentTools(
   context: ChainAgentPromptContext,
 ): ChainAgentToolResult[] {
-  return [
-    readDownstreamSchema(context),
-    readPreviousStepSummary(context),
-    selectSchemaDefaults(context),
-    retrieveBrandContext(),
-  ];
+  return [readDownstreamSchema(context), selectSchemaDefaults(context)];
 }
 
 function readDownstreamSchema(
@@ -51,24 +46,9 @@ function readDownstreamSchema(
     name: 'read_downstream_schema',
     output: {
       model_identifier: context.nextStep.modelIdentifier,
-      schema: context.nextStep.schema ?? {},
+      schema_location: 'runtime_context.downstream_schema',
       step_key: context.nextStep.stepKey,
       step_kind: context.nextStep.stepKind,
-    },
-  };
-}
-
-function readPreviousStepSummary(
-  context: ChainAgentPromptContext,
-): ChainAgentToolResult {
-  return {
-    name: 'read_previous_step_summary',
-    output: {
-      model_identifier: context.previousStep.modelIdentifier,
-      output_count: context.previousStep.outputFiles.length,
-      request_params: context.previousStep.requestParams ?? {},
-      step_key: context.previousStep.stepKey,
-      step_kind: context.previousStep.stepKind,
     },
   };
 }
@@ -100,19 +80,8 @@ function selectSchemaDefaults(
     name: 'select_schema_defaults',
     output: {
       defaults,
-      note: 'Defaults are read-only context. The agent must return generation_prompt plus every required downstream schema field that is not BabyChain-owned media handoff, and may return supported optional generation_* fields when they improve the result.',
+      note: 'Defaults are read-only context. The agent must return every downstream schema generation_* field that is not BabyChain-owned media handoff, including advanced fields.',
       required: Array.isArray(schema?.required) ? schema.required : [],
-    },
-  };
-}
-
-function retrieveBrandContext(): ChainAgentToolResult {
-  return {
-    name: 'retrieve_brand_context',
-    output: {
-      available: false,
-      reason:
-        'No Bedrock Knowledge Base is configured yet. Use current run context, media, and downstream schema only.',
     },
   };
 }

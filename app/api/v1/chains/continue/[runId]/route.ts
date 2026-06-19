@@ -51,16 +51,21 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
     const body = await readJsonBody(request);
     const payload = parseSchema(ContinueAgentRunRequestSchema, body);
+    const selectedPrompt =
+      typeof payload.selected_params.generation_prompt === 'string' &&
+      payload.selected_params.generation_prompt.trim().length > 0
+        ? payload.selected_params.generation_prompt
+        : payload.selected_prompt;
     const selectedParams = {
       ...payload.selected_params,
-      generation_prompt: payload.selected_prompt,
+      generation_prompt: selectedPrompt,
     };
     const record = await continueAgentRun(
       parsedRunId,
       {
         checkpointId: payload.checkpoint_id,
         selectedParams,
-        selectedPrompt: payload.selected_prompt,
+        selectedPrompt,
       },
       { store },
     );

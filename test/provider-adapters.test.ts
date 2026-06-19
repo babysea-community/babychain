@@ -2379,6 +2379,10 @@ describe('provider adapters', () => {
               bytesBase64Encoded: 'aW1hZ2VuLWltYWdl',
               mimeType: 'image/png',
             },
+            {
+              bytesBase64Encoded: 'aW1hZ2VuLXNlY29uZA==',
+              mimeType: 'image/png',
+            },
           ],
         }),
         { status: 200 },
@@ -2416,7 +2420,10 @@ describe('provider adapters', () => {
     expect(result).toMatchObject({
       generationId: 'google_idem_google_imagen',
       kind: 'completed',
-      outputFiles: ['data:image/png;base64,aW1hZ2VuLWltYWdl'],
+      outputFiles: [
+        'data:image/png;base64,aW1hZ2VuLWltYWdl',
+        'data:image/png;base64,aW1hZ2VuLXNlY29uZA==',
+      ],
       providerOrder: ['google'],
       providerUsed: 'google',
     });

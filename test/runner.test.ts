@@ -923,6 +923,50 @@ describe('runner step claiming', () => {
     expect(submittedParams).not.toHaveProperty('generation_input_video_file');
   });
 
+  it('preserves full agent generation prompt when selected prompt is short', async () => {
+    const record = chainAgentRecord('autopilot');
+    let updatedRecord = record;
+    let submittedParams: Record<string, unknown> | null = null;
+    const fullPrompt =
+      'The product remains centered as the camera makes a smooth slow orbit, warm highlights glide across the surface, and the background bokeh breathes naturally.';
+    const store = createMutableAgentStore(updatedRecord, (next) => {
+      updatedRecord = next;
+    });
+    const agent = createPromptAgent({
+      selectedPrompt: 'Elegant orbit',
+      selectedParams: {
+        generation_duration: 6,
+        generation_prompt: fullPrompt,
+      },
+    });
+    const babysea = {
+      generate: async (_model: string, params: Record<string, unknown>) => {
+        submittedParams = params;
+
+        return {
+          data: { generation_id: 'gen_agent_video' },
+          idempotency_replayed: false,
+          request_id: 'req_agent_video',
+        };
+      },
+    };
+
+    const result = await processRun(record, {
+      agent,
+      babysea: babysea as never,
+      store: store as never,
+    });
+
+    expect(result.run.status).toBe('running');
+    expect(submittedParams).toMatchObject({
+      generation_prompt: fullPrompt,
+    });
+    expect(result.agentCheckpoints[0]?.selectedPrompt).toBe('Elegant orbit');
+    expect(result.agentCheckpoints[0]?.selectedParams).toMatchObject({
+      generation_prompt: fullPrompt,
+    });
+  });
+
   it('rejects invalid Chain Agent Review approval params', async () => {
     const record = chainAgentRecord('review');
     let updatedRecord = record;

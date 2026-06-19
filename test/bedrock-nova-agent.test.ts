@@ -67,6 +67,106 @@ describe('Bedrock Nova Chain Agent', () => {
     });
   });
 
+  it('uses Nova Pro output limit and sends downstream schema once', async () => {
+    setMinimalEnv();
+    const requestBodies: Record<string, unknown>[] = [];
+    const fetchImpl = vi.fn(async (_url, init) => {
+      requestBodies.push(
+        JSON.parse(String(init?.body)) as Record<string, unknown>,
+      );
+
+      return Response.json({
+        output: {
+          message: {
+            content: [
+              {
+                text: JSON.stringify({
+                  observations: {},
+                  suggestions: [
+                    {
+                      title: 'Dolly Drift',
+                      prompt:
+                        'A gentle dolly-in continues the product shot with soft studio reflections and a controlled focus pull.',
+                      params: {},
+                    },
+                    {
+                      title: 'Light Sweep',
+                      prompt:
+                        'A slow light sweep moves across the product surface while the camera glides slightly to reveal depth.',
+                      params: {},
+                    },
+                    {
+                      title: 'Subtle Orbit',
+                      prompt:
+                        'The camera makes a restrained micro-orbit around the product, preserving the studio setup and polished highlights.',
+                      params: {},
+                    },
+                  ],
+                  selected_prompt:
+                    'A gentle dolly-in continues the product shot with soft studio reflections and a controlled focus pull.',
+                  selected_params: {
+                    generation_duration: 4,
+                    generation_prompt:
+                      'A gentle dolly-in continues the product shot with soft studio reflections and a controlled focus pull.',
+                  },
+                }),
+              },
+            ],
+          },
+        },
+        usage: { inputTokens: 100, outputTokens: 80 },
+      });
+    });
+
+    const { createBedrockNovaAgent } =
+      await import('@/lib/agents/bedrock-nova');
+    const agent = createBedrockNovaAgent({
+      apiKey: 'bedrock_test_key_12345678',
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+      modelIdentifier: 'us.amazon.nova-pro-v1:0',
+      region: 'us-east-1',
+    });
+
+    await agent.suggestNextStep({
+      currentInput: {},
+      flow: {
+        currentStepKey: 'image',
+        mode: 'autopilot',
+        nextStepKey: 'video',
+      },
+      nextStep: {
+        modelIdentifier: 'google/veo-3.1-lite',
+        requestParams: null,
+        schema: {
+          type: 'object',
+          required: ['generation_prompt', 'generation_duration'],
+          properties: {
+            generation_prompt: { type: 'string' },
+            generation_duration: { type: 'number', minimum: 1, maximum: 8 },
+          },
+        },
+        stepKey: 'video',
+        stepKind: 'video',
+      },
+      previousStep: {
+        modelIdentifier: 'bfl/flux-1.1-pro',
+        outputFiles: [],
+        requestParams: { generation_prompt: 'A product render' },
+        stepKey: 'image',
+        stepKind: 'image',
+      },
+    });
+
+    const requestBody = requestBodies[0];
+    expect(requestBody?.inferenceConfig).toMatchObject({ maxTokens: 5000 });
+
+    const requestText = JSON.stringify(requestBody);
+    expect(requestText.match(/Downstream schema JSON/g)).toHaveLength(1);
+    expect(agentPromptText(requestBody)).toContain(
+      '"schema_location":"runtime_context.downstream_schema"',
+    );
+  });
+
   it('repairs invalid selected params once and records observability', async () => {
     setMinimalEnv();
     const responses = [
@@ -321,7 +421,195 @@ describe('Bedrock Nova Chain Agent', () => {
     expect(result.selectedParams.generation_prompt).toBe(connectedPrompt);
     expect(result.selectedPrompt).not.toContain('park');
   });
+
+  it('keeps full selected params prompt instead of selected prompt title', async () => {
+    setMinimalEnv();
+    const fullPrompt =
+      'The portrait remains in the same shallow-focus setting as she subtly turns her head, with soft bokeh breathing behind her and a slow controlled push-in.';
+    const fetchImpl = vi.fn(async () =>
+      Response.json({
+        output: {
+          message: {
+            content: [
+              {
+                text: JSON.stringify({
+                  observations: {},
+                  suggestions: [
+                    { title: 'Subtle Head Turn', prompt: fullPrompt },
+                    {
+                      title: 'Soft Push',
+                      prompt: `${fullPrompt} The focus breathes gently.`,
+                    },
+                    {
+                      title: 'Bokeh Shift',
+                      prompt: `${fullPrompt} The background moves slightly.`,
+                    },
+                  ],
+                  selected_prompt: 'Subtle Head Turn',
+                  selected_params: {
+                    generation_duration: 4,
+                    generation_prompt: fullPrompt,
+                  },
+                }),
+              },
+            ],
+          },
+        },
+        usage: { inputTokens: 20, outputTokens: 30 },
+      }),
+    );
+
+    const { createBedrockNovaAgent } =
+      await import('@/lib/agents/bedrock-nova');
+    const agent = createBedrockNovaAgent({
+      apiKey: 'bedrock_test_key_12345678',
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+      modelIdentifier: 'us.amazon.nova-pro-v1:0',
+      region: 'us-east-1',
+    });
+
+    const result = await agent.suggestNextStep({
+      currentInput: {},
+      flow: {
+        currentStepKey: 'image',
+        mode: 'autopilot',
+        nextStepKey: 'video',
+      },
+      nextStep: {
+        modelIdentifier: 'google/veo-3.1-lite',
+        requestParams: null,
+        schema: {
+          type: 'object',
+          required: ['generation_prompt', 'generation_duration'],
+          properties: {
+            generation_prompt: { type: 'string' },
+            generation_duration: { type: 'number', minimum: 1, maximum: 8 },
+          },
+        },
+        stepKey: 'video',
+        stepKind: 'video',
+      },
+      previousStep: {
+        modelIdentifier: 'bfl/flux-1.1-pro',
+        outputFiles: [],
+        requestParams: { generation_prompt: 'A portrait' },
+        stepKey: 'image',
+        stepKind: 'image',
+      },
+    });
+
+    expect(result.selectedPrompt).toBe(fullPrompt);
+    expect(result.selectedParams.generation_prompt).toBe(fullPrompt);
+  });
+
+  it('does not download previous video outputs for Nova context', async () => {
+    setMinimalEnv();
+    const fetchImpl = vi.fn(async (_url, init) => {
+      if (!init) {
+        throw new Error('Unexpected media download.');
+      }
+
+      return Response.json({
+        output: {
+          message: {
+            content: [
+              {
+                text: JSON.stringify({
+                  observations: {},
+                  suggestions: [
+                    {
+                      title: 'Motion Polish',
+                      prompt:
+                        'The existing video is refined with smoother motion, steadier camera rhythm, and preserved subject continuity.',
+                    },
+                    {
+                      title: 'Focus Smooth',
+                      prompt:
+                        'The video keeps the same scene while improving focus breathing and reducing abrupt motion.',
+                    },
+                    {
+                      title: 'Light Balance',
+                      prompt:
+                        'The edit preserves the same video content while balancing highlights and smoothing movement.',
+                    },
+                  ],
+                  selected_prompt:
+                    'The existing video is refined with smoother motion, steadier camera rhythm, and preserved subject continuity.',
+                  selected_params: {
+                    generation_prompt:
+                      'The existing video is refined with smoother motion, steadier camera rhythm, and preserved subject continuity.',
+                  },
+                }),
+              },
+            ],
+          },
+        },
+        usage: { inputTokens: 20, outputTokens: 30 },
+      });
+    });
+
+    const { createBedrockNovaAgent } =
+      await import('@/lib/agents/bedrock-nova');
+    const agent = createBedrockNovaAgent({
+      apiKey: 'bedrock_test_key_12345678',
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+      modelIdentifier: 'us.amazon.nova-pro-v1:0',
+      region: 'us-east-1',
+    });
+
+    await agent.suggestNextStep({
+      currentInput: {},
+      flow: {
+        currentStepKey: 'video',
+        mode: 'autopilot',
+        nextStepKey: 'modify',
+      },
+      nextStep: {
+        modelIdentifier: 'runway/aleph-2',
+        requestParams: null,
+        schema: {
+          type: 'object',
+          required: ['generation_prompt'],
+          properties: {
+            generation_prompt: { type: 'string' },
+          },
+        },
+        stepKey: 'modify',
+        stepKind: 'video',
+      },
+      previousStep: {
+        modelIdentifier: 'google/veo-3.1-lite',
+        outputFiles: ['https://cdn.example.com/generated-video.mp4'],
+        requestParams: { generation_prompt: 'A portrait moves naturally.' },
+        stepKey: 'video',
+        stepKind: 'video',
+      },
+    });
+
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+  });
 });
+
+function agentPromptText(requestBody: Record<string, unknown> | undefined) {
+  const messages = requestBody?.messages;
+  if (!Array.isArray(messages)) return '';
+
+  return messages
+    .flatMap((message) =>
+      message &&
+      typeof message === 'object' &&
+      'content' in message &&
+      Array.isArray(message.content)
+        ? message.content
+        : [],
+    )
+    .map((part) =>
+      part && typeof part === 'object' && 'text' in part
+        ? String(part.text)
+        : '',
+    )
+    .join('\n');
+}
 
 function setMinimalEnv() {
   process.env = {

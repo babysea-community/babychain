@@ -1002,9 +1002,16 @@ function normalizeAgentSelectedParams(
   selectedPrompt: string,
   selectedParams: JsonObject,
 ): JsonObject {
+  const tunableParams = agentTunableParams(selectedParams);
+  const generationPrompt =
+    typeof tunableParams.generation_prompt === 'string' &&
+    tunableParams.generation_prompt.trim().length > 0
+      ? tunableParams.generation_prompt
+      : selectedPrompt;
+
   return {
-    ...agentTunableParams(selectedParams),
-    generation_prompt: selectedPrompt,
+    ...tunableParams,
+    generation_prompt: generationPrompt,
   } as JsonObject;
 }
 

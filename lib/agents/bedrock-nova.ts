@@ -28,6 +28,7 @@ import {
 
 const BEDROCK_DEFAULT_MODEL = 'us.amazon.nova-pro-v1:0';
 const BEDROCK_DEFAULT_REGION = 'us-east-1';
+const BEDROCK_NOVA_PRO_MAX_OUTPUT_TOKENS = 5000;
 const BEDROCK_TIMEOUT_MS = 120_000;
 const MEDIA_DOWNLOAD_TIMEOUT_MS = 60_000;
 const MAX_AGENT_MEDIA_BYTES = 24 * 1024 * 1024;
@@ -160,12 +161,26 @@ async function buildConverseBody(
   const content: JsonObject[] = [];
 
   for (const outputFile of context.previousStep.outputFiles.slice(0, 2)) {
+    if (context.previousStep.stepKind === 'video') {
+      content.push({
+        text: `Previous video ${content.length + 1}: available as BabyChain media handoff. Use previous request params and downstream schema to plan the modify step; do not request or set media handoff fields.`,
+      });
+      continue;
+    }
+
     const media = await readAgentMedia(outputFile, fetchImpl);
     const kind = media.mediaType.startsWith('video/') ? 'video' : 'image';
+    if (kind === 'video') {
+      content.push({
+        text: `Previous video ${content.length + 1}: available as BabyChain media handoff. Use the previous request params and downstream schema to plan the modify step; do not request or set media handoff fields.`,
+      });
+      continue;
+    }
+
     const format = mediaFormat(media.mediaType, kind);
 
     content.push({
-      text: `${kind === 'video' ? 'Video' : 'Image'} ${content.length + 1}:`,
+      text: `Image ${content.length + 1}:`,
     });
     content.push({
       [kind]: {
@@ -187,7 +202,7 @@ async function buildConverseBody(
       },
     ],
     inferenceConfig: {
-      maxTokens: 1800,
+      maxTokens: BEDROCK_NOVA_PRO_MAX_OUTPUT_TOKENS,
       temperature: context.flow.mode === 'autopilot' ? 0 : 0.35,
     },
   };
@@ -264,12 +279,15 @@ function extractTextResponse(payload: JsonObject) {
 function normalizeAgentOutput(rawText: string): ChainAgentResult {
   const parsed = parseAgentJson(rawText);
   const suggestions = normalizeSuggestions(parsed.suggestions);
+  const parsedParams = isRecord(parsed.selected_params)
+    ? toJsonObject(parsed.selected_params)
+    : {};
   const selectedPrompt =
-    stringValue(parsed.selected_prompt) ?? suggestions[0]?.prompt ?? '';
-  const selectedParams = normalizeSelectedParams(
-    parsed.selected_params,
-    selectedPrompt,
-  );
+    stringValue(parsedParams.generation_prompt) ??
+    stringValue(parsed.selected_prompt) ??
+    suggestions[0]?.prompt ??
+    '';
+  const selectedParams = normalizeSelectedParams(parsedParams, selectedPrompt);
 
   if (!selectedPrompt.trim()) {
     throw new BabyChainError(
@@ -390,12 +408,13 @@ function normalizeSuggestions(value: unknown): ChainAgentSuggestion[] {
 
 function normalizeSelectedParams(value: unknown, selectedPrompt: string) {
   const params = isRecord(value) ? toJsonObject(value) : {};
+  const generationPrompt = stringValue(params.generation_prompt);
 
   return {
     ...Object.fromEntries(
       Object.entries(params).filter(([key]) => key.startsWith('generation_')),
     ),
-    generation_prompt: selectedPrompt,
+    generation_prompt: generationPrompt ?? selectedPrompt,
   } satisfies JsonObject;
 }
 

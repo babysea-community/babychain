@@ -70,8 +70,8 @@ export function buildChainAgentInstruction(
     '- If you are uncertain about background details, keep them abstract (soft bokeh, surrounding blur, ambient light) instead of naming a new location.',
     '- selected_prompt MUST be the strongest option for the next model.',
     '- selected_params MUST include generation_prompt exactly matching selected_prompt.',
-    '- selected_params MUST include every required downstream schema field that is not BabyChain-owned media handoff.',
-    '- selected_params SHOULD choose strong contextual values for optional schema fields when they improve the result, including ratio, duration, camera, style, seed-like controls, or provider-specific generation_* fields supported by the downstream schema.',
+    '- selected_params MUST include every supported downstream schema generation_* field that is not BabyChain-owned media handoff, including advanced fields such as negative prompt and seed when present.',
+    '- For optional fields, choose schema-valid values deliberately. Use empty strings only when the best value is intentionally blank, and use deterministic seed-like controls when the schema requires a number.',
     '- selected_params MAY change existing downstream field values when the schema, previous media, and prompt context make a better choice clear.',
     '- For enum fields, choose one exact enum value from the downstream schema.',
     '- For numeric fields, choose a value within min/max bounds when provided.',
@@ -96,7 +96,7 @@ export function buildChainAgentInstruction(
     `Mode: ${context.flow.mode}`,
     `Previous step: ${context.previousStep.stepKey} (${context.previousStep.stepKind}) using ${context.previousStep.modelIdentifier}`,
     `Next step: ${context.nextStep.stepKey} (${context.nextStep.stepKind}) using ${context.nextStep.modelIdentifier}`,
-    `Current run input JSON: ${JSON.stringify(context.currentInput)}`,
+    `Current run models JSON: ${JSON.stringify(runModelSelection(context.currentInput))}`,
     `Previous request params JSON: ${JSON.stringify(context.previousStep.requestParams ?? {})}`,
     `Existing next request params JSON: ${JSON.stringify(context.nextStep.requestParams ?? {})}`,
     `Downstream schema JSON: ${JSON.stringify(context.nextStep.schema ?? {})}`,
@@ -112,4 +112,22 @@ export function buildChainAgentInstruction(
         ]
       : []),
   ].join('\n');
+}
+
+function runModelSelection(input: JsonObject): JsonObject {
+  const chainModels = input.chain_models;
+
+  if (
+    chainModels &&
+    typeof chainModels === 'object' &&
+    !Array.isArray(chainModels)
+  ) {
+    return { chain_models: chainModels as JsonObject };
+  }
+
+  return Object.fromEntries(
+    Object.entries(input).filter(
+      ([key, value]) => key.endsWith('_model') && typeof value === 'string',
+    ),
+  ) as JsonObject;
 }
