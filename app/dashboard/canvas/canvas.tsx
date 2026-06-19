@@ -1523,7 +1523,7 @@ function ModelNodeComponent({ id, data }: NodeProps) {
   const running = runningFlowIds.has(flowId);
   const runMode = runModeByFlow.get(flowId) ?? 'self_control';
   const lockedByAutopilot = runMode === 'agent_autopilot' && role !== 'image';
-  const controlsDisabled = running || lockedByAutopilot;
+  const fieldControlsDisabled = running || lockedByAutopilot;
   const addableRole: StepRole | null =
     role === 'image' && !meta?.roles.has('refine')
       ? 'refine'
@@ -1666,7 +1666,7 @@ function ModelNodeComponent({ id, data }: NodeProps) {
           <ModelDropdown
             options={options}
             value={modelId}
-            disabled={controlsDisabled}
+            disabled={running}
             onChange={(next) => updateModel(id, next)}
           />
         </div>
@@ -1690,7 +1690,7 @@ function ModelNodeComponent({ id, data }: NodeProps) {
                   key={field.name}
                   field={field}
                   value={values[field.name]}
-                  disabled={controlsDisabled}
+                  disabled={fieldControlsDisabled}
                   onChange={(value) => updateValue(id, field.name, value)}
                 />
               ))}
@@ -1720,7 +1720,7 @@ function ModelNodeComponent({ id, data }: NodeProps) {
                           key={field.name}
                           field={field}
                           value={values[field.name]}
-                          disabled={controlsDisabled}
+                          disabled={fieldControlsDisabled}
                           onChange={(value) =>
                             updateValue(id, field.name, value)
                           }

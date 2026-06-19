@@ -319,7 +319,7 @@ export function getChainTemplateSummaries(): ChainTemplateSummary[] {
 export function parseTemplateInput(
   template: ChainTemplate,
   input: unknown,
-  options: { byokMode?: boolean } = {},
+  options: { agentDownstreamInputs?: boolean; byokMode?: boolean } = {},
 ) {
   const parsed = template.inputSchema.parse(input);
   normalizeEmptyModelInputPlaceholders(parsed);
@@ -349,9 +349,13 @@ export function assertChainInputRequirements(
   }
 
   requireImageToVideoModel(input);
-  requireMediaDrivenStepInput(input, 'video');
+  if (!agentDownstreamInputs) {
+    requireMediaDrivenStepInput(input, 'video');
+  }
   requireModifyVideoToVideoModel(input);
-  requireMediaDrivenStepInput(input, 'modify');
+  if (!agentDownstreamInputs) {
+    requireMediaDrivenStepInput(input, 'modify');
+  }
 
   rejectCallerHandoffInputs(input);
 

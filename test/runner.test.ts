@@ -838,6 +838,46 @@ describe('runner step claiming', () => {
     expect(result.steps[1]!.status).toBe('queued');
   });
 
+  it('excludes reserved media fields from Chain Agent downstream schema', async () => {
+    const record = chainAgentRecord('review', {
+      videoModel: 'runway/act-two-image',
+      videoModelInput: {
+        generation_aspect_ratio: '1280:720',
+        generation_prompt: 'Animate the portrait naturally.',
+      },
+    });
+    let updatedRecord = record;
+    const observedSchemas: JsonObject[] = [];
+    const store = createMutableAgentStore(updatedRecord, (next) => {
+      updatedRecord = next;
+    });
+    const agent = createPromptAgent({
+      selectedPrompt: 'A subtle portrait animation with a gentle focus pull.',
+      selectedParams: {
+        generation_aspect_ratio: '1280:720',
+        generation_prompt:
+          'A subtle portrait animation with a gentle focus pull.',
+      },
+      onContext: (context) => {
+        observedSchemas.push(context.nextStep.schema as JsonObject);
+      },
+    });
+
+    const result = await processRun(record, {
+      agent,
+      babysea: {} as never,
+      store: store as never,
+    });
+
+    expect(result.run.status).toBe('awaiting_agent');
+    const nextStepSchema = observedSchemas.at(0);
+    expect(nextStepSchema).not.toBeNull();
+    const nextStepProperties = nextStepSchema?.properties as JsonObject;
+    expect(nextStepProperties).not.toHaveProperty(
+      'generation_input_video_file',
+    );
+  });
+
   it('applies Chain Agent Autopilot prompt without overriding media handoff', async () => {
     const record = chainAgentRecord('autopilot');
     let updatedRecord = record;
@@ -1426,7 +1466,18 @@ function createRunWithSteps(
   };
 }
 
-function chainAgentRecord(mode: 'autopilot' | 'review'): ChainRunWithSteps {
+function chainAgentRecord(
+  mode: 'autopilot' | 'review',
+  options: {
+    videoModel?: string;
+    videoModelInput?: JsonObject;
+  } = {},
+): ChainRunWithSteps {
+  const videoModel = options.videoModel ?? 'bytedance/seedance-1.5-pro';
+  const videoModelInput = options.videoModelInput ?? {
+    generation_duration: 4,
+    generation_prompt: 'A user-filled downstream video prompt.',
+  };
   const base = createRunWithSteps({
     run: {
       executionConfig: {
@@ -1440,11 +1491,8 @@ function chainAgentRecord(mode: 'autopilot' | 'review'): ChainRunWithSteps {
         image_model_input: {
           generation_prompt: 'A premium product render',
         },
-        video_model: 'bytedance/seedance-1.5-pro',
-        video_model_input: {
-          generation_duration: 4,
-          generation_prompt: 'A user-filled downstream video prompt.',
-        },
+        video_model: videoModel,
+        video_model_input: videoModelInput,
       },
       status: 'running',
     },
@@ -1467,7 +1515,7 @@ function chainAgentRecord(mode: 'autopilot' | 'review'): ChainRunWithSteps {
         completedAt: null,
         dependsOn: ['image'],
         id: '5f1c6f0a-95c5-4f1d-9f74-8f2f5b8f1c12',
-        modelIdentifier: 'bytedance/seedance-1.5-pro',
+        modelIdentifier: videoModel,
         outputFiles: [],
         requestParams: null,
         startedAt: null,

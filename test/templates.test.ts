@@ -579,6 +579,20 @@ describe('chain templates', () => {
           video_model: 'runway/act-two-image',
           video_model_input: {
             generation_aspect_ratio: '1280:720',
+          },
+        },
+        { agentDownstreamInputs: true, byokMode: true },
+      ),
+    ).not.toThrow();
+
+    expect(() =>
+      parseTemplateInput(
+        template!,
+        {
+          image_model: TEXT_IMAGE_MODEL,
+          video_model: 'runway/act-two-image',
+          video_model_input: {
+            generation_aspect_ratio: '1280:720',
             generation_input_video_file: [
               'https://cdn.example.com/reference.mp4',
             ],

@@ -34,10 +34,7 @@ import {
   lookupAllowedNetworkAddress,
   normalizeHostname,
 } from '@/lib/security/network-safety';
-import {
-  createSemanticRequestSchema,
-  getMediaDrivenSchemaOptionsForRole,
-} from '@/lib/models/semantic-schema';
+import { createSemanticRequestSchema } from '@/lib/models/semantic-schema';
 import { chainFieldModeForRole } from '@/lib/models/chain-schema';
 import type { ChainSchemaStepRole } from '@/lib/models/chain-schema';
 
@@ -974,7 +971,6 @@ function agentStepSchema(step: ChainStepRecord): JsonObject {
   }
 
   return createSemanticRequestSchema(step.modelIdentifier, {
-    ...getMediaDrivenSchemaOptionsForRole(step.modelIdentifier, stepRole),
     chainFieldMode: chainFieldModeForRole(stepRole),
   }) as JsonObject;
 }

@@ -100,7 +100,7 @@ function selectSchemaDefaults(
     name: 'select_schema_defaults',
     output: {
       defaults,
-      note: 'Defaults are read-only context. The agent must only return generation_prompt; user-filled fields are validated before the run starts.',
+      note: 'Defaults are read-only context. The agent must return generation_prompt plus every required downstream schema field that is not BabyChain-owned media handoff, and may return supported optional generation_* fields when they improve the result.',
       required: Array.isArray(schema?.required) ? schema.required : [],
     },
   };

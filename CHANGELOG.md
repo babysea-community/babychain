@@ -7,7 +7,7 @@ All notable changes will be documented here. The format follows [Keep a Changelo
 ### Changed
 
 - BabyChain runs now carry an explicit execution mode, allowing the existing self-control runner to opt into Agent Review or Autopilot without mixing agent planning into media provider routing.
-- Canvas `canvas_flow` cards now expose a `chain_runner` dropdown with Self Control, Agent (Review), and Agent (Autopilot); agent modes render dedicated checkpoint cards inline in the flow, mirror selected agent prompts into the existing downstream prompt fields, and Autopilot locks downstream model inputs while the agent chooses schema-valid required fields.
+- Canvas `canvas_flow` cards now expose a `chain_runner` dropdown with Self Control, Agent (Review), and Agent (Autopilot); agent modes render dedicated checkpoint cards inline in the flow, mirror selected agent prompts into the existing downstream prompt fields, and Autopilot locks downstream schema fields while leaving model selection editable.
 - Chain Agent now validates Nova-selected params against the downstream schema, performs one repair call when validation fails, and records instruction version, schema version, model id, latency, token usage, selected suggestion index, and validation outcomes in checkpoint observability.
 - Chain Agent prompt, persona, tone, RAG notes, and typed internal tool boundaries now live under `lib/agents/instructions` for easier iteration and review.
 - Updated the BYOK schema source to `semantic-lady@0.4.4`, including published provider model ids, corrected provider defaults, removal of the unsupported Google Veo 3.1 `generation_audio` request field, and corrected video workflow roles for Runway Aleph, Wan Video Edit, and HappyHorse Video Edit models.
