@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { NextRequest } from 'next/server';
 
+import { GET as getRunRoute } from '@/app/api/v1/chains/get/[runId]/route';
 import { POST as createRunRoute } from '@/app/api/v1/chains/runs/route';
 import { requireOwnerSession } from '@/lib/auth/owner';
 import { formatPublicModelName } from '@/lib/models/display';
@@ -14,11 +15,12 @@ import {
 } from '@/lib/models/semantic-schema';
 import type { ByokProviderName } from '@/lib/providers';
 import {
-  createQwenShowrunnerPlan,
-  createShowrunnerPlanWithFallback,
-  mapShowrunnerPlanToChainInputs,
+  createNextPromptSuggestionsWithFallback,
+  createQwenNextPromptSuggestions,
+  mapStorySceneToChainInput,
   readQwenCloudConfig,
-  ShowrunnerBriefSchema,
+  StorySceneRunDraftSchema,
+  SuggestNextPromptsInputSchema,
 } from '@/lib/showrunner';
 import { BabyChainError } from '@/lib/utils/errors';
 import {
@@ -29,9 +31,9 @@ import {
 
 import { StoryClient } from './story-client';
 import type {
-  StoryGenerationActionResult,
   StoryModelOption,
   StoryRunActionResult,
+  StorySuggestActionResult,
 } from './story-client';
 
 export const dynamic = 'force-dynamic';
@@ -55,38 +57,6 @@ const PROVIDER_LABELS: Record<string, string> = {
   runway: 'Runway',
 };
 
-async function generateStoryAction(
-  input: Record<string, unknown>,
-): Promise<StoryGenerationActionResult> {
-  'use server';
-  await requireOwnerSession();
-
-  try {
-    const strategy = input.providerStrategy === 'local' ? 'local' : 'auto';
-    const brief = ShowrunnerBriefSchema.parse(input);
-    const { useQwen, warning } = readQwenPlannerState(strategy);
-    const planResult = await createShowrunnerPlanWithFallback(brief, {
-      qwenPlanner: createQwenShowrunnerPlan,
-      useQwen,
-      warning,
-    });
-    const mapping = mapShowrunnerPlanToChainInputs(planResult.plan, brief);
-
-    return {
-      ok: true,
-      result: {
-        mapping,
-        plan: planResult.plan,
-        provider: planResult.provider,
-        providerModel: planResult.providerModel,
-        warning: planResult.warning,
-      },
-    };
-  } catch (error) {
-    return { ok: false, error: formatStoryActionError(error) };
-  }
-}
-
 async function runStorySceneAction(
   input: Record<string, unknown>,
   metadata: Record<string, unknown>,
@@ -95,6 +65,7 @@ async function runStorySceneAction(
   await requireOwnerSession();
 
   try {
+    const draft = StorySceneRunDraftSchema.parse(input);
     const response = await createRunRoute(
       internalRequest('/api/v1/chains/runs', {
         method: 'POST',
@@ -103,10 +74,10 @@ async function runStorySceneAction(
           'content-type': 'application/json',
         },
         body: JSON.stringify({
-          input,
+          input: mapStorySceneToChainInput(draft),
           metadata: {
             ...metadata,
-            source: 'babychain-showrunner',
+            source: 'babychain-interactive-showrunner',
           },
         }),
         cache: 'no-store',
@@ -119,6 +90,54 @@ async function runStorySceneAction(
     }
 
     return { ok: true, run: json };
+  } catch (error) {
+    return { ok: false, error: formatStoryActionError(error) };
+  }
+}
+
+async function getStoryRunAction(runId: string): Promise<StoryRunActionResult> {
+  'use server';
+  await requireOwnerSession();
+
+  try {
+    const response = await getRunRoute(
+      internalRequest(`/api/v1/chains/get/${encodeURIComponent(runId)}`, {
+        method: 'GET',
+        headers: {
+          authorization: `Bearer ${callerKey()}`,
+        },
+        cache: 'no-store',
+      }),
+      { params: { runId } },
+    );
+    const json = (await response.json()) as Record<string, unknown>;
+
+    if (!response.ok) {
+      return { ok: false, error: extractError(json) };
+    }
+
+    return { ok: true, run: json };
+  } catch (error) {
+    return { ok: false, error: formatStoryActionError(error) };
+  }
+}
+
+async function suggestNextPromptsAction(
+  input: Record<string, unknown>,
+): Promise<StorySuggestActionResult> {
+  'use server';
+  await requireOwnerSession();
+
+  try {
+    const parsed = SuggestNextPromptsInputSchema.parse(input);
+    const { useQwen, warning } = readQwenSuggestionState();
+    const result = await createNextPromptSuggestionsWithFallback(parsed, {
+      provider: createQwenNextPromptSuggestions,
+      useQwen,
+      warning,
+    });
+
+    return { ok: true, result };
   } catch (error) {
     return { ok: false, error: formatStoryActionError(error) };
   }
@@ -139,29 +158,30 @@ export default async function StoryPage() {
 
   return (
     <StoryClient
-      defaultBrief={{
-        audience: 'founders and creative teams',
-        characterNotes: '',
-        durationSeconds: 45,
-        genre: 'mystery drama',
-        idea: 'A night market courier receives a delivery from tomorrow and has one hour to prevent a public failure.',
-        imageModel: firstAvailable(modelOptions.imageModels, 'qwen/image'),
-        language: 'English',
-        modifyModel: firstAvailable(modelOptions.modifyModels, ''),
-        sceneCount: 3,
-        tone: 'tense but hopeful',
-        visualStyle: 'neon-lit cinematic realism with handheld camera texture',
-        videoModel: firstAvailable(
-          modelOptions.videoModels,
-          'happyhorse/1.0-i2v',
-        ),
+      defaultDraft={{
+        editInstruction: '',
+        imagePrompt: '',
+        prompt:
+          'A night market courier receives a delivery from tomorrow and opens it under neon rain.',
+        settings: {
+          durationSeconds: 5,
+          imageModel: firstAvailable(modelOptions.imageModels, 'qwen/image'),
+          modifyModel: '',
+          videoModel: firstAvailable(
+            modelOptions.videoModels,
+            'happyhorse/1.0-i2v',
+          ),
+          visualFormat: '16:9 cinematic frame, neon-lit realism',
+        },
+        videoPrompt: '',
       }}
-      generateStoryAction={generateStoryAction}
+      getStoryRunAction={getStoryRunAction}
       modelOptions={modelOptions}
       providerMode={runtime.providerMode}
       qwenConfigured={qwenConfig !== null}
       qwenModel={qwenConfig?.model ?? 'qwen-plus'}
       runStorySceneAction={runStorySceneAction}
+      suggestNextPromptsAction={suggestNextPromptsAction}
     />
   );
 }
@@ -277,11 +297,7 @@ function readOptionalQwenConfig() {
   }
 }
 
-function readQwenPlannerState(strategy: 'auto' | 'local') {
-  if (strategy === 'local') {
-    return { useQwen: false, warning: null };
-  }
-
+function readQwenSuggestionState() {
   try {
     return { useQwen: readQwenCloudConfig() !== null, warning: null };
   } catch (error) {
@@ -313,7 +329,7 @@ function extractError(json: Record<string, unknown>) {
     return String((error as { message: unknown }).message);
   }
 
-  return 'Run failed to start.';
+  return 'Run failed.';
 }
 
 function formatStoryActionError(error: unknown) {

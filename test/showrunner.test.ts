@@ -2,86 +2,131 @@ import { describe, expect, it } from 'vitest';
 
 import { getChainTemplate, parseTemplateInput } from '@/lib/chains/templates';
 import {
-  createShowrunnerPlanWithFallback,
-  createLocalShowrunnerPlan,
-  mapShowrunnerPlanToChainInputs,
-  parseShowrunnerPlanForBrief,
-  ShowrunnerBriefSchema,
+  createNextPromptSuggestionsWithFallback,
+  mapStorySceneToChainInput,
+  StorySceneRunDraftSchema,
 } from '@/lib/showrunner';
 
-describe('showrunner mapper', () => {
-  it('maps a story plan into BabyChain-compatible run inputs', () => {
-    const brief = ShowrunnerBriefSchema.parse({
-      idea: 'A lighthouse keeper discovers a signal from her future self.',
-      genre: 'mystery drama',
-      sceneCount: 2,
-      durationSeconds: 20,
-      imageModel: 'qwen/image',
-      videoModel: 'happyhorse/1.0-i2v',
-      modifyModel: 'happyhorse/1.0-video-edit',
-    });
-    const template = getChainTemplate('chain');
-    const result = createLocalShowrunnerPlan(brief);
-    const mapping = mapShowrunnerPlanToChainInputs(result.plan, brief);
-
-    expect(mapping.scenes).toHaveLength(2);
-    expect(mapping.sceneDurationSeconds).toBe(10);
-
-    for (const scene of mapping.scenes) {
-      expect(scene.chainInput).toMatchObject({
-        chain_models: {
-          image_model: 'qwen/image',
-          video_model: 'happyhorse/1.0-i2v',
-          modify_model: 'happyhorse/1.0-video-edit',
-        },
-      });
-      expect(() =>
-        parseTemplateInput(template!, scene.chainInput, { byokMode: true }),
-      ).not.toThrow();
-    }
-  });
-
-  it('validates scene count and scene numbering against the brief', () => {
-    const brief = ShowrunnerBriefSchema.parse({
-      idea: 'A lighthouse keeper discovers a signal from her future self.',
-      sceneCount: 2,
-    });
-    const plan = createLocalShowrunnerPlan(brief).plan;
-
-    expect(() =>
-      parseShowrunnerPlanForBrief(
-        { ...plan, scenes: plan.scenes.slice(0, 1) },
-        brief,
-      ),
-    ).toThrow('exactly 2 scenes');
-
-    expect(() =>
-      parseShowrunnerPlanForBrief(
-        {
-          ...plan,
-          scenes: plan.scenes.map((scene, index) =>
-            index === 1 ? { ...scene, sceneNumber: 1 } : scene,
-          ),
-        },
-        brief,
-      ),
-    ).toThrow('unique');
-  });
-
-  it('falls back to a local draft when Qwen planning fails', async () => {
-    const brief = ShowrunnerBriefSchema.parse({
-      idea: 'A street magician realizes every vanished coin removes a memory.',
-      sceneCount: 2,
-    });
-    const result = await createShowrunnerPlanWithFallback(brief, {
-      qwenPlanner: async () => {
-        throw new Error('upstream unavailable');
+describe('interactive showrunner', () => {
+  it('maps one story scene into a BabyChain-compatible chain input', () => {
+    const draft = StorySceneRunDraftSchema.parse({
+      prompt:
+        'A courier opens a package from tomorrow inside a neon night market.',
+      settings: {
+        imageModel: 'qwen/image',
+        videoModel: 'happyhorse/1.0-i2v',
+        modifyModel: 'happyhorse/1.0-video-edit',
+        durationSeconds: 5,
+        visualFormat: '16:9 cinematic frame',
       },
-      useQwen: true,
+    });
+    const input = mapStorySceneToChainInput(draft);
+    const template = getChainTemplate('chain');
+
+    expect(input).toMatchObject({
+      chain_models: {
+        image_model: 'qwen/image',
+        video_model: 'happyhorse/1.0-i2v',
+        modify_model: 'happyhorse/1.0-video-edit',
+      },
+      image_model_input: {
+        generation_prompt: expect.stringContaining('neon night market'),
+      },
+      video_model_input: {
+        generation_duration: 5,
+        generation_prompt: expect.stringContaining('16:9 cinematic frame'),
+      },
+    });
+    expect(() =>
+      parseTemplateInput(template!, input, { byokMode: true }),
+    ).not.toThrow();
+  });
+
+  it('returns four local next-scene options when Qwen is unavailable', async () => {
+    const result = await createNextPromptSuggestionsWithFallback({
+      storyTitle: 'Tomorrow Delivery',
+      visualStyle: 'neon-lit cinematic realism',
+      language: 'English',
+      scenes: [
+        {
+          sceneNumber: 1,
+          prompt:
+            'A courier opens a package from tomorrow inside a neon night market.',
+          outputFiles: ['https://cdn.example.com/scene-1.mp4'],
+          runId: 'run_1',
+          status: 'succeeded',
+        },
+      ],
+      lastScene: {
+        sceneNumber: 1,
+        prompt:
+          'A courier opens a package from tomorrow inside a neon night market.',
+        outputFiles: ['https://cdn.example.com/scene-1.mp4'],
+        runId: 'run_1',
+        status: 'succeeded',
+      },
     });
 
     expect(result.provider).toBe('local-draft');
-    expect(result.warning).toContain('local draft');
-    expect(result.plan.scenes).toHaveLength(2);
+    expect(result.suggestions).toHaveLength(4);
+    expect(result.suggestions.map((option) => option.id)).toEqual([
+      'continue-tension',
+      'reveal-clue',
+      'emotional-beat',
+      'twist-escalation',
+    ]);
+    expect(result.suggestions[0]?.imagePrompt).toContain('scene 1');
+  });
+
+  it('falls back to local suggestions if Qwen suggestion generation fails', async () => {
+    const result = await createNextPromptSuggestionsWithFallback(
+      {
+        visualStyle: 'documentary realism',
+        scenes: [
+          {
+            sceneNumber: 1,
+            prompt: 'A child finds a silent robot under a flooded station.',
+            outputFiles: ['https://cdn.example.com/scene-1.mp4'],
+            status: 'succeeded',
+          },
+        ],
+        lastScene: {
+          sceneNumber: 1,
+          prompt: 'A child finds a silent robot under a flooded station.',
+          outputFiles: ['https://cdn.example.com/scene-1.mp4'],
+          status: 'succeeded',
+        },
+      },
+      {
+        provider: async () => {
+          throw new Error('qwen unavailable');
+        },
+        useQwen: true,
+      },
+    );
+
+    expect(result.provider).toBe('local-draft');
+    expect(result.warning).toContain('local next-scene options');
+    expect(result.suggestions).toHaveLength(4);
+  });
+
+  it('requires a successful output before suggesting next prompts', async () => {
+    await expect(
+      createNextPromptSuggestionsWithFallback({
+        visualStyle: 'documentary realism',
+        scenes: [
+          {
+            sceneNumber: 1,
+            prompt: 'A child finds a silent robot under a flooded station.',
+            status: 'running',
+          },
+        ],
+        lastScene: {
+          sceneNumber: 1,
+          prompt: 'A child finds a silent robot under a flooded station.',
+          status: 'running',
+        },
+      }),
+    ).rejects.toThrow('must succeed');
   });
 });

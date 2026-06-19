@@ -1,57 +1,46 @@
-import type { ShowrunnerBrief } from './schemas';
+import type { SuggestNextPromptsInput } from './schemas';
 
-export function createShowrunnerSystemPrompt() {
+export function createShowrunnerSuggestionSystemPrompt() {
   return [
-    'You are BabyChain Showrunner, an AI short-drama director.',
-    'Create compact, production-ready story plans for image-to-video generation chains.',
-    'Return only valid JSON. Do not wrap the JSON in markdown.',
-    'Every scene must be visually executable by image and video generation models.',
-    'Keep character continuity explicit across imagePrompt and videoPrompt.',
-    'Avoid copyrighted characters, brands, lyrics, and third-party trademarked material.',
+    'You are BabyChain Showrunner, a Qwen-powered short-drama story director.',
+    'Do not decide the whole story automatically. Propose exactly four next-scene options for a human creator to choose from.',
+    'Use the latest generated result references and story context to preserve continuity.',
+    'Each option must contain imagePrompt and videoPrompt values that are ready for image-to-video generation.',
+    'Keep character identity, location logic, wardrobe, and mood coherent across scenes.',
+    'Avoid copyrighted characters, brand names, lyrics, and third-party trademarked material.',
+    'Return only valid JSON with storySummary and suggestions. Do not wrap JSON in markdown.',
   ].join(' ');
 }
 
-export function createShowrunnerUserPrompt(brief: ShowrunnerBrief) {
+export function createShowrunnerSuggestionUserPrompt(
+  input: SuggestNextPromptsInput,
+) {
   return JSON.stringify(
     {
-      task: 'Create a short-drama showrunner plan for BabyChain.',
+      task: 'Suggest exactly four possible next scene prompts for an interactive BabyChain story.',
       output_schema: {
-        title: 'string',
-        logline: 'string',
-        synopsis: 'string',
-        styleBible: 'string',
-        characters: [
+        storySummary: 'brief summary of the story so far',
+        suggestions: [
           {
-            name: 'string',
-            role: 'string',
-            description: 'string',
-            continuityPrompt: 'string',
-          },
-        ],
-        scenes: [
-          {
-            sceneNumber: 'number starting at 1',
-            title: 'string',
-            storyBeat: 'string',
-            dialogue: 'brief optional dialogue or voiceover',
-            imagePrompt: 'single detailed first-frame prompt',
-            videoPrompt: 'single detailed motion prompt',
-            cameraDirection: 'camera movement and framing',
-            editInstruction: 'optional post-video edit instruction',
+            id: 'short stable id',
+            title: 'choice title',
+            narrativeIntent: 'why this direction is useful',
+            imagePrompt:
+              'first-frame image generation prompt for the next scene',
+            videoPrompt: 'motion prompt for the next scene',
+            editInstruction: 'optional video polish/edit instruction',
+            continuityNotes: 'what must stay consistent from prior scenes',
           },
         ],
       },
       constraints: {
-        scene_count: brief.sceneCount,
-        total_duration_seconds: brief.durationSeconds,
-        language: brief.language,
-        genre: brief.genre,
-        tone: brief.tone,
-        visual_style: brief.visualStyle,
-        audience: brief.audience,
-        character_notes: brief.characterNotes,
+        suggestion_count: 4,
+        language: input.language,
+        visual_style: input.visualStyle,
+        story_title: input.storyTitle,
       },
-      creator_idea: brief.idea,
+      scenes_so_far: input.scenes,
+      latest_scene: input.lastScene,
     },
     null,
     2,

@@ -1,96 +1,43 @@
-import type {
-  ShowrunnerBrief,
-  ShowrunnerPlan,
-  ShowrunnerScene,
-} from './schemas';
+import type { StorySceneRunDraft } from './schemas';
 
-export type ShowrunnerChainScene = {
-  sceneNumber: number;
-  title: string;
-  storyBeat: string;
-  chainInput: Record<string, unknown>;
-};
-
-export type ShowrunnerChainMapping = {
-  scenes: ShowrunnerChainScene[];
-  imageModel: string;
-  videoModel: string;
-  modifyModel: string | null;
-  sceneDurationSeconds: number;
-};
-
-export function mapShowrunnerPlanToChainInputs(
-  plan: ShowrunnerPlan,
-  brief: ShowrunnerBrief,
-): ShowrunnerChainMapping {
-  const imageModel = brief.imageModel;
-  const videoModel = brief.videoModel;
-  const modifyModel = brief.modifyModel.trim() || null;
-  const sceneDurationSeconds = sceneDurationForBrief(brief);
-
-  return {
-    imageModel,
-    videoModel,
-    modifyModel,
-    sceneDurationSeconds,
-    scenes: plan.scenes.map((scene) => ({
-      sceneNumber: scene.sceneNumber,
-      title: scene.title,
-      storyBeat: scene.storyBeat,
-      chainInput: createSceneChainInput(scene, {
-        imageModel,
-        modifyModel,
-        sceneDurationSeconds,
-        videoModel,
-      }),
-    })),
-  };
-}
-
-function createSceneChainInput(
-  scene: ShowrunnerScene,
-  options: {
-    imageModel: string;
-    modifyModel: string | null;
-    sceneDurationSeconds: number;
-    videoModel: string;
-  },
-) {
+export function mapStorySceneToChainInput(draft: StorySceneRunDraft) {
+  const settings = draft.settings;
+  const modifyModel = settings.modifyModel.trim();
   const chainModels: Record<string, string> = {
-    image_model: options.imageModel,
-    video_model: options.videoModel,
+    image_model: settings.imageModel,
+    video_model: settings.videoModel,
   };
+  const imagePrompt = promptWithFormat(
+    draft.imagePrompt || draft.prompt,
+    settings.visualFormat,
+  );
+  const videoPrompt = promptWithFormat(
+    draft.videoPrompt || draft.prompt,
+    settings.visualFormat,
+  );
   const input: Record<string, unknown> = {
     chain_models: chainModels,
     image_model_input: {
-      generation_prompt: scene.imagePrompt,
+      generation_prompt: imagePrompt,
     },
     video_model_input: {
-      generation_duration: options.sceneDurationSeconds,
-      generation_prompt: [scene.videoPrompt, scene.cameraDirection]
-        .filter(Boolean)
-        .join(' '),
+      generation_duration: settings.durationSeconds,
+      generation_prompt: videoPrompt,
     },
   };
 
-  if (options.modifyModel) {
-    chainModels.modify_model = options.modifyModel;
+  if (modifyModel) {
+    chainModels.modify_model = modifyModel;
     input.modify_model_input = {
       generation_prompt:
-        scene.editInstruction ||
-        `Polish the shot while preserving the story beat: ${scene.storyBeat}`,
+        draft.editInstruction ||
+        `Polish the scene while preserving the selected story direction: ${draft.prompt}`,
     };
   }
 
   return input;
 }
 
-function sceneDurationForBrief(brief: ShowrunnerBrief) {
-  const rawDuration = Math.round(brief.durationSeconds / brief.sceneCount);
-
-  return clamp(rawDuration, 3, 10);
-}
-
-function clamp(value: number, min: number, max: number) {
-  return Math.max(min, Math.min(max, value));
+function promptWithFormat(prompt: string, visualFormat: string) {
+  return `${prompt.trim()} Visual format: ${visualFormat.trim()}.`;
 }

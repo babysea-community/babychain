@@ -3,13 +3,13 @@ import 'server-only';
 import { BabyChainError } from '@/lib/utils/errors';
 
 import {
-  createShowrunnerSystemPrompt,
-  createShowrunnerUserPrompt,
+  createShowrunnerSuggestionSystemPrompt,
+  createShowrunnerSuggestionUserPrompt,
 } from './prompts';
 import {
-  ShowrunnerBriefSchema,
-  parseShowrunnerPlanForBrief,
-  type ShowrunnerPlanResult,
+  NextPromptSuggestionSetSchema,
+  SuggestNextPromptsInputSchema,
+  type NextPromptSuggestionResult,
 } from './schemas';
 
 type QwenChoice = {
@@ -25,26 +25,33 @@ type QwenChatResponse = {
   };
 };
 
+const QWEN_REQUEST_TIMEOUT_MS = 20_000;
+
 export type QwenCloudConfig = {
   apiKey: string;
   baseUrl: string;
   model: string;
 };
 
-export async function createQwenShowrunnerPlan(
+export async function createQwenNextPromptSuggestions(
   input: unknown,
-): Promise<ShowrunnerPlanResult> {
-  const brief = ShowrunnerBriefSchema.parse(input);
+): Promise<NextPromptSuggestionResult> {
+  const parsed = SuggestNextPromptsInputSchema.parse(input);
   const config = readQwenCloudConfig();
 
   if (!config) {
     throw new BabyChainError(
       'qwen_cloud_not_configured',
-      'Set QWEN_CLOUD_API_KEY or DASHSCOPE_API_KEY to generate a Qwen Cloud showrunner plan.',
+      'Set QWEN_CLOUD_API_KEY or DASHSCOPE_API_KEY to generate Qwen Cloud next-scene options.',
       500,
     );
   }
 
+  const abortController = new AbortController();
+  const timeout = setTimeout(
+    () => abortController.abort(),
+    QWEN_REQUEST_TIMEOUT_MS,
+  );
   const response = await fetch(
     `${trimTrailingSlash(config.baseUrl)}/chat/completions`,
     {
@@ -56,32 +63,39 @@ export async function createQwenShowrunnerPlan(
       body: JSON.stringify({
         model: config.model,
         messages: [
-          { role: 'system', content: createShowrunnerSystemPrompt() },
-          { role: 'user', content: createShowrunnerUserPrompt(brief) },
+          { role: 'system', content: createShowrunnerSuggestionSystemPrompt() },
+          {
+            role: 'user',
+            content: createShowrunnerSuggestionUserPrompt(parsed),
+          },
         ],
         response_format: { type: 'json_object' },
-        max_tokens: 2_500,
-        temperature: 0.7,
+        max_tokens: 2_000,
+        temperature: 0.75,
       }),
+      signal: abortController.signal,
     },
-  );
+  ).finally(() => clearTimeout(timeout));
   const json = (await response.json().catch(() => ({}))) as QwenChatResponse;
 
   if (!response.ok) {
     throw new BabyChainError(
       'qwen_cloud_request_failed',
-      json.error?.message || 'Qwen Cloud showrunner request failed.',
+      json.error?.message || 'Qwen Cloud next-scene request failed.',
       response.status,
     );
   }
 
   const content = json.choices?.[0]?.message?.content;
-  const parsed = parseQwenJsonContent(content);
+  const suggestionSet = NextPromptSuggestionSetSchema.parse(
+    parseQwenJsonContent(content),
+  );
 
   return {
-    plan: parseShowrunnerPlanForBrief(parsed, brief),
+    ...suggestionSet,
     provider: 'qwen-cloud',
     providerModel: config.model,
+    warning: null,
   };
 }
 
@@ -138,7 +152,7 @@ function parseQwenJsonContent(content: unknown) {
   if (typeof content !== 'string') {
     throw new BabyChainError(
       'qwen_cloud_invalid_response',
-      'Qwen Cloud returned an invalid showrunner response.',
+      'Qwen Cloud returned an invalid next-scene response.',
       502,
     );
   }
@@ -148,7 +162,7 @@ function parseQwenJsonContent(content: unknown) {
   } catch {
     throw new BabyChainError(
       'qwen_cloud_invalid_response',
-      'Qwen Cloud returned malformed showrunner JSON.',
+      'Qwen Cloud returned malformed next-scene JSON.',
       502,
     );
   }
