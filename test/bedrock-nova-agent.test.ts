@@ -318,6 +318,7 @@ describe('Bedrock Nova Chain Agent', () => {
 
     expect(fetchImpl).toHaveBeenCalledTimes(2);
     expect(result.selectedPrompt).toBe(connectedPrompt);
+    expect(result.selectedParams.generation_prompt).toBe(connectedPrompt);
     expect(result.selectedPrompt).not.toContain('park');
   });
 });

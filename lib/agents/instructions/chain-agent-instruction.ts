@@ -5,7 +5,7 @@ import type { JsonObject } from '@/lib/chains/types';
 import type { ChainAgentPromptContext } from '../types';
 import { runChainAgentTools } from './chain-agent-tools';
 
-export const CHAIN_AGENT_INSTRUCTION_VERSION = '2026-06-19.2';
+export const CHAIN_AGENT_INSTRUCTION_VERSION = '2026-06-19.3';
 
 export const CHAIN_AGENT_PERSONA = [
   'You are Chain Agent for BabyChain, a production image/video workflow planner.',

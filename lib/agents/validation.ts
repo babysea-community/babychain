@@ -65,7 +65,10 @@ export function validateChainAgentResult(
 }
 
 function validatePromptEnhancement(
-  result: Pick<ChainAgentResult, 'selectedPrompt' | 'suggestions'>,
+  result: Pick<
+    ChainAgentResult,
+    'selectedParams' | 'selectedPrompt' | 'suggestions'
+  >,
   context: ChainAgentPromptContext,
   checkedParams: string[],
 ): ChainAgentValidationResult {
@@ -128,7 +131,7 @@ function validatePromptEnhancement(
 }
 
 function unsupportedSceneDrift(
-  result: Pick<ChainAgentResult, 'selectedPrompt' | 'suggestions'>,
+  result: Pick<ChainAgentResult, 'selectedParams' | 'selectedPrompt'>,
   context: ChainAgentPromptContext,
 ) {
   const sourceText = normalizeComparablePrompt(
@@ -140,9 +143,20 @@ function unsupportedSceneDrift(
       .filter(Boolean)
       .join(' '),
   );
-  const selected = normalizeComparablePrompt(result.selectedPrompt);
+  const userText = normalizeComparablePrompt(
+    JSON.stringify(context.currentInput),
+  );
+  const selected = normalizeComparablePrompt(
+    [result.selectedPrompt, promptString(result.selectedParams)]
+      .filter(Boolean)
+      .join(' '),
+  );
 
   if (!sourceText || !selected) {
+    return null;
+  }
+
+  if (explicitlyRequestsSceneChange(userText, selected)) {
     return null;
   }
 
@@ -183,7 +197,63 @@ function unsupportedSceneDrift(
 }
 
 function hasAny(value: string, terms: string[]) {
-  return terms.some((term) => value.includes(term));
+  return terms.some((term) => containsTerm(value, term));
+}
+
+function explicitlyRequestsSceneChange(userText: string, selected: string) {
+  if (!userText) return false;
+
+  const sceneChangeIntent = hasAny(userText, [
+    'change the setting',
+    'different setting',
+    'new setting',
+    'new scene',
+    'move',
+    'relocate',
+    'transport',
+    'place',
+    'put',
+    'turn this into',
+  ]);
+
+  if (!sceneChangeIntent) {
+    return false;
+  }
+
+  return (
+    hasAny(userText, [
+      'park',
+      'garden',
+      'flowers',
+      'greenery',
+      'forest',
+      'beach',
+      'mountain',
+      'meadow',
+    ]) ||
+    hasAny(selected, [
+      'park',
+      'garden',
+      'flowers',
+      'greenery',
+      'forest',
+      'beach',
+      'mountain',
+      'meadow',
+    ])
+  );
+}
+
+function containsTerm(value: string, term: string) {
+  if (term.includes(' ')) {
+    return value.includes(term);
+  }
+
+  return new RegExp(`\\b${escapeRegExp(term)}\\b`).test(value);
+}
+
+function escapeRegExp(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
 function promptString(value: unknown) {
