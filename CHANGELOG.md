@@ -6,6 +6,12 @@ All notable changes will be documented here. The format follows [Keep a Changelo
 
 ### Changed
 
+- The Library now reduces each saved canvas to its model ids in SQL instead of shipping the full node graph to the browser, so the Library page no longer stalls while loading owners with many saved canvases.
+- Renamed the canvas `last_run_id` column and `lastRunId` field to `run_id`/`runId` across the schema, store, run API, and Library, since each saved card maps to exactly one run that never changes.
+- Agentic Workflow · Review now keeps **Approve & continue** disabled until every proposed field is locked (picking a prompt locks it automatically) and shows a hint explaining the requirement; approving now writes the approved values onto the step's model card immediately instead of after the result lands.
+- Deleting a saved canvas now also removes that canvas's stored image and video files from S3 or Vercel Blob (storage providers gained a `remove` operation), while the `chain_run`/`chain_step` history rows are intentionally kept; cleanup is best-effort and never blocks the delete.
+- Canvas delete, flow removal, and canvas reset now use an in-app confirmation dialog built on the project's UI primitives instead of the browser `window.confirm`.
+- Canvas nodes now require a `flowId`; the optional single-flow fallback and other pre-multi-flow backward-compatibility handling were removed for a clean, current-schema-only model.
 - BabyChain runs now carry an explicit execution mode, allowing the existing self-control runner to opt into Agent Review or Autopilot without mixing agent planning into media provider routing.
 - Canvas `canvas_flow` cards now expose a `chain_runner` dropdown with Self Control, Agentic · Review, and Agentic · Autopilot; agent modes render dedicated, fully editable checkpoint cards inline in the flow — each downstream field uses the same control as its model card (dropdown, text, number, or toggle) with a per-field lock, and the prompt is chosen from three agent suggestions or a custom "Your prompt" input — while Autopilot applies the planned step automatically.
 - Chain Agent now validates Nova-selected params against the downstream schema, performs one repair call when validation fails, and records instruction version, schema version, model id, latency, token usage, selected suggestion index, and validation outcomes in checkpoint observability.
@@ -17,7 +23,7 @@ All notable changes will be documented here. The format follows [Keep a Changelo
 - `lib/database/schema.sql` is now a single fresh-create schema: the `awaiting_agent` run status and `execution_config` default are inlined into the table definitions and the trailing migration `ALTER` statements were removed.
 - Updated the BYOK schema source to `semantic-lady@0.4.5`, including published provider model ids, corrected provider defaults, removal of unsupported Google Veo 3.1 request fields, and corrected video workflow roles for Runway Aleph, Wan Video Edit, and HappyHorse Video Edit models.
 - Removed BabyChain's hand-maintained model schema catalog and provider-side size/ratio conversion tables; model fields, defaults, enums, and provider model ids now come from Semantic Lady.
-- Workspace `RUN + SAVE` now creates a fresh Library card for each run, while saved canvas pages still update the opened canvas in place; untouched auto-generated flow names are refreshed when new Library cards are created.
+- `RUN + SAVE` now always publishes a new Library card (a fresh canvas id and run id) from both the workspace and saved canvas pages and never overwrites an existing card; the flow name is carried through as-is, so owners rename cards directly in the Library.
 - Deployment docs, Docker/Cloud Run/CloudFormation/EC2/Coolify/Fly examples, and host deploy menus now use the Aurora/PostgreSQL `DATABASE_URL` runtime model, the canonical BabyChain env order, and explicit AWS/Google host labels instead of the old Supabase-era wording.
 - Docker deployment now supports the published `babyseaoss/babychain` image directly: `docker-compose.yml` defaults to `babyseaoss/babychain:latest`, the Docker guide includes pull/run/publish flows, and the README links the Docker Hub repository.
 - Added a Duplicate button to each workspace runner card so users can clone a flow's current models and inputs into a new unsaved flow without overwriting the original Library card.
@@ -55,6 +61,7 @@ All notable changes will be documented here. The format follows [Keep a Changelo
 
 ### Fixed
 
+- Library result thumbnails no longer spin forever when their media was already cached: a ref callback now clears the loading state for an image or video that finished loading before React hydrated and attached the load handler.
 - Chain Agent media reads now pin the validated DNS address for HTTPS downloads, preventing DNS rebinding between safety validation and fetch.
 - Agentic Workflow and output-storage media downloads now send a `User-Agent` header, so CDNs and WAFs that reject empty-User-Agent requests (for example AWS WAF in front of CloudFront, or Vercel Blob) no longer return 403 when a later step reads a stored output.
 - Video-to-video modify checkpoints no longer fail validation with "generation_prompt is not supported by the downstream schema"; BabyChain now drops the injected `generation_prompt` when the downstream model schema does not declare it.
