@@ -22,6 +22,7 @@ import {
   CHAIN_AGENT_INSTRUCTION_VERSION,
 } from './instructions';
 import {
+  completeChainAgentSelectedParams,
   validateChainAgentResult,
   type ChainAgentValidationResult,
 } from './validation';
@@ -77,6 +78,7 @@ export function createBedrockNovaAgent(
         modelIdentifier,
         region,
       });
+      first.result = completeAgentResultParams(first.result, input);
       const firstValidation = validateChainAgentResult(first.result, input);
 
       if (firstValidation.ok) {
@@ -99,6 +101,7 @@ export function createBedrockNovaAgent(
         region,
         repairError: firstValidation.error,
       });
+      repair.result = completeAgentResultParams(repair.result, input);
       const repairValidation = validateChainAgentResult(repair.result, input);
 
       if (!repairValidation.ok) {
@@ -118,6 +121,19 @@ export function createBedrockNovaAgent(
         validation: repairValidation,
       });
     },
+  };
+}
+
+function completeAgentResultParams(
+  result: ChainAgentResult,
+  context: ChainAgentPromptContext,
+): ChainAgentResult {
+  return {
+    ...result,
+    selectedParams: completeChainAgentSelectedParams(
+      result.selectedParams,
+      context,
+    ),
   };
 }
 

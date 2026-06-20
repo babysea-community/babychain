@@ -7,6 +7,37 @@ export type ChainAgentValidationResult =
   | { ok: true; checkedParams: string[] }
   | { ok: false; checkedParams: string[]; error: string };
 
+type ChainAgentSchemaContext = {
+  nextStep: { schema?: JsonObject | null };
+};
+
+export function completeChainAgentSelectedParams(
+  selectedParams: JsonObject,
+  context: ChainAgentSchemaContext,
+): JsonObject {
+  const schema = context.nextStep.schema;
+
+  if (!schema || typeof schema !== 'object' || Array.isArray(schema)) {
+    return selectedParams;
+  }
+
+  const properties = schemaProperties(schema);
+  const completed: JsonObject = { ...selectedParams };
+
+  for (const fieldName of agentPlannedSchemaFields(properties)) {
+    if (completed[fieldName] !== undefined && completed[fieldName] !== null) {
+      continue;
+    }
+
+    const fallback = schemaFallbackValue(properties[fieldName]);
+    if (fallback !== undefined) {
+      completed[fieldName] = fallback;
+    }
+  }
+
+  return completed;
+}
+
 export function validateChainAgentResult(
   result: Pick<
     ChainAgentResult,
@@ -15,7 +46,10 @@ export function validateChainAgentResult(
   context: ChainAgentPromptContext,
 ): ChainAgentValidationResult {
   const schema = context.nextStep.schema;
-  const params = result.selectedParams;
+  const params = completeChainAgentSelectedParams(
+    result.selectedParams,
+    context,
+  );
   const checkedParams = Object.keys(params).sort();
   const selectedParamsPrompt = promptString(params);
 
@@ -37,12 +71,7 @@ export function validateChainAgentResult(
         (entry): entry is string => typeof entry === 'string',
       )
     : [];
-  const properties =
-    schema.properties &&
-    typeof schema.properties === 'object' &&
-    !Array.isArray(schema.properties)
-      ? (schema.properties as Record<string, JsonObject>)
-      : {};
+  const properties = schemaProperties(schema);
   const plannedFields = agentPlannedSchemaFields(properties);
 
   for (const fieldName of plannedFields) {
@@ -91,7 +120,74 @@ export function validateChainAgentResult(
     }
   }
 
-  return validatePromptEnhancement(result, context, checkedParams);
+  return validatePromptEnhancement(
+    { ...result, selectedParams: params },
+    context,
+    checkedParams,
+  );
+}
+
+function schemaProperties(schema: JsonObject) {
+  return schema.properties &&
+    typeof schema.properties === 'object' &&
+    !Array.isArray(schema.properties)
+    ? (schema.properties as Record<string, JsonObject>)
+    : {};
+}
+
+function schemaFallbackValue(
+  field: JsonObject | undefined,
+): JsonValue | undefined {
+  if (!field) return undefined;
+
+  if ('default' in field && isJsonValue(field.default)) {
+    return field.default;
+  }
+
+  const enumValues = Array.isArray(field.enum)
+    ? field.enum.filter(isJsonValue)
+    : [];
+  if (enumValues.length > 0) {
+    return enumValues[0];
+  }
+
+  switch (field.type) {
+    case 'string':
+      return '';
+    case 'integer':
+      return typeof field.minimum === 'number' ? Math.ceil(field.minimum) : 0;
+    case 'number':
+      return typeof field.minimum === 'number' ? field.minimum : 0;
+    case 'boolean':
+      return false;
+    case 'array':
+      return [];
+    case 'object':
+      return {};
+    default:
+      return undefined;
+  }
+}
+
+function isJsonValue(value: unknown): value is JsonValue {
+  if (
+    value === null ||
+    typeof value === 'string' ||
+    typeof value === 'number' ||
+    typeof value === 'boolean'
+  ) {
+    return true;
+  }
+
+  if (Array.isArray(value)) {
+    return value.every(isJsonValue);
+  }
+
+  if (isRecord(value)) {
+    return Object.values(value).every(isJsonValue);
+  }
+
+  return false;
 }
 
 function agentPlannedSchemaFields(properties: Record<string, JsonObject>) {
@@ -379,7 +475,6 @@ function hasOptionalAgentValue(
   if (typeof value === 'string' && value.trim().length === 0) {
     return field?.type === 'string';
   }
-  if (Array.isArray(value)) return value.length > 0;
   return true;
 }
 

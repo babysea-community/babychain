@@ -794,7 +794,7 @@ describe('runner step claiming', () => {
       updatedRecord = next;
     });
     const agent = createPromptAgent({
-      selectedPrompt: 'Slow cinematic dolly-in over the finished product.',
+      selectedPrompt: 'Slow cinematic dolly-in.',
       observability: {
         instruction_version: 'test-version',
         validation: { ok: true },
@@ -813,7 +813,7 @@ describe('runner step claiming', () => {
       store: store as never,
     });
 
-    expect(result.run.status).toBe('awaiting_agent');
+    expect(result.run).toMatchObject({ status: 'awaiting_agent' });
     expect(result.run.currentStepKey).toBe('video');
     expect(result.agentCheckpoints).toHaveLength(1);
     expect(result.agentCheckpoints[0]).toMatchObject({
@@ -855,8 +855,6 @@ describe('runner step claiming', () => {
       selectedPrompt: 'A subtle portrait animation with a gentle focus pull.',
       selectedParams: {
         generation_aspect_ratio: '1280:720',
-        generation_prompt:
-          'A subtle portrait animation with a gentle focus pull.',
       },
       onContext: (context) => {
         observedSchemas.push(context.nextStep.schema as JsonObject);
@@ -869,7 +867,7 @@ describe('runner step claiming', () => {
       store: store as never,
     });
 
-    expect(result.run.status).toBe('awaiting_agent');
+    expect(result.run).toMatchObject({ status: 'awaiting_agent' });
     const nextStepSchema = observedSchemas.at(0);
     expect(nextStepSchema).not.toBeNull();
     const nextStepProperties = nextStepSchema?.properties as JsonObject;
@@ -933,7 +931,7 @@ describe('runner step claiming', () => {
       updatedRecord = next;
     });
     const agent = createPromptAgent({
-      selectedPrompt: 'Elegant orbit',
+      selectedPrompt: fullPrompt,
       selectedParams: {
         generation_duration: 6,
         generation_prompt: fullPrompt,
@@ -961,10 +959,35 @@ describe('runner step claiming', () => {
     expect(submittedParams).toMatchObject({
       generation_prompt: fullPrompt,
     });
-    expect(result.agentCheckpoints[0]?.selectedPrompt).toBe('Elegant orbit');
+    expect(result.agentCheckpoints[0]?.selectedPrompt).toBe(fullPrompt);
     expect(result.agentCheckpoints[0]?.selectedParams).toMatchObject({
       generation_prompt: fullPrompt,
     });
+  });
+
+  it('rejects invalid injected Chain Agent params before checkpoint creation', async () => {
+    const record = chainAgentRecord('autopilot');
+    let updatedRecord = record;
+    const store = createMutableAgentStore(updatedRecord, (next) => {
+      updatedRecord = next;
+    });
+    const agent = createPromptAgent({
+      selectedPrompt: 'Elegant orbit with warm highlights.',
+      selectedParams: {
+        generation_duration: 99,
+        generation_prompt: 'Elegant orbit with warm highlights.',
+      },
+    });
+
+    const result = await processRun(record, {
+      agent,
+      babysea: {} as never,
+      store: store as never,
+    });
+
+    expect(result.run.status).toBe('failed');
+    expect(result.run.errorCode).toBe('chain_agent_invalid_response');
+    expect(result.agentCheckpoints).toHaveLength(0);
   });
 
   it('rejects invalid Chain Agent Review approval params', async () => {

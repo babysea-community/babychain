@@ -14,7 +14,10 @@ import type {
 
 import { createBabySeaClient } from '@/lib/babysea';
 import { createChainAgent, type ChainAgent } from '@/lib/agents';
-import { validateChainAgentResult } from '@/lib/agents/validation';
+import {
+  completeChainAgentSelectedParams,
+  validateChainAgentResult,
+} from '@/lib/agents/validation';
 import {
   getProvider,
   readByokRunConfig,
@@ -377,14 +380,26 @@ export async function continueAgentRun(
     );
   }
 
+  const nextStep = record.steps.find(
+    (step) => step.stepKey === checkpoint.stepKey,
+  );
+  const nextStepSchema = nextStep ? agentStepSchema(nextStep) : null;
   const selectedParams = normalizeAgentSelectedParams(
     input.selectedPrompt,
     input.selectedParams,
+    {
+      allowSelectedPromptFallback: schemaSupportsAgentPrompt(nextStepSchema),
+    },
   );
+  const completedSelectedParams = nextStep
+    ? completeChainAgentSelectedParams(selectedParams, {
+        nextStep: { schema: nextStepSchema },
+      })
+    : selectedParams;
   const validation = validateAgentCheckpointApproval(
     record,
     checkpoint,
-    selectedParams,
+    completedSelectedParams,
     input.selectedPrompt,
   );
 
@@ -398,7 +413,7 @@ export async function continueAgentRun(
 
   const approved = await store.approveAgentCheckpoint({
     checkpointId: checkpoint.id,
-    selectedParams,
+    selectedParams: completedSelectedParams,
     selectedPrompt: input.selectedPrompt,
   });
 
@@ -864,7 +879,7 @@ async function prepareAgentCheckpoint(args: {
 
   try {
     const agent = args.agent ?? createChainAgent(execution);
-    const result = await agent.suggestNextStep({
+    const agentContext = {
       currentInput: record.run.input as JsonObject,
       flow: {
         currentStepKey: previousStep.stepKey,
@@ -877,11 +892,37 @@ async function prepareAgentCheckpoint(args: {
         requestParams: agentStepRequestParams(record, readyStep),
         schema: agentStepSchema(readyStep),
       },
-    });
+    };
+    const result = await agent.suggestNextStep(agentContext);
+    const nextStepSchema = agentStepSchema(readyStep);
     const selectedParams = normalizeAgentSelectedParams(
       result.selectedPrompt,
       result.selectedParams,
+      {
+        allowSelectedPromptFallback: schemaSupportsAgentPrompt(nextStepSchema),
+      },
     );
+    const completedSelectedParams = completeChainAgentSelectedParams(
+      selectedParams,
+      { nextStep: { schema: nextStepSchema } },
+    );
+    const validation = validateChainAgentResult(
+      {
+        selectedParams: completedSelectedParams,
+        selectedPrompt: result.selectedPrompt,
+        suggestions: result.suggestions,
+      },
+      agentContext,
+    );
+
+    if (!validation.ok) {
+      return {
+        kind: 'failed',
+        errorCode: 'chain_agent_invalid_response',
+        errorMessage: `Chain Agent response failed validation: ${validation.error}`,
+      };
+    }
+
     const checkpoint = await store.createAgentCheckpoint({
       inputSnapshot: agentInputSnapshot(record, previousStep, readyStep),
       mode: execution.mode,
@@ -890,14 +931,14 @@ async function prepareAgentCheckpoint(args: {
         observations: result.observations,
         observability: result.observability ?? {},
         raw_text: result.rawText,
-        selected_params: selectedParams,
+        selected_params: completedSelectedParams,
         selected_prompt: result.selectedPrompt,
         suggestions: result.suggestions as unknown as JsonObject['suggestions'],
       } as JsonObject,
       previousStepKey: previousStep.stepKey,
       provider: execution.provider,
       runId: record.run.id,
-      selectedParams,
+      selectedParams: completedSelectedParams,
       selectedPrompt: result.selectedPrompt,
       status: execution.mode === 'autopilot' ? 'approved' : 'suggested',
       stepKey: readyStep.stepKey,
@@ -1001,18 +1042,40 @@ function applyAgentParams(
 function normalizeAgentSelectedParams(
   selectedPrompt: string,
   selectedParams: JsonObject,
+  options: { allowSelectedPromptFallback?: boolean } = {},
 ): JsonObject {
   const tunableParams = agentTunableParams(selectedParams);
   const generationPrompt =
     typeof tunableParams.generation_prompt === 'string' &&
     tunableParams.generation_prompt.trim().length > 0
       ? tunableParams.generation_prompt
-      : selectedPrompt;
+      : options.allowSelectedPromptFallback === true
+        ? selectedPrompt
+        : null;
+
+  if (!generationPrompt) {
+    return tunableParams as JsonObject;
+  }
 
   return {
     ...tunableParams,
     generation_prompt: generationPrompt,
   } as JsonObject;
+}
+
+function schemaSupportsAgentPrompt(schema: JsonObject | null | undefined) {
+  if (!schema || typeof schema !== 'object' || Array.isArray(schema)) {
+    return true;
+  }
+
+  const properties = schema.properties;
+
+  return (
+    properties !== null &&
+    typeof properties === 'object' &&
+    !Array.isArray(properties) &&
+    'generation_prompt' in properties
+  );
 }
 
 function agentTunableParams(params: JsonObject) {

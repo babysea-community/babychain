@@ -182,6 +182,7 @@ describe('Bedrock Nova Chain Agent', () => {
                   ],
                   selected_prompt: 'Animate the frame.',
                   selected_params: {
+                    generation_duration: 99,
                     generation_prompt: 'Animate the frame.',
                   },
                 }),
@@ -286,6 +287,101 @@ describe('Bedrock Nova Chain Agent', () => {
       token_usage: { inputTokens: 21, outputTokens: 41 },
       validation: { ok: true },
     });
+  });
+
+  it('completes omitted optional schema fields before validation', async () => {
+    setMinimalEnv();
+    const fetchImpl = vi.fn(async () =>
+      Response.json({
+        output: {
+          message: {
+            content: [
+              {
+                text: JSON.stringify({
+                  observations: {},
+                  suggestions: [
+                    {
+                      title: 'Dolly Drift',
+                      prompt:
+                        'A gentle dolly-in keeps the portrait in place while soft bokeh moves behind her and the light breathes naturally.',
+                    },
+                    {
+                      title: 'Still Breath',
+                      prompt:
+                        'The same portrait subtly comes alive with a small head turn, natural blink, and slow focus breathing.',
+                    },
+                    {
+                      title: 'Quiet Push',
+                      prompt:
+                        'The camera eases closer to the portrait while preserving her expression, film grain, and blurred background.',
+                    },
+                  ],
+                  selected_prompt:
+                    'A gentle dolly-in keeps the portrait in place while soft bokeh moves behind her and the light breathes naturally.',
+                  selected_params: {
+                    generation_duration: 4,
+                    generation_prompt:
+                      'A gentle dolly-in keeps the portrait in place while soft bokeh moves behind her and the light breathes naturally.',
+                  },
+                }),
+              },
+            ],
+          },
+        },
+        usage: { inputTokens: 10, outputTokens: 20 },
+      }),
+    );
+
+    const { createBedrockNovaAgent } =
+      await import('@/lib/agents/bedrock-nova');
+    const agent = createBedrockNovaAgent({
+      apiKey: 'bedrock_test_key_12345678',
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+      modelIdentifier: 'us.amazon.nova-pro-v1:0',
+      region: 'us-east-1',
+    });
+
+    const result = await agent.suggestNextStep({
+      currentInput: {},
+      flow: {
+        currentStepKey: 'image',
+        mode: 'autopilot',
+        nextStepKey: 'video',
+      },
+      nextStep: {
+        modelIdentifier: 'google/veo-3.1-lite',
+        requestParams: null,
+        schema: {
+          type: 'object',
+          required: ['generation_prompt', 'generation_duration'],
+          properties: {
+            generation_prompt: { type: 'string' },
+            generation_duration: { type: 'number', minimum: 1, maximum: 8 },
+            generation_negative_prompt: { type: 'string' },
+            generation_seed: {
+              type: 'integer',
+              minimum: 0,
+              maximum: 2147483647,
+            },
+          },
+        },
+        stepKey: 'video',
+        stepKind: 'video',
+      },
+      previousStep: {
+        modelIdentifier: 'bfl/flux-1.1-pro',
+        outputFiles: [],
+        requestParams: { generation_prompt: 'A portrait render' },
+        stepKey: 'image',
+        stepKind: 'image',
+      },
+    });
+
+    expect(result.selectedParams).toMatchObject({
+      generation_negative_prompt: '',
+      generation_seed: 0,
+    });
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
   });
 
   it('repairs unsupported scene drift from portrait context', async () => {

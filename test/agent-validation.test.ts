@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
 
-import { validateChainAgentResult } from '@/lib/agents/validation';
+import {
+  completeChainAgentSelectedParams,
+  validateChainAgentResult,
+} from '@/lib/agents/validation';
 import type {
   ChainAgentPromptContext,
   ChainAgentResult,
@@ -55,7 +58,7 @@ describe('validateChainAgentResult', () => {
     expect(result).toMatchObject({ ok: true });
   });
 
-  it('requires advanced downstream generation fields to be planned', () => {
+  it('passes validation after completing omitted optional fields', () => {
     const result = validateChainAgentResult(
       resultWithPrompt({
         selectedPrompt:
@@ -66,11 +69,7 @@ describe('validateChainAgentResult', () => {
       contextWithCurrentInput({}, true),
     );
 
-    expect(result).toMatchObject({
-      ok: false,
-      error:
-        'generation_negative_prompt must be included in selected_params because it is defined by the downstream schema.',
-    });
+    expect(result).toMatchObject({ ok: true });
   });
 
   it('allows optional string fields to be intentionally blank', () => {
@@ -91,6 +90,44 @@ describe('validateChainAgentResult', () => {
     );
 
     expect(result).toMatchObject({ ok: true });
+  });
+
+  it('completes missing optional fields from schema generically', () => {
+    const context = contextWithCurrentInput({}, true);
+    const completed = completeChainAgentSelectedParams(
+      resultWithPrompt({
+        selectedPrompt:
+          'The color-film portrait gently animates with subtle breathing, soft bokeh motion, and a slow camera push.',
+        generationPrompt:
+          'The color-film portrait gently animates with subtle breathing, soft bokeh motion, and a slow camera push.',
+      }).selectedParams,
+      context,
+    );
+
+    expect(completed).toMatchObject({
+      generation_negative_prompt: '',
+      generation_seed: 0,
+    });
+    expect(
+      validateChainAgentResult(
+        {
+          selectedParams: completed,
+          selectedPrompt: String(completed.generation_prompt),
+          suggestions: [
+            { title: 'A', prompt: String(completed.generation_prompt) },
+            {
+              title: 'B',
+              prompt: `${String(completed.generation_prompt)} Camera drifts closer.`,
+            },
+            {
+              title: 'C',
+              prompt: `${String(completed.generation_prompt)} Background bokeh shifts.`,
+            },
+          ],
+        },
+        context,
+      ),
+    ).toMatchObject({ ok: true });
   });
 
   it('rejects selected prompt that does not match selected params prompt', () => {

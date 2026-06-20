@@ -61,7 +61,7 @@ const EnvSchema = z.object({
   BFL_API_BASE_URL: OptionalUrlSchema,
   // BytePlus
   ARK_API_KEY: OptionalProviderKeySchema,
-  // Google Gemini / Imagen / Veo
+  // Google
   GEMINI_API_KEY: OptionalProviderKeySchema,
   GOOGLE_API_KEY: OptionalProviderKeySchema,
   // OpenAI
