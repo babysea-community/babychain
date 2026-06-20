@@ -135,7 +135,7 @@ describe('Bedrock Nova Chain Agent', () => {
         nextStepKey: 'video',
       },
       nextStep: {
-        modelIdentifier: 'google/veo-3.1-lite',
+        modelIdentifier: 'google/veo-3.1-fast',
         requestParams: null,
         schema: {
           type: 'object',

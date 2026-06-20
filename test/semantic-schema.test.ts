@@ -235,6 +235,21 @@ describe('semantic-lady BYOK schema core', () => {
     expect(issue).toMatchObject({ path: ['generation_duration'] });
   });
 
+  it('rejects unsupported Google Veo negative prompts across the family', () => {
+    for (const modelIdentifier of [
+      'google/veo-3.1',
+      'google/veo-3.1-fast',
+      'google/veo-3.1-lite',
+    ]) {
+      expect(
+        findByokGenerationFieldIssue(modelIdentifier, {
+          generation_negative_prompt: 'No text overlays',
+          generation_prompt: 'A slow push in',
+        }),
+      ).toMatchObject({ path: ['generation_negative_prompt'] });
+    }
+  });
+
   it('throws BabyChainError with a prefixed path through the assert helper', () => {
     try {
       assertByokGenerationFields(

@@ -347,10 +347,6 @@ async function buildVeoVideoBody(
     );
   }
 
-  if (params.generation_negative_prompt !== undefined) {
-    parameters.negativePrompt = jsonValue(params.generation_negative_prompt);
-  }
-
   if (params.generation_seed !== undefined) {
     const seed = numericValue(params.generation_seed, 'generation_seed');
 

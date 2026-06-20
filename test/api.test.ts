@@ -426,6 +426,11 @@ describe('API response presentation', () => {
         provider_model: 'veo-3.1-generate-preview',
       },
     });
+    expect(videoBody.byok_schema.fields).not.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ name: 'generation_negative_prompt' }),
+      ]),
+    );
 
     const fastVideoResponse = await getModelSchema(
       new Request('https://babychain.test/api/v1/models/google/veo-3.1-fast'),
@@ -451,6 +456,11 @@ describe('API response presentation', () => {
         expect.objectContaining({ name: 'generation_input_image_file' }),
       ]),
     );
+    expect(fastVideoBody.byok_schema.fields).not.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ name: 'generation_negative_prompt' }),
+      ]),
+    );
 
     const liteVideoResponse = await getModelSchema(
       new Request('https://babychain.test/api/v1/models/google/veo-3.1-lite'),
@@ -467,6 +477,7 @@ describe('API response presentation', () => {
     );
     expect(liteVideoBody.byok_schema.fields).not.toEqual(
       expect.arrayContaining([
+        expect.objectContaining({ name: 'generation_negative_prompt' }),
         expect.objectContaining({ name: 'generation_input_video_file' }),
       ]),
     );

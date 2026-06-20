@@ -865,10 +865,18 @@ function needsFlowAuxReconcile(
       for (let index = 1; index < flowNodes.length; index += 1) {
         const target = flowNodes[index];
         if (target) {
-          expectedAux.set(
-            checkpointNodeId(flowId, target.data.role),
-            'checkpoint',
-          );
+          const checkpointId = checkpointNodeId(flowId, target.data.role);
+          const existingCheckpoint = auxById.get(checkpointId);
+          expectedAux.set(checkpointId, 'checkpoint');
+
+          if (
+            existingCheckpoint &&
+            (existingCheckpoint.data.role !== target.data.role ||
+              existingCheckpoint.data.modelId !== target.data.modelId ||
+              existingCheckpoint.data.flowId !== flowId)
+          ) {
+            return true;
+          }
         }
       }
     }
@@ -1035,7 +1043,7 @@ type CanvasContextValue = {
     checkpointId: string,
     selectedPrompt: string,
     selectedParams: Record<string, unknown>,
-  ) => void;
+  ) => Promise<void>;
   runFlow: (flowId: string, save: boolean) => void;
   setRunMode: (flowId: string, mode: RunMode) => void;
   stopFlow: (flowId: string) => void;
@@ -1793,42 +1801,56 @@ function AgentCheckpointPanel({
   checkpoint,
   mode,
   disabled,
+  fields,
   pending,
   onApprove,
 }: {
   checkpoint: AgentCheckpoint;
   mode: RunMode;
   disabled: boolean;
+  fields: FieldSpec[];
   pending: boolean;
-  onApprove: (prompt: string, params: Record<string, unknown>) => void;
+  onApprove: (prompt: string, params: Record<string, unknown>) => Promise<void>;
 }) {
   const suggestions = checkpoint.suggestions ?? [];
-  const initialSelectedIndex = Math.max(
-    suggestions.findIndex(
-      (suggestion) => suggestion.prompt === checkpoint.selected_prompt,
-    ),
-    0,
-  );
-  const [selectedIndex, setSelectedIndex] = useState(initialSelectedIndex);
-  const selected = suggestions[selectedIndex];
+  const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
+  const [approving, setApproving] = useState(false);
+  const selected =
+    selectedIndex === null ? undefined : suggestions[selectedIndex];
   const approvedPrompt = checkpoint.selected_prompt ?? '';
-  const selectedParams = selected?.params ?? checkpoint.selected_params ?? {};
+  const approvablePrompt = (selected?.prompt ?? approvedPrompt).trim();
+  const selectedParams = proposedParamsForSelection(
+    checkpoint.selected_params ?? {},
+    selected,
+    fields,
+  );
+  const proposedFields = orderedProposedFields(fields, selectedParams);
 
   useEffect(() => {
-    setSelectedIndex(initialSelectedIndex);
-  }, [checkpoint.id, initialSelectedIndex]);
+    setSelectedIndex(null);
+    setApproving(false);
+  }, [checkpoint.id]);
 
-  const approve = () => {
-    const prompt = (selected?.prompt ?? approvedPrompt).trim();
+  const approve = async () => {
+    if (approving) return;
+
+    const prompt = approvablePrompt;
     if (!prompt) {
       toast.error('Choose or write a Chain Agent prompt first.');
       return;
     }
 
-    onApprove(prompt, {
-      ...(selected?.params ?? checkpoint.selected_params ?? {}),
-      generation_prompt: prompt,
-    });
+    setApproving(true);
+    try {
+      await onApprove(prompt, {
+        ...selectedParams,
+        ...(hasProposedField(fields, 'generation_prompt')
+          ? { generation_prompt: prompt }
+          : {}),
+      });
+    } finally {
+      setApproving(false);
+    }
   };
   const isAutopilot = mode === 'agent_autopilot';
 
@@ -1850,17 +1872,15 @@ function AgentCheckpointPanel({
               <button
                 type="button"
                 key={`${checkpoint.id}:${index}`}
-                disabled={disabled}
+                disabled={disabled || approving}
                 onClick={() => {
                   setSelectedIndex(index);
                 }}
                 className={cn(
                   'nodrag border px-2 py-1.5 text-left text-[0.65rem] leading-4 transition disabled:opacity-60',
-                  suggestion.prompt === checkpoint.selected_prompt
-                    ? 'border-blue-400 bg-blue-500/10 text-foreground'
-                    : index === selectedIndex
-                      ? 'border-ring bg-muted text-foreground'
-                      : 'border-border text-muted-foreground hover:border-ring hover:text-foreground',
+                  index === selectedIndex
+                    ? 'border-ring bg-muted text-foreground'
+                    : 'border-border text-muted-foreground hover:border-ring hover:text-foreground',
                 )}
               >
                 <span className="block font-medium text-foreground">
@@ -1878,13 +1898,13 @@ function AgentCheckpointPanel({
             {approvedPrompt}
           </div>
         ) : null}
-        {!pending && Object.keys(selectedParams).length > 0 ? (
+        {!pending && proposedFields.length > 0 ? (
           <div className="overflow-hidden border border-border">
             <div className="border-b border-border px-2 py-1 text-[0.62rem] font-medium uppercase tracking-wide text-muted-foreground">
               proposed_fields
             </div>
             <div className="divide-y divide-border">
-              {Object.entries(selectedParams).map(([key, value]) => (
+              {proposedFields.map(([key, value]) => (
                 <div
                   key={key}
                   className="grid grid-cols-[11rem_minmax(0,1fr)] gap-2 px-2 py-1.5 text-[0.65rem] leading-4"
@@ -1902,16 +1922,84 @@ function AgentCheckpointPanel({
           <Button
             className="nodrag w-full"
             size="sm"
-            disabled={disabled || pending || !selected}
+            disabled={disabled || pending || approving || !approvablePrompt}
             onClick={approve}
           >
-            <FontAwesomeIcon icon="check" />
-            Continue with Agent
+            <FontAwesomeIcon
+              className={approving ? 'animate-spin' : undefined}
+              icon={approving ? 'spinner' : 'check'}
+            />
+            {approving ? 'Continuing...' : 'Continue with Agent'}
           </Button>
         ) : null}
       </div>
     </div>
   );
+}
+
+function proposedParamsForSelection(
+  checkpointParams: Record<string, unknown>,
+  selected: AgentCheckpointSuggestion | undefined,
+  fields: FieldSpec[],
+) {
+  const params = completeProposedParams(fields, {
+    ...completeProposedParams(fields, checkpointParams),
+    ...(selected?.params ?? {}),
+  });
+
+  if (selected?.prompt && hasProposedField(fields, 'generation_prompt')) {
+    params.generation_prompt = selected.prompt;
+  }
+
+  return params;
+}
+
+function orderedProposedFields(
+  fields: FieldSpec[],
+  params: Record<string, unknown>,
+) {
+  return fields.map((field) => [field.name, params[field.name]] as const);
+}
+
+function completeProposedParams(
+  fields: FieldSpec[],
+  params: Record<string, unknown>,
+) {
+  const completed = { ...params };
+
+  for (const field of fields) {
+    if (completed[field.name] !== undefined && completed[field.name] !== null) {
+      continue;
+    }
+
+    const fallback = proposedFieldFallback(field);
+    if (fallback !== undefined) {
+      completed[field.name] = fallback;
+    }
+  }
+
+  return completed;
+}
+
+function proposedFieldFallback(field: FieldSpec): unknown {
+  if (field.default !== undefined) return field.default;
+
+  if (field.type === 'select') {
+    return field.options?.[0]?.value ?? '';
+  }
+
+  if (field.type === 'boolean') return false;
+  if (field.valueKind === 'number' || field.type === 'number') {
+    return field.min ?? 0;
+  }
+  if (field.valueKind === 'string-array') return [];
+  if (field.valueKind === 'json') return {};
+
+  return '';
+}
+
+function hasProposedField(fields: FieldSpec[], fieldName: string) {
+  return fields.some((field) => field.name === fieldName);
 }
 
 function formatCheckpointValue(value: unknown) {
@@ -1928,6 +2016,7 @@ function CheckpointNodeComponent({ data }: NodeProps) {
   const {
     agentCheckpointByNode,
     continueAgentCheckpoint,
+    fieldsByModel,
     runningFlowIds,
     runModeByFlow,
   } = useCanvas();
@@ -1936,6 +2025,12 @@ function CheckpointNodeComponent({ data }: NodeProps) {
   const running = runningFlowIds.has(flowId);
   const checkpoint =
     state?.checkpoint ?? createPendingCheckpointPlaceholder(role, runMode);
+  const fieldGroup = fieldsByModel[modelSchemaCacheKey(role, node.modelId)];
+  const fields = fieldGroup
+    ? [...fieldGroup.core, ...fieldGroup.advanced].filter((field) =>
+        shouldRenderFieldForRole(field, role),
+      )
+    : [];
 
   return (
     <div className="w-[460px] border border-border bg-card shadow-lg">
@@ -1970,10 +2065,11 @@ function CheckpointNodeComponent({ data }: NodeProps) {
           checkpoint={checkpoint}
           mode={runMode}
           disabled={!running || runMode !== 'agent_review' || !state}
+          fields={fields}
           pending={!state}
-          onApprove={(prompt, params) => {
+          onApprove={async (prompt, params) => {
             if (!state) return;
-            continueAgentCheckpoint(
+            await continueAgentCheckpoint(
               flowId,
               state.checkpoint.id,
               prompt,
@@ -3400,7 +3496,22 @@ function CanvasInner(props: CanvasProps) {
             const existingCheckpoint = auxById.get(checkpointId);
             if (existingCheckpoint) {
               matched += 1;
-              next.push(existingCheckpoint);
+              const syncedCheckpoint =
+                existingCheckpoint.data.role === target.data.role &&
+                existingCheckpoint.data.modelId === target.data.modelId &&
+                existingCheckpoint.data.flowId === flowId
+                  ? existingCheckpoint
+                  : {
+                      ...existingCheckpoint,
+                      data: {
+                        ...existingCheckpoint.data,
+                        role: target.data.role,
+                        modelId: target.data.modelId,
+                        flowId,
+                      },
+                    };
+              if (syncedCheckpoint !== existingCheckpoint) changed = true;
+              next.push(syncedCheckpoint);
             } else {
               changed = true;
               next.push({

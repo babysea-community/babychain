@@ -77,13 +77,11 @@ export function getSemanticModelSchemaFields(
     return null;
   }
 
-  const fields = model.schema;
-
   if (options.chainFieldMode !== 'downstream') {
-    return fields;
+    return model.schema;
   }
 
-  return filterChainSchemaFields(fields, 'video', {
+  return filterChainSchemaFields(model.schema, 'video', {
     allowInputImageFile: options.allowInputImageFile === true,
     allowInputVideoFile: options.allowInputVideoFile === true,
   });

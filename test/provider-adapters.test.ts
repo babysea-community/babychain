@@ -2481,7 +2481,6 @@ describe('provider adapters', () => {
         generation_duration: 8,
         generation_audio: false,
         generation_input_file: ['data:image/png;base64,aW1hZ2U='],
-        generation_negative_prompt: 'No text overlays',
         generation_prompt: 'Slow product camera orbit',
         generation_aspect_ratio: '9:16',
         generation_resolution: '1080p',
@@ -2506,12 +2505,12 @@ describe('provider adapters', () => {
       parameters: {
         aspectRatio: '9:16',
         durationSeconds: 8,
-        negativePrompt: 'No text overlays',
         resolution: '1080p',
         seed: 1234,
       },
     });
     expect(submittedBody.parameters).not.toHaveProperty('generateAudio');
+    expect(submittedBody.parameters).not.toHaveProperty('negativePrompt');
     expect(submittedBody.parameters).not.toHaveProperty('numberOfVideos');
     expect(submitted).toMatchObject({
       kind: 'async',
@@ -2535,6 +2534,58 @@ describe('provider adapters', () => {
         'data:video/mp4;base64,Z29vZ2xlLXZpZGVvLWJ5dGVz',
       ],
     });
+  });
+
+  it('does not send unsupported negative prompts to Google Veo 3.1 models', async () => {
+    const submittedBodies: Record<string, unknown>[] = [];
+    const fetchImpl = vi.fn(async (_url: string | URL | Request, init) => {
+      submittedBodies.push(
+        JSON.parse(String(init?.body)) as Record<string, unknown>,
+      );
+
+      return new Response(
+        JSON.stringify({
+          name: `operations/google_video_${submittedBodies.length}`,
+        }),
+        { status: 200 },
+      );
+    }) as typeof fetch;
+    const provider = createGoogleProvider({
+      apiKey: 'gemini_test_key',
+      fetchImpl,
+    });
+    for (const modelIdentifier of [
+      'google/veo-3.1',
+      'google/veo-3.1-fast',
+      'google/veo-3.1-lite',
+    ]) {
+      const resolution = resolveProvider(modelIdentifier, { byokMode: true });
+
+      await provider.submit({
+        idempotencyKey: `idem_${modelIdentifier.replaceAll('/', '_')}`,
+        modelIdentifier: resolution.modelIdentifier,
+        params: {
+          generation_aspect_ratio: '16:9',
+          generation_duration: 8,
+          generation_negative_prompt: 'No text overlays',
+          generation_prompt: 'Slow product camera orbit',
+          generation_resolution: '720p',
+          generation_seed: 1234,
+        },
+        stepKind: 'video',
+      });
+    }
+
+    expect(submittedBodies).toHaveLength(3);
+    for (const submittedBody of submittedBodies) {
+      expect(submittedBody.parameters).toMatchObject({
+        aspectRatio: '16:9',
+        durationSeconds: 8,
+        resolution: '720p',
+        seed: 1234,
+      });
+      expect(submittedBody.parameters).not.toHaveProperty('negativePrompt');
+    }
   });
 
   it('downloads HTTPS Veo image handoffs and inlines them as bytes', async () => {

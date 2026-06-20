@@ -194,7 +194,9 @@ function contextWithCurrentInput(
       nextStepKey: 'video',
     },
     nextStep: {
-      modelIdentifier: 'google/veo-3.1-lite',
+      modelIdentifier: includeAdvancedFields
+        ? 'google/veo-3.1-fast'
+        : 'google/veo-3.1-lite',
       requestParams: null,
       schema: {
         type: 'object',
