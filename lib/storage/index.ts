@@ -129,6 +129,50 @@ export function resolveOutputStorageProvider(): StorageProvider | null {
   }
 }
 
+export type StoredAssetReference = {
+  provider: BabyChainStorageProviderId;
+  storagePath: string;
+};
+
+/**
+ * Best-effort deletion of previously stored output assets (the image/video
+ * files written by {@link persistOutputFiles}). Only assets whose recorded
+ * provider matches the currently configured storage provider are removed —
+ * other providers' credentials are not available at runtime. Storage being
+ * disabled (`none`) or misconfigured is treated as a no-op so callers never
+ * fail because of cleanup.
+ */
+export async function deleteStoredAssets(
+  references: readonly StoredAssetReference[],
+): Promise<void> {
+  if (references.length === 0) {
+    return;
+  }
+
+  let provider: StorageProvider | null;
+
+  try {
+    provider = resolveOutputStorageProvider();
+  } catch {
+    return;
+  }
+
+  if (!provider) {
+    return;
+  }
+
+  const keys = references
+    .filter((reference) => reference.provider === provider.id)
+    .map((reference) => reference.storagePath)
+    .filter((path) => typeof path === 'string' && path.length > 0);
+
+  if (keys.length === 0) {
+    return;
+  }
+
+  await provider.remove(keys);
+}
+
 async function readOutputMedia(value: string) {
   const dataUrl = parseDataUrlOutputFile(value);
 

@@ -3,6 +3,10 @@ import 'server-only';
 import type { StorageProvider } from './types';
 
 type VercelBlobModule = {
+  del(
+    urlOrPathname: string | string[],
+    options: { token: string },
+  ): Promise<void>;
   put(
     pathname: string,
     body: Uint8Array | Buffer | Blob,
@@ -39,6 +43,17 @@ export function createVercelBlobStorageProvider(): StorageProvider {
       });
 
       return { publicUrl: result.url, storagePath: input.key };
+    },
+    async remove(keys) {
+      const unique = [...new Set(keys.filter((key) => key.length > 0))];
+
+      if (unique.length === 0) {
+        return;
+      }
+
+      const blob = await loadVercelBlob();
+      // `del` accepts blob pathnames (our storagePath) as well as full URLs.
+      await blob.del(unique, { token });
     },
   };
 }

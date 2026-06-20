@@ -2,7 +2,13 @@
 
 import Link from 'next/link';
 import type { ComponentType, SVGProps } from 'react';
-import { useEffect, useMemo, useState, useTransition } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  useTransition,
+} from 'react';
 import { toast } from 'sonner';
 
 import { FontAwesomeIcon } from '@/components/icons/font-awesome-icon';
@@ -459,6 +465,25 @@ function ResultPreview({
   const [failed, setFailed] = useState(false);
   const [loaded, setLoaded] = useState(false);
 
+  // The Library is server-rendered, so a cached image/video can finish loading
+  // before React hydrates and attaches onLoad/onLoadedMetadata — the event is
+  // missed and the overlay would spin forever. This callback ref re-checks
+  // readiness when the element mounts and clears the overlay when the browser
+  // already has the media.
+  const markLoadedIfReady = useCallback(
+    (node: HTMLImageElement | HTMLVideoElement | null) => {
+      if (!node) return;
+
+      if (node instanceof HTMLVideoElement) {
+        if (node.readyState >= 1) setLoaded(true);
+        return;
+      }
+
+      if (node.complete && node.naturalWidth > 0) setLoaded(true);
+    },
+    [],
+  );
+
   if (failed) {
     const icon = preview.kind === 'video' ? 'video' : 'image';
     return (
@@ -482,6 +507,7 @@ function ResultPreview({
     <div className={cn('relative h-full w-full', className)}>
       {preview.kind === 'video' ? (
         <video
+          ref={markLoadedIfReady}
           src={preview.url}
           controls
           muted
@@ -493,6 +519,7 @@ function ResultPreview({
         />
       ) : (
         <img
+          ref={markLoadedIfReady}
           src={preview.url}
           alt={`${title} — image result`}
           loading="lazy"

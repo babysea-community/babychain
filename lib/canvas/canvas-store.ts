@@ -1,6 +1,7 @@
 import 'server-only';
 
 import { auroraQuery } from '@/lib/database/aurora';
+import { deleteStoredAssets, type StoredAssetReference } from '@/lib/storage';
 import { BabyChainError } from '@/lib/utils/errors';
 
 import type { StoredCanvas, StoredCanvasNode } from './canvas-library';
@@ -379,13 +380,97 @@ export async function deleteCanvas(
     return false;
   }
 
-  const result = await auroraQuery(
+  const result = await auroraQuery<{ last_run_id: string | null }>(
     `delete from babychain_private.canvas
-      where owner_email = $1 and id = $2 and not workspace`,
+      where owner_email = $1 and id = $2 and not workspace
+      returning last_run_id`,
     [normalizeOwnerEmail(ownerEmail), canvasId],
   );
 
-  return (result.rowCount ?? 0) > 0;
+  const deleted = result.rows[0];
+
+  if (!deleted) {
+    return false;
+  }
+
+  // Reclaim the canvas's stored image/video files (S3 / Vercel Blob) for its
+  // last run. The chain_run / chain_step history rows are intentionally left
+  // in place — only the binary assets are removed. Cleanup is best-effort so a
+  // storage hiccup never blocks the delete the owner already requested.
+  if (deleted.last_run_id) {
+    try {
+      await deleteRunOutputAssets(deleted.last_run_id);
+    } catch (error) {
+      console.warn('[babychain] canvas asset cleanup failed', {
+        error: error instanceof Error ? error.message : String(error),
+        runId: deleted.last_run_id,
+      });
+    }
+  }
+
+  return true;
+}
+
+/**
+ * Deletes the stored output assets for a run from the configured storage
+ * provider, using the `babychain_storage` metadata recorded on each step when
+ * the files were persisted. Inference-hosted outputs (no stored metadata) are
+ * left untouched. The chain_step rows themselves are not modified.
+ */
+async function deleteRunOutputAssets(runId: string): Promise<void> {
+  if (!UUID_PATTERN.test(runId)) {
+    return;
+  }
+
+  const result = await auroraQuery<{ provider_metadata: unknown }>(
+    `select provider_metadata
+       from babychain_private.chain_step
+      where run_id = $1
+        and provider_metadata -> 'babychain_storage' is not null`,
+    [runId],
+  );
+
+  const references = result.rows.flatMap((row) =>
+    extractStoredAssetReferences(row.provider_metadata),
+  );
+
+  await deleteStoredAssets(references);
+}
+
+function extractStoredAssetReferences(value: unknown): StoredAssetReference[] {
+  if (!value || typeof value !== 'object') {
+    return [];
+  }
+
+  const storage = (value as { babychain_storage?: unknown }).babychain_storage;
+  if (!storage || typeof storage !== 'object') {
+    return [];
+  }
+
+  const assets = (storage as { assets?: unknown }).assets;
+  if (!Array.isArray(assets)) {
+    return [];
+  }
+
+  const references: StoredAssetReference[] = [];
+  for (const asset of assets) {
+    if (!asset || typeof asset !== 'object') {
+      continue;
+    }
+
+    const provider = (asset as { provider?: unknown }).provider;
+    const storagePath = (asset as { storage_path?: unknown }).storage_path;
+
+    if (
+      (provider === 'aws-s3' || provider === 'vercel-blob') &&
+      typeof storagePath === 'string' &&
+      storagePath.length > 0
+    ) {
+      references.push({ provider, storagePath });
+    }
+  }
+
+  return references;
 }
 
 /**

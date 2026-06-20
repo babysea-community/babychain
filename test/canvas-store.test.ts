@@ -9,6 +9,12 @@ vi.mock('@/lib/database/aurora', () => ({
   auroraQuery: queryMock,
 }));
 
+const deleteStoredAssetsMock = vi.hoisted(() => vi.fn());
+
+vi.mock('@/lib/storage', () => ({
+  deleteStoredAssets: deleteStoredAssetsMock,
+}));
+
 import {
   deleteCanvas,
   getCanvas,
@@ -51,6 +57,8 @@ function row(overrides: Record<string, unknown> = {}) {
 
 beforeEach(() => {
   queryMock.mockReset();
+  deleteStoredAssetsMock.mockReset();
+  deleteStoredAssetsMock.mockResolvedValue(undefined);
 });
 
 describe('saveCanvas', () => {
@@ -306,11 +314,54 @@ describe('getCanvas/listCanvases/deleteCanvas', () => {
   });
 
   it('reports whether a delete removed a row', async () => {
-    queryMock.mockResolvedValueOnce({ rowCount: 1 });
+    queryMock.mockResolvedValueOnce({ rows: [{ last_run_id: null }] });
     expect(await deleteCanvas(OWNER, CANVAS_ID)).toBe(true);
+    expect(deleteStoredAssetsMock).not.toHaveBeenCalled();
 
-    queryMock.mockResolvedValueOnce({ rowCount: 0 });
+    queryMock.mockResolvedValueOnce({ rows: [] });
     expect(await deleteCanvas(OWNER, CANVAS_ID)).toBe(false);
+  });
+
+  it('removes stored assets for the last run but keeps the history rows', async () => {
+    queryMock
+      .mockResolvedValueOnce({ rows: [{ last_run_id: RUN_ID }] })
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            provider_metadata: {
+              babychain_storage: {
+                provider: 'aws-s3',
+                assets: [
+                  {
+                    provider: 'aws-s3',
+                    storage_path: `runs/${RUN_ID}/image/output-0.png`,
+                  },
+                  {
+                    provider: 'aws-s3',
+                    storage_path: `runs/${RUN_ID}/video/output-0.mp4`,
+                  },
+                ],
+              },
+            },
+          },
+        ],
+      });
+
+    const deleted = await deleteCanvas(OWNER, CANVAS_ID);
+
+    expect(deleted).toBe(true);
+    // The canvas row is removed with RETURNING; nothing cascades to history.
+    expect(queryMock.mock.calls[0]?.[0]).toContain(
+      'delete from babychain_private.canvas',
+    );
+    expect(queryMock.mock.calls[0]?.[0]).toContain('returning last_run_id');
+    expect(queryMock.mock.calls[1]?.[0]).toContain(
+      'from babychain_private.chain_step',
+    );
+    expect(deleteStoredAssetsMock).toHaveBeenCalledWith([
+      { provider: 'aws-s3', storagePath: `runs/${RUN_ID}/image/output-0.png` },
+      { provider: 'aws-s3', storagePath: `runs/${RUN_ID}/video/output-0.mp4` },
+    ]);
   });
 
   it('renames the row and embedded info card with a 40-character title', async () => {

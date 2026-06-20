@@ -910,6 +910,7 @@ describe('runner step claiming', () => {
           storagePath: input.key,
         };
       },
+      remove: async () => undefined,
     };
 
     const result = await processRun(record, {
