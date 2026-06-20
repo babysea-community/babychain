@@ -252,7 +252,7 @@ function CanvasCard({
       const confirmed = await confirm({
         title: 'Delete this canvas?',
         description:
-          'This permanently removes it from your Library and deletes the stored image and video files for its last run. This cannot be undone.',
+          'This permanently removes it from your Library and deletes the stored image and video files for its run. This cannot be undone.',
         confirmLabel: 'Delete canvas',
         cancelLabel: 'Keep canvas',
         destructive: true,
@@ -331,7 +331,7 @@ function CanvasCard({
 
         {/* 2. Single meta badge: Run ID/Canvas ID/Created */}
         <div className="space-y-1 border border-border bg-muted/30 px-2.5 py-2">
-          <MetaRow label="Run ID">{canvas.lastRunId ?? 'No run yet'}</MetaRow>
+          <MetaRow label="Run ID">{canvas.runId ?? 'No run yet'}</MetaRow>
           <MetaRow label="Canvas ID">{canvas.id}</MetaRow>
           <MetaRow label="Created">
             {new Date(canvas.createdAt).toLocaleString()}

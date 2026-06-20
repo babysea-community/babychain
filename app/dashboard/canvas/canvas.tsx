@@ -80,7 +80,6 @@ import {
 } from '@/lib/chains/ui-request-shape';
 import {
   createDefaultCanvasName,
-  isDefaultCanvasName,
   MAX_CANVAS_TITLE_LENGTH,
   normalizeCanvasTitle,
 } from '@/lib/canvas/names';
@@ -632,7 +631,6 @@ type CanvasProps = {
   runChainAction: (
     input: Record<string, unknown>,
     options?: {
-      canvasId?: string;
       execution?: Record<string, unknown>;
       flowId?: string;
     },
@@ -649,7 +647,7 @@ type CanvasProps = {
   cancelRunAction: (runId: string) => Promise<unknown | null>;
   saveCanvasAction: (input: {
     id: string;
-    lastRunId?: string | null;
+    runId?: string | null;
     title: string;
     nodes: StoredCanvasNode[];
     saveVersion: number;
@@ -784,14 +782,14 @@ function restoreNodes(
   entries: StoredCanvasNode[],
   initialTitle?: string | null,
 ): FlowNode[] {
-  // Defensive fallback for malformed stored nodes: treat missing flowId as one
-  // flow instead of crashing the canvas.
-  const fallbackFlowId = genFlowId();
-
   return entries
     .filter(
       (entry) =>
-        entry && entry.id && entry.role && !entry.id.startsWith('checkpoint_'),
+        entry &&
+        entry.id &&
+        entry.role &&
+        entry.flowId &&
+        !entry.id.startsWith('checkpoint_'),
     )
     .map((entry) => {
       const type = entry.id.startsWith('info_') ? 'info' : 'model';
@@ -804,10 +802,7 @@ function restoreNodes(
         data: {
           role: entry.role as StepRole,
           modelId: entry.modelId ?? '',
-          flowId:
-            typeof entry.flowId === 'string' && entry.flowId
-              ? entry.flowId
-              : fallbackFlowId,
+          flowId: entry.flowId,
           values:
             type === 'info' ? ensureInfoName(values, initialTitle) : values,
         },
@@ -973,11 +968,6 @@ function flowName(nodes: FlowNode[], flowId?: string): string {
     : createDefaultCanvasName();
 }
 
-function libraryFlowName(nodes: FlowNode[], flowId: string): string {
-  const name = flowName(nodes, flowId);
-  return isDefaultCanvasName(name) ? createDefaultCanvasName() : name;
-}
-
 function duplicateFlowName(name: string) {
   const base = normalizeCanvasTitle(name) || createDefaultCanvasName();
   const suffix = ' copy';
@@ -1046,9 +1036,11 @@ type CanvasContextValue = {
   addNodeToFlow: (flowId: string, role: StepRole) => void;
   continueAgentCheckpoint: (
     flowId: string,
+    role: StepRole,
     checkpointId: string,
     selectedPrompt: string,
     selectedParams: Record<string, unknown>,
+    modelValues: Record<string, FieldValue>,
   ) => Promise<void>;
   runFlow: (flowId: string, save: boolean) => void;
   setRunMode: (flowId: string, mode: RunMode) => void;
@@ -1816,7 +1808,11 @@ function AgentCheckpointPanel({
   disabled: boolean;
   fields: FieldSpec[];
   pending: boolean;
-  onApprove: (prompt: string, params: Record<string, unknown>) => Promise<void>;
+  onApprove: (
+    prompt: string,
+    params: Record<string, unknown>,
+    modelValues: Record<string, FieldValue>,
+  ) => Promise<void>;
 }) {
   const suggestions = checkpoint.suggestions ?? [];
   const isAutopilot = mode === 'agent_autopilot';
@@ -1863,6 +1859,10 @@ function AgentCheckpointPanel({
     ? effectivePrompt
     : (checkpoint.selected_prompt ?? '').trim();
 
+  // Review approval is gated on the operator locking every proposed field; the
+  // prompt is auto-locked the moment one is picked.
+  const allParamsLocked = paramFields.every((field) => locked[field.name]);
+
   const chooseSuggestion = (index: number) => {
     setPromptChoice(index);
     const suggestion = suggestions[index];
@@ -1894,7 +1894,12 @@ function AgentCheckpointPanel({
       if (promptField) {
         params.generation_prompt = promptValue;
       }
-      await onApprove(promptValue, params);
+      // Display-form values so the step's model card can update instantly.
+      const modelValues: Record<string, FieldValue> = { ...values };
+      if (promptField) {
+        modelValues.generation_prompt = promptValue;
+      }
+      await onApprove(promptValue, params, modelValues);
     } finally {
       setApproving(false);
     }
@@ -2027,18 +2032,31 @@ function AgentCheckpointPanel({
         ) : null}
 
         {!isAutopilot ? (
-          <Button
-            className="nodrag w-full"
-            size="sm"
-            disabled={disabled || pending || approving || !promptValue}
-            onClick={approve}
-          >
-            <FontAwesomeIcon
-              className={approving ? 'animate-spin' : undefined}
-              icon={approving ? 'spinner' : 'check'}
-            />
-            {approving ? 'Continuing...' : 'Approve & continue'}
-          </Button>
+          <div className="grid gap-1">
+            <Button
+              className="nodrag w-full"
+              size="sm"
+              disabled={
+                disabled ||
+                pending ||
+                approving ||
+                !promptValue ||
+                !allParamsLocked
+              }
+              onClick={approve}
+            >
+              <FontAwesomeIcon
+                className={approving ? 'animate-spin' : undefined}
+                icon={approving ? 'spinner' : 'check'}
+              />
+              {approving ? 'Continuing...' : 'Approve & continue'}
+            </Button>
+            <p className="px-0.5 text-[0.6rem] leading-4 text-muted-foreground">
+              {allParamsLocked
+                ? 'Picking a prompt locks it automatically.'
+                : 'Lock every proposed field to enable Approve. Picking a prompt locks it automatically.'}
+            </p>
+          </div>
         ) : null}
       </div>
     </div>
@@ -2224,13 +2242,15 @@ function CheckpointNodeComponent({ data }: NodeProps) {
           disabled={!running || runMode !== 'agent_review' || !state}
           fields={fields}
           pending={!state}
-          onApprove={async (prompt, params) => {
+          onApprove={async (prompt, params, modelValues) => {
             if (!state) return;
             await continueAgentCheckpoint(
               flowId,
+              role,
               state.checkpoint.id,
               prompt,
               params,
+              modelValues,
             );
           }}
         />
@@ -2458,15 +2478,15 @@ function RunnerNodeComponent({ data }: NodeProps) {
           {isSavedCanvas ? (
             <>
               <RunnerActionLabel>Run only</RunnerActionLabel> tests this flow
-              without changing what is saved.{' '}
-              <RunnerActionLabel>RUN + SAVE</RunnerActionLabel> overwrites this
-              canvas with the new results.
+              without saving. <RunnerActionLabel>RUN + SAVE</RunnerActionLabel>{' '}
+              publishes it as a new Library card.
             </>
           ) : (
             <>
               <RunnerActionLabel>Run only</RunnerActionLabel> keeps results
-              here. <RunnerActionLabel>RUN + SAVE</RunnerActionLabel> creates a
-              new Library card for this flow.
+              here. <RunnerActionLabel>RUN + SAVE</RunnerActionLabel> publishes
+              this flow as a new Library card each time — rename cards in the
+              Library.
             </>
           )}
         </p>
@@ -4237,7 +4257,7 @@ function CanvasInner(props: CanvasProps) {
   // Resume run tracking after a reload or in another tab:
   //   - workspace: every flow's recorded run (in-progress runs continue
   //     live; finished runs repaint their results once).
-  //   - saved canvas: its linked last run.
+  //   - saved canvas: its linked run.
   const resumedRunRef = useRef(false);
 
   useEffect(() => {
@@ -4343,7 +4363,7 @@ function CanvasInner(props: CanvasProps) {
       const workingNodes = nodesForRun;
 
       if (save) {
-        savedCanvasId = canvasId ?? createCanvasId();
+        savedCanvasId = createCanvasId();
       }
 
       // A run should never depend on the autosave interval having fired.
@@ -4371,7 +4391,6 @@ function CanvasInner(props: CanvasProps) {
       }
 
       const result = await runChainAction(input, {
-        ...(save && canvasId ? { canvasId } : {}),
         execution: runModeExecution(runMode),
         ...(!canvasId ? { flowId } : {}),
       }).catch(() => null);
@@ -4384,20 +4403,20 @@ function CanvasInner(props: CanvasProps) {
       }
       const run = result.run as RunJson;
 
-      // "RUN + SAVE": only create/update the Library card after a run id
-      // exists, so navigating away cannot leave a saved canvas that says
-      // "not run yet". On the workspace every publish creates a fresh Library
-      // canvas card. On a saved canvas page the page id is reused.
+      // "RUN + SAVE": only create the Library card after a run id exists, so
+      // navigating away cannot leave a saved canvas that says "not run yet".
+      // Every publish — from the workspace or from a saved canvas page —
+      // mints a fresh Library card (new canvas id + run id); existing cards are
+      // never overwritten. The flow name rides along as-is, so owners rename
+      // cards directly in the Library.
       if (save) {
         if (!savedCanvasId) {
           toast.error('Saving the canvas failed.');
         } else {
-          const title = canvasId
-            ? flowName(nodesRef.current, flowId)
-            : libraryFlowName(nodesRef.current, flowId);
+          const title = flowName(nodesRef.current, flowId);
           const saveResult = await saveCanvasAction({
             id: savedCanvasId,
-            lastRunId: run.id,
+            runId: run.id,
             title,
             nodes: snapshotNodes([
               ...workingNodes.filter((node) => node.id === `info_${flowId}`),
@@ -4500,10 +4519,30 @@ function CanvasInner(props: CanvasProps) {
   const continueAgentCheckpoint = useCallback(
     async (
       flowId: string,
+      role: StepRole,
       checkpointId: string,
       selectedPrompt: string,
       selectedParams: Record<string, unknown>,
+      modelValues: Record<string, FieldValue>,
     ) => {
+      // Reflect the approved values on this step's model card immediately, so it
+      // updates the moment Approve is clicked rather than after the result lands.
+      setNodes((current) =>
+        current.map((node) =>
+          node.type === 'model' &&
+          node.data.flowId === flowId &&
+          node.data.role === role
+            ? {
+                ...node,
+                data: {
+                  ...node.data,
+                  values: { ...node.data.values, ...modelValues },
+                },
+              }
+            : node,
+        ),
+      );
+
       const runId = flowRunIdRef.current.get(flowId);
       if (!runId) {
         toast.error('This Agentic Workflow run is no longer being tracked.');
@@ -4536,7 +4575,7 @@ function CanvasInner(props: CanvasProps) {
         setTimeout(() => void pollFlow(flowId, run.id), 1200),
       );
     },
-    [props, applyRunToFlow, finishFlow, pollFlow],
+    [props, applyRunToFlow, finishFlow, pollFlow, setNodes],
   );
 
   const contextValue = useMemo<CanvasContextValue>(

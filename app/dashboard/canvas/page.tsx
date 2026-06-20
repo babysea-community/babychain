@@ -14,7 +14,6 @@ import {
   renameCanvas,
   saveCanvas,
   saveWorkspaceCanvas,
-  setCanvasLastRun,
   type SaveCanvasInput,
 } from '@/lib/canvas/canvas-store';
 import type { StoredCanvasNode } from '@/lib/canvas/canvas-library';
@@ -400,7 +399,6 @@ function withDashboardOutputUrls(value: unknown): unknown {
 async function runChainAction(
   input: Record<string, unknown>,
   options?: {
-    canvasId?: string;
     execution?: Record<string, unknown>;
     flowId?: string;
   },
@@ -422,14 +420,6 @@ async function runChainAction(
     const json = (await response.json()) as Record<string, unknown>;
     if (!response.ok) {
       return { ok: false, error: extractError(json) };
-    }
-    // Link the run to its canvas server-side so the association survives
-    // even if the browser tab closes before the response lands. Reopening
-    // the canvas then resumes tracking this run.
-    if (options?.canvasId && typeof json.id === 'string') {
-      await setCanvasLastRun(session.email, options.canvasId, json.id).catch(
-        () => undefined,
-      );
     }
     if (options?.flowId && typeof json.id === 'string') {
       await recordWorkspaceFlowRun(
@@ -634,7 +624,7 @@ export async function CanvasPageView({ canvasId }: { canvasId?: string } = {}) {
         canvasId={storedCanvas?.id}
         initialTitle={storedCanvas?.title ?? null}
         initialNodes={storedCanvas?.nodes ?? workspace?.nodes ?? null}
-        initialRunId={storedCanvas?.lastRunId ?? null}
+        initialRunId={storedCanvas?.runId ?? null}
         initialFlowRuns={workspace?.flowRuns ?? null}
         models={listCanvasModels(runtime)}
         providerMode={runtime.providerMode}

@@ -137,7 +137,7 @@ create table if not exists babychain_private.canvas (
   owner_email text not null check (char_length(owner_email) between 3 and 320),
   title text not null check (char_length(title) between 1 and 200),
   nodes jsonb not null default '[]'::jsonb,
-  last_run_id uuid,
+  run_id uuid,
   workspace boolean not null default false,
   flow_runs jsonb not null default '{}'::jsonb,
   save_version bigint not null default 0,

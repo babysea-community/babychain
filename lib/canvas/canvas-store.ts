@@ -20,7 +20,7 @@ const MAX_CANVASES_PER_OWNER = 200;
 const MAX_NODES_PER_CANVAS = 24;
 const MAX_NODES_JSON_BYTES = 64 * 1024;
 // The workspace scratchpad holds many flows at once, so it gets more room
-// than a saved (single-flow) canvas.
+// than a saved canvas, which holds a single flow.
 const MAX_WORKSPACE_NODES = 64;
 const MAX_WORKSPACE_JSON_BYTES = 256 * 1024;
 const UUID_PATTERN =
@@ -30,7 +30,7 @@ type CanvasRow = {
   id: string;
   title: string;
   nodes: unknown;
-  last_run_id: string | null;
+  run_id: string | null;
   save_version: number | string;
   created_at: Date;
   updated_at: Date;
@@ -38,7 +38,7 @@ type CanvasRow = {
 
 export type SaveCanvasInput = {
   id: string;
-  lastRunId?: string | null;
+  runId?: string | null;
   title: string;
   nodes: StoredCanvasNode[];
   saveVersion: number;
@@ -57,7 +57,7 @@ export type CanvasLibraryItem = Omit<StoredCanvas, 'nodes'> & {
 type CanvasListRow = {
   id: string;
   title: string;
-  last_run_id: string | null;
+  run_id: string | null;
   created_at: Date;
   updated_at: Date;
   model_ids: unknown;
@@ -72,11 +72,11 @@ export async function listCanvases(
   // The Library only renders model/inference badges and result previews, so
   // we never ship the full node graph here. Instead we reduce each canvas's
   // `nodes` to the list of model ids server-side (badges dedupe them) and let
-  // every succeeded step output of the last run ride along (in step order,
+  // every succeeded step output of the run rides along (in step order,
   // capped at 4) so the card can show image → refine → video → modify, not
   // just the final pair.
   const result = await auroraQuery<CanvasListRow>(
-    `select c.id, c.title, c.last_run_id, c.created_at, c.updated_at,
+    `select c.id, c.title, c.run_id, c.created_at, c.updated_at,
             (
               select coalesce(jsonb_agg(elem ->> 'modelId'), '[]'::jsonb)
                 from jsonb_array_elements(
@@ -95,7 +95,7 @@ export async function listCanvases(
            from (
              select s.step_kind, s.step_index, s.output_files[1] as url
                from babychain_private.chain_step s
-              where s.run_id = c.last_run_id
+              where s.run_id = c.run_id
                 and s.status = 'succeeded'
                 and cardinality(s.output_files) > 0
               order by s.step_index
@@ -114,7 +114,7 @@ export async function listCanvases(
     title: row.title,
     createdAt: toIsoString(row.created_at),
     updatedAt: toIsoString(row.updated_at),
-    lastRunId: row.last_run_id ?? null,
+    runId: row.run_id ?? null,
     modelIds: toModelIds(row.model_ids),
     resultPreviews: toResultPreviews(row.result_previews),
   }));
@@ -161,7 +161,7 @@ export async function getCanvas(
   }
 
   const result = await auroraQuery<CanvasRow>(
-    `select id, title, nodes, last_run_id, save_version, created_at, updated_at
+    `select id, title, nodes, run_id, save_version, created_at, updated_at
        from babychain_private.canvas
       where owner_email = $1 and id = $2 and not workspace`,
     [normalizeOwnerEmail(ownerEmail), canvasId],
@@ -260,9 +260,7 @@ export async function saveWorkspaceCanvas(
   }
 
   // Prune run pointers for flows that no longer exist on the canvas.
-  const flowIds = sanitized
-    .map((node) => node.flowId)
-    .filter((flowId): flowId is string => typeof flowId === 'string');
+  const flowIds = sanitized.map((node) => node.flowId);
 
   await auroraQuery(
     `insert into babychain_private.canvas (id, owner_email, title, nodes, workspace, save_version)
@@ -327,24 +325,24 @@ export async function saveCanvas(
   }
 
   const result = await auroraQuery<CanvasRow>(
-    `insert into babychain_private.canvas (id, owner_email, title, nodes, save_version, last_run_id)
+    `insert into babychain_private.canvas (id, owner_email, title, nodes, save_version, run_id)
      values ($1, $2, $3, $4::jsonb, $5, $6)
      on conflict (id) do update
         set title = excluded.title,
             nodes = excluded.nodes,
             save_version = excluded.save_version,
-            last_run_id = coalesce(excluded.last_run_id, babychain_private.canvas.last_run_id)
+            run_id = coalesce(excluded.run_id, babychain_private.canvas.run_id)
       where babychain_private.canvas.owner_email = excluded.owner_email
         and not babychain_private.canvas.workspace
         and babychain_private.canvas.save_version < excluded.save_version
-  returning id, title, nodes, last_run_id, save_version, created_at, updated_at`,
+  returning id, title, nodes, run_id, save_version, created_at, updated_at`,
     [
       canvas.id,
       owner,
       canvas.title,
       JSON.stringify(canvas.nodes),
       saveVersion,
-      canvas.lastRunId ?? null,
+      canvas.runId ?? null,
     ],
   );
 
@@ -352,7 +350,7 @@ export async function saveCanvas(
 
   if (!row) {
     const existing = await auroraQuery<CanvasRow>(
-      `select id, title, nodes, last_run_id, save_version, created_at, updated_at
+      `select id, title, nodes, run_id, save_version, created_at, updated_at
          from babychain_private.canvas
         where owner_email = $1 and id = $2 and not workspace`,
       [owner, canvas.id],
@@ -380,10 +378,10 @@ export async function deleteCanvas(
     return false;
   }
 
-  const result = await auroraQuery<{ last_run_id: string | null }>(
+  const result = await auroraQuery<{ run_id: string | null }>(
     `delete from babychain_private.canvas
       where owner_email = $1 and id = $2 and not workspace
-      returning last_run_id`,
+      returning run_id`,
     [normalizeOwnerEmail(ownerEmail), canvasId],
   );
 
@@ -394,60 +392,21 @@ export async function deleteCanvas(
   }
 
   // Reclaim the canvas's stored image/video files (S3 / Vercel Blob) for its
-  // last run. The chain_run / chain_step history rows are intentionally left
+  // run. The chain_run / chain_step history rows are intentionally left
   // in place — only the binary assets are removed. Cleanup is best-effort so a
   // storage hiccup never blocks the delete the owner already requested.
-  if (deleted.last_run_id) {
+  if (deleted.run_id) {
     try {
-      await deleteRunOutputAssets(deleted.last_run_id);
+      await deleteRunOutputAssets(deleted.run_id);
     } catch (error) {
       console.warn('[babychain] canvas asset cleanup failed', {
         error: error instanceof Error ? error.message : String(error),
-        runId: deleted.last_run_id,
+        runId: deleted.run_id,
       });
     }
   }
 
   return true;
-}
-
-/**
- * Reclaims a run's stored output assets once no canvas still references it —
- * neither a saved canvas's last run nor a workspace flow pointer. This is the
- * storage-lifecycle guard that stops a superseded run from leaving orphaned
- * media behind, while never deleting assets for a run that is still shown
- * somewhere. The chain_run / chain_step history rows are untouched.
- */
-async function reclaimRunAssetsIfOrphaned(
-  owner: string,
-  runId: string,
-): Promise<void> {
-  if (!UUID_PATTERN.test(runId)) {
-    return;
-  }
-
-  const referenced = await auroraQuery<{ referenced: boolean }>(
-    `select exists (
-       select 1
-         from babychain_private.canvas
-        where owner_email = $1
-          and (
-            last_run_id = $2::uuid
-            or exists (
-              select 1
-                from jsonb_each_text(flow_runs) as fr
-               where fr.value = $2
-            )
-          )
-     ) as referenced`,
-    [owner, runId],
-  );
-
-  if (referenced.rows[0]?.referenced) {
-    return;
-  }
-
-  await deleteRunOutputAssets(runId);
 }
 
 /**
@@ -562,73 +521,6 @@ export async function renameCanvas(
   return true;
 }
 
-/**
- * Links the most recent chain run to a canvas so reloads and other tabs can
- * resume tracking it. The run itself lives in `chain_run`; this is only the
- * pointer.
- */
-export async function setCanvasLastRun(
-  ownerEmail: string,
-  canvasId: string,
-  runId: string,
-): Promise<boolean> {
-  if (!UUID_PATTERN.test(canvasId) || !UUID_PATTERN.test(runId)) {
-    return false;
-  }
-
-  const owner = normalizeOwnerEmail(ownerEmail);
-
-  // Capture the run this canvas pointed at before the update. The two CTEs run
-  // against the same snapshot, so `prev` reads the pre-update value even though
-  // `updated` overwrites it — letting us reclaim a superseded run's media.
-  const result = await auroraQuery<{
-    previous_last_run_id: string | null;
-    updated_count: number;
-  }>(
-    `with prev as (
-       select last_run_id as previous_last_run_id
-         from babychain_private.canvas
-        where owner_email = $1 and id = $2 and not workspace
-     ),
-     updated as (
-       update babychain_private.canvas
-          set last_run_id = $3
-        where owner_email = $1 and id = $2 and not workspace
-        returning id
-     )
-     select prev.previous_last_run_id,
-            (select count(*) from updated)::int as updated_count
-       from prev`,
-    [owner, canvasId, runId],
-  );
-
-  const row = result.rows[0];
-
-  if (!row || Number(row.updated_count) === 0) {
-    return false;
-  }
-
-  // Enterprise storage lifecycle: a saved canvas only ever shows its latest
-  // run, so the run it just replaced is no longer reachable from here. If no
-  // other canvas (or the workspace's flow pointers) still references it, its
-  // stored image/video files are now orphaned — reclaim them. The chain_run /
-  // chain_step history rows are kept; only the binary assets are removed.
-  const previousRunId = row.previous_last_run_id;
-
-  if (previousRunId && previousRunId !== runId) {
-    try {
-      await reclaimRunAssetsIfOrphaned(owner, previousRunId);
-    } catch (error) {
-      console.warn('[babychain] superseded run asset cleanup failed', {
-        error: error instanceof Error ? error.message : String(error),
-        runId: previousRunId,
-      });
-    }
-  }
-
-  return true;
-}
-
 function validateSaveInput(input: SaveCanvasInput): SaveCanvasInput {
   if (!UUID_PATTERN.test(input.id)) {
     throw new BabyChainError(
@@ -639,12 +531,12 @@ function validateSaveInput(input: SaveCanvasInput): SaveCanvasInput {
   }
 
   const title = normalizeCanvasTitle(input.title) || 'Canvas';
-  const lastRunId = input.lastRunId ?? null;
+  const runId = input.runId ?? null;
 
-  if (lastRunId !== null && !UUID_PATTERN.test(lastRunId)) {
+  if (runId !== null && !UUID_PATTERN.test(runId)) {
     throw new BabyChainError(
       'invalid_canvas',
-      'Canvas last run id must be a UUID.',
+      'Canvas run id must be a UUID.',
       400,
     );
   }
@@ -678,7 +570,7 @@ function validateSaveInput(input: SaveCanvasInput): SaveCanvasInput {
 
   return {
     id: input.id,
-    lastRunId,
+    runId,
     nodes,
     saveVersion: input.saveVersion,
     title,
@@ -703,11 +595,13 @@ function sanitizeNode(node: StoredCanvasNode): StoredCanvasNode {
     typeof node !== 'object' ||
     typeof node.id !== 'string' ||
     typeof node.role !== 'string' ||
-    typeof node.modelId !== 'string'
+    typeof node.modelId !== 'string' ||
+    typeof node.flowId !== 'string' ||
+    !node.flowId
   ) {
     throw new BabyChainError(
       'invalid_canvas',
-      'Canvas nodes must include id, role, and modelId.',
+      'Canvas nodes must include id, role, modelId, and flowId.',
       400,
     );
   }
@@ -728,9 +622,7 @@ function sanitizeNode(node: StoredCanvasNode): StoredCanvasNode {
     id: node.id.slice(0, 80),
     role: node.role.slice(0, 40),
     modelId: node.modelId.slice(0, 200),
-    ...(typeof node.flowId === 'string' && node.flowId
-      ? { flowId: node.flowId.slice(0, 64) }
-      : {}),
+    flowId: node.flowId.slice(0, 64),
     values,
     position: {
       x: finiteNumber(node.position?.x),
@@ -777,7 +669,7 @@ function toStoredCanvas(row: CanvasRow): StoredCanvas {
     title: row.title,
     createdAt: toIsoString(row.created_at),
     updatedAt: toIsoString(row.updated_at),
-    lastRunId: row.last_run_id ?? null,
+    runId: row.run_id ?? null,
     nodes: Array.isArray(row.nodes) ? (row.nodes as StoredCanvasNode[]) : [],
   };
 }

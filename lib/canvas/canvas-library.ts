@@ -12,8 +12,8 @@ export type StoredCanvasNode = {
   id: string;
   role: string;
   modelId: string;
-  /** Flow (chain) this node belongs to. Legacy rows without it are single-flow. */
-  flowId?: string;
+  /** Flow (chain) this node belongs to. */
+  flowId: string;
   values: Record<string, string | number | boolean>;
   position: XYPosition;
 };
@@ -23,7 +23,7 @@ export type StoredCanvas = {
   title: string;
   createdAt: string;
   updatedAt: string;
-  lastRunId: string | null;
+  runId: string | null;
   nodes: StoredCanvasNode[];
 };
 
