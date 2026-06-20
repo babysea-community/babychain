@@ -921,6 +921,54 @@ describe('runner step claiming', () => {
     expect(submittedParams).not.toHaveProperty('generation_input_video_file');
   });
 
+  it('preserves caller downstream params when completing omitted optional agent fields', async () => {
+    const selectedPrompt = 'Elegant orbit with warm highlights.';
+    const record = chainAgentRecord('autopilot', {
+      videoModelInput: {
+        generation_aspect_ratio: '9:16',
+        generation_duration: 8,
+        generation_prompt: 'Animate the product naturally.',
+        generation_resolution: '1080p',
+      },
+    });
+    let updatedRecord = record;
+    let submittedParams: Record<string, unknown> | null = null;
+    const store = createMutableAgentStore(updatedRecord, (next) => {
+      updatedRecord = next;
+    });
+    const agent = createPromptAgent({
+      selectedPrompt,
+      selectedParams: {
+        generation_prompt: selectedPrompt,
+      },
+    });
+    const babysea = {
+      generate: async (_model: string, params: Record<string, unknown>) => {
+        submittedParams = params;
+
+        return {
+          data: { generation_id: 'gen_agent_video' },
+          idempotency_replayed: false,
+          request_id: 'req_agent_video',
+        };
+      },
+    };
+
+    const result = await processRun(record, {
+      agent,
+      babysea: babysea as never,
+      store: store as never,
+    });
+
+    expect(result.run.status).toBe('running');
+    expect(submittedParams).toMatchObject({
+      generation_aspect_ratio: '9:16',
+      generation_duration: 8,
+      generation_prompt: selectedPrompt,
+      generation_resolution: '1080p',
+    });
+  });
+
   it('preserves full agent generation prompt when selected prompt is short', async () => {
     const record = chainAgentRecord('autopilot');
     let updatedRecord = record;

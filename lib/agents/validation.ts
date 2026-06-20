@@ -8,7 +8,7 @@ export type ChainAgentValidationResult =
   | { ok: false; checkedParams: string[]; error: string };
 
 type ChainAgentSchemaContext = {
-  nextStep: { schema?: JsonObject | null };
+  nextStep: { requestParams?: JsonObject | null; schema?: JsonObject | null };
 };
 
 export function completeChainAgentSelectedParams(
@@ -22,10 +22,18 @@ export function completeChainAgentSelectedParams(
   }
 
   const properties = schemaProperties(schema);
+  const requestParams = isRecord(context.nextStep.requestParams)
+    ? context.nextStep.requestParams
+    : {};
   const completed: JsonObject = { ...selectedParams };
 
   for (const fieldName of agentPlannedSchemaFields(properties)) {
     if (completed[fieldName] !== undefined && completed[fieldName] !== null) {
+      continue;
+    }
+
+    if (isJsonValue(requestParams[fieldName])) {
+      completed[fieldName] = requestParams[fieldName];
       continue;
     }
 

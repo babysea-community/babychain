@@ -465,7 +465,7 @@ function ResultPreview({
       >
         <FontAwesomeIcon className="size-5" icon={icon} />
         <span className="px-2 text-center text-[0.65rem] leading-4">
-          Removed by inference provider
+          Removed by your inference. Set up storage to keep outputs longer.
         </span>
       </div>
     );

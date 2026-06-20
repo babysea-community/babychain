@@ -130,6 +130,29 @@ describe('validateChainAgentResult', () => {
     ).toMatchObject({ ok: true });
   });
 
+  it('prefers existing downstream params before schema fallback completion', () => {
+    const context = contextWithCurrentInput({}, true);
+    context.nextStep.requestParams = {
+      generation_negative_prompt: 'avoid blur',
+      generation_seed: 98765,
+    };
+
+    const completed = completeChainAgentSelectedParams(
+      resultWithPrompt({
+        selectedPrompt:
+          'The color-film portrait gently animates with subtle breathing, soft bokeh motion, and a slow camera push.',
+        generationPrompt:
+          'The color-film portrait gently animates with subtle breathing, soft bokeh motion, and a slow camera push.',
+      }).selectedParams,
+      context,
+    );
+
+    expect(completed).toMatchObject({
+      generation_negative_prompt: 'avoid blur',
+      generation_seed: 98765,
+    });
+  });
+
   it('rejects selected prompt that does not match selected params prompt', () => {
     const result = validateChainAgentResult(
       resultWithPrompt({

@@ -1473,7 +1473,7 @@ function MediaUnavailable({
     >
       <FontAwesomeIcon className="size-5" icon={icon} />
       <span className="px-2 text-center text-[0.65rem] leading-4">
-        Removed by inference provider
+        Removed by your inference. Set up storage to keep outputs longer.
       </span>
     </div>
   );
@@ -1840,8 +1840,8 @@ function AgentCheckpointPanel({
       <div className="space-y-2 p-2.5">
         {pending ? (
           <p className="text-[0.65rem] leading-4 text-muted-foreground">
-            Waiting for the previous step output. The agent prompt will appear
-            here before this step starts.
+            Waiting for the previous step output. The agent propose field will
+            appear here before this step starts.
           </p>
         ) : null}
         {suggestions.length > 0 ? (

@@ -384,6 +384,9 @@ export async function continueAgentRun(
     (step) => step.stepKey === checkpoint.stepKey,
   );
   const nextStepSchema = nextStep ? agentStepSchema(nextStep) : null;
+  const nextStepRequestParams = nextStep
+    ? agentStepRequestParams(record, nextStep)
+    : null;
   const selectedParams = normalizeAgentSelectedParams(
     input.selectedPrompt,
     input.selectedParams,
@@ -393,7 +396,10 @@ export async function continueAgentRun(
   );
   const completedSelectedParams = nextStep
     ? completeChainAgentSelectedParams(selectedParams, {
-        nextStep: { schema: nextStepSchema },
+        nextStep: {
+          requestParams: nextStepRequestParams,
+          schema: nextStepSchema,
+        },
       })
     : selectedParams;
   const validation = validateAgentCheckpointApproval(
@@ -904,7 +910,12 @@ async function prepareAgentCheckpoint(args: {
     );
     const completedSelectedParams = completeChainAgentSelectedParams(
       selectedParams,
-      { nextStep: { schema: nextStepSchema } },
+      {
+        nextStep: {
+          requestParams: agentContext.nextStep.requestParams,
+          schema: nextStepSchema,
+        },
+      },
     );
     const validation = validateChainAgentResult(
       {
