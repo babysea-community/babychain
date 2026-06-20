@@ -31,7 +31,7 @@ create table if not exists babychain_private.chain_run (
   api_key_prefix text not null,
   chain_slug text not null,
   chain_version text not null,
-  status text not null default 'queued' check (status in ('queued','running','succeeded','failed','canceled')),
+  status text not null default 'queued' check (status in ('queued','running','awaiting_agent','succeeded','failed','canceled')),
   input jsonb not null default '{}'::jsonb,
   output jsonb,
   error_code text,
@@ -164,16 +164,6 @@ create index if not exists idx_bc_callback_run on babychain_private.callback_del
 create index if not exists idx_bc_audit_run on babychain_private.audit_event (run_id, created_at desc);
 create index if not exists idx_bc_canvas_owner_updated on babychain_private.canvas (owner_email, updated_at desc);
 create index if not exists idx_bc_canvas_owner_created on babychain_private.canvas (owner_email, created_at desc);
-
-alter table babychain_private.chain_run
-  add column if not exists execution_config jsonb not null default '{"type":"self_control"}'::jsonb;
-
-alter table babychain_private.chain_run
-  drop constraint if exists chain_run_status_check;
-
-alter table babychain_private.chain_run
-  add constraint chain_run_status_check
-  check (status in ('queued','running','awaiting_agent','succeeded','failed','canceled'));
 
 do $$ begin
   if not exists (select 1 from pg_trigger where tgname = 'trg_bc_api_key_touch') then
