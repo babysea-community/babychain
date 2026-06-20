@@ -482,7 +482,7 @@ AWS_S3_SECRET_ACCESS_KEY=...
 AWS_S3_ENDPOINT_URL=https://media.example.com
 ```
 
-`AWS_S3_ENDPOINT_URL` is the browser-readable base URL BabyChain returns for stored media. It can be a CloudFront distribution domain, your custom CloudFront domain, a bucket-hosted S3 URL, or a path-style S3-compatible URL. Do not set a second public base URL.
+`AWS_S3_ENDPOINT_URL` is the browser-readable base URL BabyChain returns for stored media. It can be a CloudFront distribution domain, your custom CloudFront domain, a bucket-hosted S3 URL, or an AWS S3 path-style bucket URL. BabyChain still writes objects to AWS S3 using `AWS_S3_REGION` and `AWS_S3_BUCKET_NAME`; true S3-compatible services with custom write endpoints are not part of this provider. Do not set a second public base URL.
 
 Create an IAM user or role for BabyChain with object write/read access limited to the media bucket. Replace `your-babychain-media-bucket` with the value used in `AWS_S3_BUCKET_NAME`:
 

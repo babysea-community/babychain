@@ -64,7 +64,7 @@ function readStorageAssets(providerMetadata: JsonObject | null | undefined) {
     }
 
     const url = asset.url.trim();
-    if (!url) {
+    if (!isHttpsUrl(url)) {
       return [];
     }
 
@@ -79,6 +79,14 @@ function readStorageAssets(providerMetadata: JsonObject | null | undefined) {
       },
     ];
   });
+}
+
+function isHttpsUrl(value: string) {
+  try {
+    return new URL(value).protocol === 'https:';
+  } catch {
+    return false;
+  }
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

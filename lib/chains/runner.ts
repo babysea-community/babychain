@@ -1269,7 +1269,7 @@ async function applyGenerationStatus(
     generation.generation_completed_at ?? new Date().toISOString();
   let mergedProviderMetadata = mergeProviderMetadata(
     step.providerMetadata,
-    generation.provider_metadata,
+    stripReservedProviderMetadata(generation.provider_metadata),
   );
   const requestId =
     metadata.requestId ??
@@ -1597,10 +1597,13 @@ async function submitResultPatch(
       stepKey: step.stepKey,
     });
     const providerMetadata = persistedOutputs.storageMetadata
-      ? mergeProviderMetadata(result.providerMetadata ?? null, {
-          babychain_storage: persistedOutputs.storageMetadata,
-        })
-      : (result.providerMetadata ?? null);
+      ? mergeProviderMetadata(
+          stripReservedProviderMetadata(result.providerMetadata),
+          {
+            babychain_storage: persistedOutputs.storageMetadata,
+          },
+        )
+      : stripReservedProviderMetadata(result.providerMetadata);
 
     return {
       babyseaGenerationId: result.generationId,
@@ -1627,7 +1630,7 @@ async function submitResultPatch(
     babyseaIdempotencyReplayed: idempotencyReplayed,
     babyseaPredictionId: result.predictionId ?? null,
     babyseaRequestId: requestIdFromProviderMetadata(result.providerMetadata),
-    providerMetadata: result.providerMetadata ?? null,
+    providerMetadata: stripReservedProviderMetadata(result.providerMetadata),
     providerOrder: result.providerOrder,
     providerUsed: providerName === 'babysea' ? null : providerName,
     status: 'running' as const,
@@ -1636,12 +1639,23 @@ async function submitResultPatch(
 
 function mergeProviderMetadata(
   existing: JsonObject | null,
-  incoming: JsonObject | undefined,
+  incoming: JsonObject | null | undefined,
 ): JsonObject | null {
   if (!incoming) {
     return existing;
   }
   return { ...(existing ?? {}), ...incoming };
+}
+
+function stripReservedProviderMetadata(
+  metadata: JsonObject | null | undefined,
+): JsonObject | null {
+  if (!metadata) {
+    return null;
+  }
+
+  const { babychain_storage: _reserved, ...rest } = metadata;
+  return rest;
 }
 
 function readRunByokConfig(record: ChainRunWithSteps): ByokRunConfig | null {

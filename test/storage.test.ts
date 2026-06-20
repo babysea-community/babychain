@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 
+import { outputFilesWithStorageUrls } from '@/lib/chains/output-files';
 import { resolveAwsS3EndpointConfig } from '@/lib/storage/aws-s3';
 import { persistOutputFiles, type StorageProvider } from '@/lib/storage';
 
@@ -9,6 +10,24 @@ const s3EndpointInput = {
 };
 
 describe('output storage', () => {
+  it('ignores non-HTTPS storage metadata URLs', () => {
+    expect(
+      outputFilesWithStorageUrls({
+        files: ['data:image/png;base64,aW1hZ2U='],
+        providerMetadata: {
+          babychain_storage: {
+            assets: [
+              {
+                output_index: 0,
+                url: 'javascript:alert(1)',
+              },
+            ],
+          },
+        },
+      }),
+    ).toEqual(['data:image/png;base64,aW1hZ2U=']);
+  });
+
   it('uses AWS S3 bucket-host URLs as public URLs and strips the bucket for SDK writes', () => {
     expect(
       resolveAwsS3EndpointConfig({
