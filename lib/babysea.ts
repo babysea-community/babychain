@@ -8,7 +8,7 @@ import { BabyChainError } from './utils/errors';
 
 /**
  * Build a BabySea SDK client. Throws `babysea_not_configured` (400) if the
- * deployment did not set `BABYSEA_API_KEY` / `BABYSEA_API_BASE_URL`. BYOK-only
+ * deployment did not set `BABYSEA_API_KEY`/`BABYSEA_API_BASE_URL`. BYOK-only
  * deployments (BFL + BytePlus direct) can leave these unset and avoid ever
  * calling this helper.
  */

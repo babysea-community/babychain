@@ -68,7 +68,7 @@ const EnvSchema = z.object({
   OPENAI_API_KEY: OptionalProviderKeySchema,
   // Runway
   RUNWAYML_API_SECRET: OptionalProviderKeySchema,
-  // AWS Bedrock / Amazon Nova for Chain Agent
+  // AWS Bedrock/Amazon Nova for Chain Agent
   AWS_BEARER_TOKEN_BEDROCK: OptionalLongSecretSchema,
   BEDROCK_REGION: OptionalNonEmptyStringSchema,
   BEDROCK_NOVA_AGENT_MODEL: OptionalNonEmptyStringSchema,

@@ -119,7 +119,7 @@ export async function verifySession(
 }
 
 // ----------------------------------------------------------------------------
-// Cookie-backed session (server components / actions only)
+// Cookie-backed session (server components/actions only)
 // ----------------------------------------------------------------------------
 
 export async function createSession(payload: OwnerSession): Promise<void> {

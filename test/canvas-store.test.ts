@@ -271,7 +271,7 @@ describe('saveCanvas', () => {
   });
 });
 
-describe('getCanvas / listCanvases / deleteCanvas', () => {
+describe('getCanvas/listCanvases/deleteCanvas', () => {
   it('scopes reads by owner email and returns null for missing rows', async () => {
     queryMock.mockResolvedValueOnce({ rows: [] });
 
@@ -287,13 +287,17 @@ describe('getCanvas / listCanvases / deleteCanvas', () => {
   });
 
   it('lists canvases ordered by recency, scoped to the owner', async () => {
-    queryMock.mockResolvedValueOnce({ rows: [row()] });
+    queryMock.mockResolvedValueOnce({
+      rows: [row({ model_ids: ['bfl/flux-1.1-pro', 'google/veo-3'] })],
+    });
 
     const canvases = await listCanvases(OWNER);
 
     expect(canvases).toHaveLength(1);
     expect(canvases[0]?.updatedAt).toBe('2026-06-02T00:00:00.000Z');
+    expect(canvases[0]?.modelIds).toEqual(['bfl/flux-1.1-pro', 'google/veo-3']);
     expect(canvases[0]?.resultPreviews).toEqual([]);
+    expect(queryMock.mock.calls[0]?.[0]).toContain('as model_ids');
     expect(queryMock.mock.calls[0]?.[0]).toContain(
       'order by c.created_at desc',
     );

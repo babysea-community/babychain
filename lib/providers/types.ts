@@ -8,10 +8,10 @@ import type { JsonObject } from '@/lib/chains/types';
  * Canonical provider names recognised by BabyChain.
  *
  *   - `babysea`      : default routing through the BabySea SDK (server-side key).
- *   - `alibabacloud` : direct Alibaba Cloud Model Studio / DashScope API, BYOK.
+ *   - `alibabacloud` : direct Alibaba Cloud Model Studio/DashScope API, BYOK.
  *   - `bfl`          : direct Black Forest Labs (FLUX) API, BYOK.
  *   - `byteplus`     : direct BytePlus ModelArk API, BYOK.
- *   - `google`       : direct Google Gemini / Imagen / Veo APIs, BYOK.
+ *   - `google`       : direct Google Gemini/Imagen/Veo APIs, BYOK.
  *   - `openai`       : direct OpenAI Image API, BYOK.
  *   - `runway`       : direct Runway API, BYOK.
  */

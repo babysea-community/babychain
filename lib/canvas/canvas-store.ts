@@ -48,11 +48,18 @@ export type CanvasResultPreview = {
   url: string;
 };
 
-export type CanvasLibraryItem = StoredCanvas & {
+export type CanvasLibraryItem = Omit<StoredCanvas, 'nodes'> & {
+  modelIds: string[];
   resultPreviews: CanvasResultPreview[];
 };
 
-type CanvasListRow = CanvasRow & {
+type CanvasListRow = {
+  id: string;
+  title: string;
+  last_run_id: string | null;
+  created_at: Date;
+  updated_at: Date;
+  model_ids: unknown;
   result_previews: unknown;
 };
 
@@ -61,11 +68,22 @@ const MAX_RESULT_PREVIEWS = 4;
 export async function listCanvases(
   ownerEmail: string,
 ): Promise<CanvasLibraryItem[]> {
-  // Every succeeded step output of the canvas's last run rides along (in
-  // step order, capped at 4) so the Library can show all chain results —
-  // image → refine → video → modify, not just the final pair.
+  // The Library only renders model/inference badges and result previews, so
+  // we never ship the full node graph here. Instead we reduce each canvas's
+  // `nodes` to the list of model ids server-side (badges dedupe them) and let
+  // every succeeded step output of the last run ride along (in step order,
+  // capped at 4) so the card can show image → refine → video → modify, not
+  // just the final pair.
   const result = await auroraQuery<CanvasListRow>(
-    `select c.id, c.title, c.nodes, c.last_run_id, c.save_version, c.created_at, c.updated_at,
+    `select c.id, c.title, c.last_run_id, c.created_at, c.updated_at,
+            (
+              select coalesce(jsonb_agg(elem ->> 'modelId'), '[]'::jsonb)
+                from jsonb_array_elements(
+                       case when jsonb_typeof(c.nodes) = 'array'
+                            then c.nodes else '[]'::jsonb end
+                     ) as elem
+               where elem ->> 'modelId' is not null
+            ) as model_ids,
             previews.items as result_previews
        from babychain_private.canvas c
        left join lateral (
@@ -91,9 +109,26 @@ export async function listCanvases(
   );
 
   return result.rows.map((row) => ({
-    ...toStoredCanvas(row),
+    id: row.id,
+    title: row.title,
+    createdAt: toIsoString(row.created_at),
+    updatedAt: toIsoString(row.updated_at),
+    lastRunId: row.last_run_id ?? null,
+    modelIds: toModelIds(row.model_ids),
     resultPreviews: toResultPreviews(row.result_previews),
   }));
+}
+
+function toModelIds(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+
+  const ids: string[] = [];
+  for (const entry of value) {
+    if (typeof entry === 'string' && entry.length > 0) {
+      ids.push(entry);
+    }
+  }
+  return ids;
 }
 
 function toResultPreviews(value: unknown): CanvasResultPreview[] {

@@ -7,9 +7,14 @@ All notable changes will be documented here. The format follows [Keep a Changelo
 ### Changed
 
 - BabyChain runs now carry an explicit execution mode, allowing the existing self-control runner to opt into Agent Review or Autopilot without mixing agent planning into media provider routing.
-- Canvas `canvas_flow` cards now expose a `chain_runner` dropdown with Self Control, Agent (Review), and Agent (Autopilot); agent modes render dedicated checkpoint cards inline in the flow, mirror selected agent prompts into the existing downstream prompt fields, and Autopilot locks downstream schema fields while leaving model selection editable.
+- Canvas `canvas_flow` cards now expose a `chain_runner` dropdown with Self Control, Agentic · Review, and Agentic · Autopilot; agent modes render dedicated, fully editable checkpoint cards inline in the flow — each downstream field uses the same control as its model card (dropdown, text, number, or toggle) with a per-field lock, and the prompt is chosen from three agent suggestions or a custom "Your prompt" input — while Autopilot applies the planned step automatically.
 - Chain Agent now validates Nova-selected params against the downstream schema, performs one repair call when validation fails, and records instruction version, schema version, model id, latency, token usage, selected suggestion index, and validation outcomes in checkpoint observability.
 - Chain Agent prompt, persona, tone, RAG notes, and typed internal tool boundaries now live under `lib/agents/instructions` for easier iteration and review.
+- Renamed the Chain Agent feature to **Agentic Workflow** across the canvas run-mode selector, checkpoint cards, README, and submission docs; the underlying `chain_runner`, `execution.type`, and API field names are unchanged.
+- The Agentic Workflow now sends Amazon Nova a stable system prompt (persona, an Observe → Diverge → Decide reasoning method, the schema-true JSON output contract, and a trust boundary that treats run input and media as untrusted data) plus a per-run user message, with the instruction version bumped.
+- The Agentic Workflow now assigns a fresh randomized `generation_seed` to every agent-planned step, so chained steps no longer reuse the model default (for example `42`) or repeat a seed within a run.
+- Library canvas result images now lazy-load with async decoding so off-screen previews no longer download when the Library page opens.
+- `lib/database/schema.sql` is now a single fresh-create schema: the `awaiting_agent` run status and `execution_config` default are inlined into the table definitions and the trailing migration `ALTER` statements were removed.
 - Updated the BYOK schema source to `semantic-lady@0.4.5`, including published provider model ids, corrected provider defaults, removal of unsupported Google Veo 3.1 request fields, and corrected video workflow roles for Runway Aleph, Wan Video Edit, and HappyHorse Video Edit models.
 - Removed BabyChain's hand-maintained model schema catalog and provider-side size/ratio conversion tables; model fields, defaults, enums, and provider model ids now come from Semantic Lady.
 - Workspace `RUN + SAVE` now creates a fresh Library card for each run, while saved canvas pages still update the opened canvas in place; untouched auto-generated flow names are refreshed when new Library cards are created.
@@ -42,6 +47,7 @@ All notable changes will be documented here. The format follows [Keep a Changelo
 
 - Added durable Chain Agent checkpoints in Aurora, public `agent_checkpoints` response serialization, timeline events, and `POST /api/v1/chains/continue/:runId` for approving Review-mode checkpoints.
 - Added a separate Amazon Bedrock Nova Chain Agent service boundary using `AWS_BEARER_TOKEN_BEDROCK`, `BEDROCK_REGION`, and `BEDROCK_NOVA_AGENT_MODEL`, with documented no-storage media context limits while BabyChain storage remains deferred.
+- Added an optional `BEDROCK_NOVA_AGENT_EXEMPLAR` flag that appends a compact image-to-video few-shot exemplar to the Agentic Workflow system prompt; it is off by default to keep prompts lean.
 - Added authenticated run-output URLs under `GET /api/v1/chains/get/:runId/outputs/:stepKey/:outputIndex` and dashboard preview URLs under `/api/dashboard/chains/get/:runId/outputs/:stepKey/:outputIndex` so inline provider media can be fetched separately without embedding base64 payloads inside run JSON.
 - Added explicit media-driven variants for `runway/act-two`, `wan/2.2-animate-mix`, and `wan/2.2-animate-move`: Image variants run as `video_model` steps with caller reference media, while Video variants run as `modify_model` steps with the required caller companion media.
 - Added Docker Hub publishing metadata and runtime health checks for the public `babyseaoss/babychain:0.1.1` and `babyseaoss/babychain:latest` image tags.
@@ -50,6 +56,8 @@ All notable changes will be documented here. The format follows [Keep a Changelo
 ### Fixed
 
 - Chain Agent media reads now pin the validated DNS address for HTTPS downloads, preventing DNS rebinding between safety validation and fetch.
+- Agentic Workflow and output-storage media downloads now send a `User-Agent` header, so CDNs and WAFs that reject empty-User-Agent requests (for example AWS WAF in front of CloudFront, or Vercel Blob) no longer return 403 when a later step reads a stored output.
+- Video-to-video modify checkpoints no longer fail validation with "generation_prompt is not supported by the downstream schema"; BabyChain now drops the injected `generation_prompt` when the downstream model schema does not declare it.
 - Agent-selected params can no longer override BabyChain-owned handoff, callback, provider-order, provider-used, or output fields when Review or Autopilot applies a prompt to the downstream generation step.
 - Canvas failed-run toasts now read the serialized `error.message` response shape, so provider and agent failure guidance remains visible in the dashboard.
 - Workspace `RUN + SAVE` no longer creates a Library card before a run id exists, preventing fast navigation from leaving an orphan "not run yet" card and tempting a duplicate publish.
@@ -87,7 +95,7 @@ All notable changes will be documented here. The format follows [Keep a Changelo
 
 ### Removed
 
-- Removed the Upstash-backed BabyChain API rate limiter, the `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN` environment variables, related deploy/docs/template references, and `@upstash/ratelimit` / `@upstash/redis` dependencies.
+- Removed the Upstash-backed BabyChain API rate limiter, the `UPSTASH_REDIS_REST_URL`/`UPSTASH_REDIS_REST_TOKEN` environment variables, related deploy/docs/template references, and `@upstash/ratelimit`/`@upstash/redis` dependencies.
 - Removed the obsolete private `babychain_private.api_key.rate_limit_per_minute` column from the configured database and from the fresh schema.
 - Removed the `lucide-react` dependency after replacing its remaining usages.
 
@@ -99,10 +107,10 @@ All notable changes will be documented here. The format follows [Keep a Changelo
 - `image_model` cards now accept a starting image (`generation_input_file`, HTTPS URL) for image-to-image-capable models, matching the run API contract; the field carries across model switches and is stripped from chain-wired steps.
 - Stop now cancels the run server-side (`POST /api/v1/chains/cancel/:runId`), so stopped chains no longer keep processing or spending provider credits; canceled step statuses paint onto the cards.
 - Dashboard-wide loading state and a recoverable error boundary (transient Aurora/network failures show a retry screen instead of the framework error page).
-- The canvas is now a permanent multi-flow workspace: "Add canvas flow" drops a fresh image → video chain onto the canvas, and every flow ends in a dedicated runner card wired after its last model card ("Run only" runs in place; "RUN + SAVE" also snapshots that flow into the Library and attaches the run to it). Hovering a card's connection edge reveals "+ refine_model" / "+ modify_model" to extend that flow, and the runner card follows automatically. The workspace persists in Aurora per owner — it survives reloads, navigation, logout/login, and device switches — and only the explicit "Reset canvas" action clears it. In-progress runs resume per flow after a reload.
+- The canvas is now a permanent multi-flow workspace: "Add canvas flow" drops a fresh image → video chain onto the canvas, and every flow ends in a dedicated runner card wired after its last model card ("Run only" runs in place; "RUN + SAVE" also snapshots that flow into the Library and attaches the run to it). Hovering a card's connection edge reveals "+ refine_model"/"+ modify_model" to extend that flow, and the runner card follows automatically. The workspace persists in Aurora per owner — it survives reloads, navigation, logout/login, and device switches — and only the explicit "Reset canvas" action clears it. In-progress runs resume per flow after a reload.
 - Canvases are now persisted in AWS Aurora (PostgreSQL) scoped to the dashboard owner, so saved canvases survive logout, browser resets, and device switches. Saved canvases autosave (debounced) while editing; unsaved drafts keep a localStorage crash buffer until the first save.
 - Running a chain now saves the canvas automatically and links the run to the canvas; opening the canvas from the Library resumes live run tracking and restores finished outputs. When clicked, the Run button triggers an automatic save and displays a toast notification to confirm the canvas was persisted; the manual Save button was removed. The browser URL never changes — the run keeps streaming into the page you are on.
-- Library cards now show every succeeded step output of the latest run (up to 4, in chain order) in a fixed two-row results grid, with a truncated 50-character title, a single Canvas ID / Nodes / Updated meta block, and fixed-height horizontal provider/model badge rows so all cards align.
+- Library cards now show every succeeded step output of the latest run (up to 4, in chain order) in a fixed two-row results grid, with a truncated 50-character title, a single Canvas ID/Nodes/Updated meta block, and fixed-height horizontal provider/model badge rows so all cards align.
 - The Library now lists canvases from Aurora and supports deleting a canvas (with confirmation).
 - New `babychain_private.canvas` table (owner-scoped, jsonb node graph, touch trigger, recency index) with per-owner limits: 200 canvases, 24 nodes, and 64 KB of node JSON per canvas.
 - Adopted the `semantic-lady` SDK as the `generation_*` schema core for BYOK mode across all 57 supported models.
@@ -132,6 +140,6 @@ All notable changes will be documented here. The format follows [Keep a Changelo
 - Removed placeholder sample prompts from new canvas flows and template run examples; prompts start empty.
 - Canvas node cards are now generated from each model's Semantic Lady schema (exact fields, enum options, numeric ranges, and defaults) instead of a shared generic field list, so the UI can no longer offer fields a model does not support (for example `generation_resolution` on `runway/gen-4-turbo`) or out-of-range values (for example 1s durations). Stale values from previously saved canvases are pruned against the active model's schema on load.
 - Provider adapters now submit explicit Semantic Lady fields directly instead of synthesizing provider sizes or ratios inside BabyChain.
-- Permanent OpenAI quota errors (`Limit 0` / `insufficient_quota` / billing 429s) now fail the step immediately as `provider_quota_exceeded` instead of being retried forever as transient rate limits, which previously left runs stuck in `queued`.
+- Permanent OpenAI quota errors (`Limit 0`/`insufficient_quota`/billing 429s) now fail the step immediately as `provider_quota_exceeded` instead of being retried forever as transient rate limits, which previously left runs stuck in `queued`.
 - When a chain step fails, downstream queued steps are now marked `skipped` immediately (their input can never arrive) instead of being left `queued` forever, and the canvas shows a toast with the provider's error message when a run fails.
 - Canvas and Library media previews no longer crop portrait outputs (`object-contain` instead of `object-cover`) and show a spinner with "Loading…" until the image or video has actually loaded, instead of flashing raw alt text when a provider URL is slow or expired.

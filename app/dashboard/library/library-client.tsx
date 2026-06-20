@@ -34,7 +34,6 @@ import {
 } from '@/lib/canvas/names';
 import { formatPublicModelName } from '@/lib/models/display';
 import { cn } from '@/lib/utils';
-import type { StoredCanvas } from '@/lib/canvas/canvas-library';
 import type {
   CanvasLibraryItem,
   CanvasResultPreview,
@@ -198,8 +197,14 @@ function CanvasCard({
   onRenamed: (canvasId: string, title: string) => void;
   onError: (message: string | null) => void;
 }) {
-  const modelBadges = useMemo(() => modelBadgeInfo(canvas), [canvas]);
-  const inferenceBadges = useMemo(() => inferenceBadgeInfo(canvas), [canvas]);
+  const modelBadges = useMemo(
+    () => modelBadgeInfo(canvas.modelIds),
+    [canvas.modelIds],
+  );
+  const inferenceBadges = useMemo(
+    () => inferenceBadgeInfo(canvas.modelIds),
+    [canvas.modelIds],
+  );
   const [deleting, startDelete] = useTransition();
   const [renaming, startRename] = useTransition();
   const [editing, setEditing] = useState(false);
@@ -307,7 +312,7 @@ function CanvasCard({
           </div>
         )}
 
-        {/* 2. Single meta badge: Run ID / Canvas ID / Created */}
+        {/* 2. Single meta badge: Run ID/Canvas ID/Created */}
         <div className="space-y-1 border border-border bg-muted/30 px-2.5 py-2">
           <MetaRow label="Run ID">{canvas.lastRunId ?? 'No run yet'}</MetaRow>
           <MetaRow label="Canvas ID">{canvas.id}</MetaRow>
@@ -509,25 +514,25 @@ function ResultPreview({
   );
 }
 
-function modelBadgeInfo(canvas: StoredCanvas): BadgeInfo[] {
+function modelBadgeInfo(modelIds: string[]): BadgeInfo[] {
   return uniqueBadges(
-    canvas.nodes.map((node) => {
-      const iconKey = modelIconKey(node.modelId);
+    modelIds.map((modelId) => {
+      const iconKey = modelIconKey(modelId);
       if (!iconKey) return null;
       return {
         Icon: MODEL_ICONS[iconKey],
-        key: node.modelId,
-        label: formatPublicModelName(node.modelId),
+        key: modelId,
+        label: formatPublicModelName(modelId),
       };
     }),
   );
 }
 
-function inferenceBadgeInfo(canvas: StoredCanvas): BadgeInfo[] {
+function inferenceBadgeInfo(modelIds: string[]): BadgeInfo[] {
   return uniqueBadges(
-    canvas.nodes.map((node) => {
-      if (!node.modelId) return null;
-      const key = inferenceKey(node.modelId);
+    modelIds.map((modelId) => {
+      if (!modelId) return null;
+      const key = inferenceKey(modelId);
       return {
         Icon: INFERENCE_ICONS[key],
         key,

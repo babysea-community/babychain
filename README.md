@@ -199,9 +199,9 @@ flowchart LR
     end
 
     subgraph AWS["AWS Aurora PostgreSQL: babychain_private"]
-        RUNS[("chain_run / chain_step<br/>(durable run state)")]
+        RUNS[("chain_run/chain_step<br/>(durable run state)")]
         CANVAS[("canvas<br/>(saved node graphs)")]
-        KEYS[("api_key / audit_event<br/>callback_delivery / babysea_webhook_delivery")]
+        KEYS[("api_key/audit_event<br/>callback_delivery/babysea_webhook_delivery")]
     end
 
     subgraph Providers["Inference providers (server-side BYOK keys)"]
@@ -216,12 +216,12 @@ flowchart LR
     OWNER -->|owner session JWT| UI
     APP -->|Bearer API key| API
     UI -->|server actions| API
-    UI <-->|save / load / delete| CANVAS
+    UI <-->|save/load/delete| CANVAS
     API --> RUNNER
     CRON --> RUNNER
     RUNNER <-->|persist every step| RUNS
     API <-->|auth + audit| KEYS
-    RUNNER -->|image / video generation| BFL & RW & ALI & GGL & OAI & BP
+    RUNNER -->|image/video generation| BFL & RW & ALI & GGL & OAI & BP
     RUNNER -->|one signed callback| APP
 ```
 
@@ -247,7 +247,7 @@ pnpm run aurora:migrate   # creates the babychain_private schema + tables
 pnpm dev
 ```
 
-Open <http://localhost:3011>. The owner dashboard lives at `/dashboard/canvas`; login with `OWNER_EMAIL` / `OWNER_PASSWORD`, build a chain on the canvas, and run chain to submit through the same `POST /api/v1/chains/runs` route used by API callers.
+Open <http://localhost:3011>. The owner dashboard lives at `/dashboard/canvas`; login with `OWNER_EMAIL`/`OWNER_PASSWORD`, build a chain on the canvas, and run chain to submit through the same `POST /api/v1/chains/runs` route used by API callers.
 
 > `pnpm run aurora:migrate` reads `DATABASE_URL` from `.env.local` and applies [`scripts/aurora-migrate.mjs`](scripts/aurora-migrate.mjs). It is idempotent (`create … if not exists`), so it is safe to re-run after schema changes.
 
@@ -277,7 +277,7 @@ curl --request GET \
 
 > Create chain
 
-`refine_model` / `modify_model` and their `*_model_input` objects are optional — include them only for the longer variants in the [Chain template](#chain-template) table. `execution` defaults to `{ "type": "self_control" }`; set `type` to `chain_agent` with `mode` of `review` or `autopilot` to use the Agentic Workflow. `webhook_url` is optional and receives the one final signed callback. The `Idempotency-Key` header is optional but recommended so retries do not create duplicate runs.
+`refine_model`/`modify_model` and their `*_model_input` objects are optional — include them only for the longer variants in the [Chain template](#chain-template) table. `execution` defaults to `{ "type": "self_control" }`; set `type` to `chain_agent` with `mode` of `review` or `autopilot` to use the Agentic Workflow. `webhook_url` is optional and receives the one final signed callback. The `Idempotency-Key` header is optional but recommended so retries do not create duplicate runs.
 
 ```bash
 curl --request POST \
@@ -313,7 +313,7 @@ curl --request GET \
 
 > Continue Agentic Workflow Review run
 
-Only Agentic Workflow **Review** runs use this route (Autopilot advances automatically). Start the run with `"execution": { "type": "chain_agent", "mode": "review" }`, then poll `GET /api/v1/chains/get/{runId}` until the run `status` is `awaiting_agent`. Take the `agent_checkpoints[]` entry whose `status` is `suggested`, send its `id` as `checkpoint_id` to approve it, and edit `selected_prompt` / `selected_params` first if you want to override the planner's suggestion.
+Only Agentic Workflow **Review** runs use this route (Autopilot advances automatically). Start the run with `"execution": { "type": "chain_agent", "mode": "review" }`, then poll `GET /api/v1/chains/get/{runId}` until the run `status` is `awaiting_agent`. Take the `agent_checkpoints[]` entry whose `status` is `suggested`, send its `id` as `checkpoint_id` to approve it, and edit `selected_prompt`/`selected_params` first if you want to override the planner's suggestion.
 
 ```bash
 curl --request POST \
@@ -469,7 +469,7 @@ aws ec2 create-security-group \
 
 # Allow Postgres from your app. For a fixed egress IP use a /32; for
 # serverless platforms with dynamic IPs, scope to the VPC CIDR or use an
-# RDS Proxy / PrivateLink instead of opening it publicly.
+# RDS Proxy/PrivateLink instead of opening it publicly.
 aws ec2 authorize-security-group-ingress \
   --group-id <SG_ID> --protocol tcp --port 5432 --cidr <YOUR_IP>/32
 ```
@@ -508,7 +508,7 @@ aws rds create-db-instance \
 
 **5. Public reachability**
 
-The writer instance above is created with `--publicly-accessible` to match the console's **Public access: Yes**. To actually reach it from your laptop or a Codespace, the subnets also need a route to an internet gateway and your IP must be allowed in the security group (step 3). For Vercel/production you can instead keep the cluster private and connect from within the VPC (VPC peering / PrivateLink) or via RDS Proxy.
+The writer instance above is created with `--publicly-accessible` to match the console's **Public access: Yes**. To actually reach it from your laptop or a Codespace, the subnets also need a route to an internet gateway and your IP must be allowed in the security group (step 3). For Vercel/production you can instead keep the cluster private and connect from within the VPC (VPC peering/PrivateLink) or via RDS Proxy.
 
 **6. Endpoint and build database**
 
@@ -534,9 +534,9 @@ pnpm run aurora:migrate
 | :----------------------------------------------------- | :--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `database "babychain" does not exist`                  | The cluster name is not always the PostgreSQL database name. If you used the AWS default database, connect to `/postgres`, not `/babychain`: `postgresql://USER:PASSWORD@WRITER-ENDPOINT:5432/postgres?sslmode=require`.           |
 | `pnpm run aurora:migrate` times out or prints no error | The database is not reachable from your current runtime. Check public reachability and security-group inbound rules for TCP `5432`. From a local machine or Codespace, add your current public IP as `x.x.x.x/32`.                 |
-| Vercel can’t load Library / Canvas after migration     | Standard Vercel egress IPs are dynamic. Without Vercel static egress/private networking, the quick demo option is a temporary inbound PostgreSQL rule from `0.0.0.0/0`. Do not use `All TCP`; expose only PostgreSQL port `5432`.  |
+| Vercel can’t load Library/Canvas after migration       | Standard Vercel egress IPs are dynamic. Without Vercel static egress/private networking, the quick demo option is a temporary inbound PostgreSQL rule from `0.0.0.0/0`. Do not use `All TCP`; expose only PostgreSQL port `5432`.  |
 | You selected RDS Proxy but Vercel still cannot connect | RDS Proxy endpoints are normally private inside your VPC. They work for Lambda/ECS/EC2 or Vercel private networking, not for ordinary public Vercel functions. Use the Aurora writer endpoint unless private networking is set up. |
-| `no pg_hba.conf entry` / TLS error                     | Keep `?sslmode=require` in `DATABASE_URL`; BabyChain handles the RDS CA automatically.                                                                                                                                             |
+| `no pg_hba.conf entry`/TLS error                       | Keep `?sslmode=require` in `DATABASE_URL`; BabyChain handles the RDS CA automatically.                                                                                                                                             |
 | Reachable via `psql` but app hangs                     | Confirm the app's actual egress IP is allowed on the database security group.                                                                                                                                                      |
 
 To confirm the schema after migration, run this in the `postgres` database:
@@ -682,7 +682,7 @@ The Agentic Workflow runs on **Amazon Nova Pro** through Amazon Bedrock — `BED
 | Context window    | 300K tokens                                                                             |
 | Max output tokens | 5K                                                                                      |
 | Knowledge cutoff  | Oct 2024                                                                                |
-| License / Terms   | [AWS third-party model terms](https://aws.amazon.com/legal/bedrock/third-party-models/) |
+| License/Terms     | [AWS third-party model terms](https://aws.amazon.com/legal/bedrock/third-party-models/) |
 
 ### Modalities
 
@@ -701,9 +701,9 @@ The Agentic Workflow runs on **Amazon Nova Pro** through Amazon Bedrock — `BED
 
 ### Prompt caching
 
-| Supported | Min tokens / checkpoint | Max checkpoints | TTL       | Cacheable fields        |
-| :-------: | :---------------------- | :-------------: | :-------- | :---------------------- |
-|    ✅     | 1K\*                    |        4        | 5 minutes | `system` and `messages` |
+| Supported | Min tokens/checkpoint | Max checkpoints | TTL       | Cacheable fields        |
+| :-------: | :-------------------- | :-------------: | :-------- | :---------------------- |
+|    ✅     | 1K\*                  |        4        | 5 minutes | `system` and `messages` |
 
 \* Amazon Nova models support up to 20K tokens for prompt caching, primarily for text prompts. See [Prompt caching](https://docs.aws.amazon.com/bedrock/latest/userguide/prompt-caching.html).
 

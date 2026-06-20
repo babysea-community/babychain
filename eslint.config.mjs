@@ -76,7 +76,7 @@ export default [
       // The starter ships a static landing page with internal anchor links;
       // `next/link` would force client-router behavior on every nav.
       '@next/next/no-html-link-for-pages': 'off',
-      // Media renders straight from Cloudflare image delivery / provider
+      // Media renders straight from Cloudflare image delivery/provider
       // URLs; the Next.js image optimizer is intentionally not used.
       '@next/next/no-img-element': 'off',
       // ESLint 10 recommended rules surface stylistic preferences that the
@@ -96,7 +96,7 @@ export default [
   {
     // Restrict server-only imports from any file that opts into the client
     // runtime via the `'use client'` directive. Files that need these modules
-    // should remain server components / server actions / route handlers.
+    // should remain server components/server actions/route handlers.
     // Type-only imports are allowed because they are erased at compile time.
     files: ['**/*.{ts,tsx}'],
     rules: {

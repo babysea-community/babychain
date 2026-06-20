@@ -10,7 +10,7 @@ import { Pool, type PoolClient, type QueryResultRow } from 'pg';
  * reuse a single pool instead of exhausting Aurora connection slots.
  */
 declare global {
-  // Cached pool across hot reloads / warm starts.
+  // Cached pool across hot reloads/warm starts.
   var __babychainAuroraPool: Pool | undefined;
 }
 
