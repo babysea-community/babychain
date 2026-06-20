@@ -103,6 +103,7 @@ describe('output storage', () => {
         {
           byte_length: 5,
           content_type: 'image/png',
+          output_index: 0,
           provider: 'vercel-blob',
           storage_path: 'runs/run_123/image/output-0.png',
           url: 'https://blob.example.com/runs/run_123/image/output-0.png',

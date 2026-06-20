@@ -223,18 +223,6 @@ flowchart LR
 
 Aurora is the system of record: every run, step, output URL, API key hash, audit event, callback delivery, inbound BabySea webhook delivery, and saved canvas lives in the `babychain_private` schema. Vercel hosts the stateless control plane; any function instance can pick up a run mid-chain because all state round-trips through Aurora. Polling `GET /api/v1/chains/get/{runId}` (or the cron route) advances in-flight runs, so long chains survive serverless function time limits.
 
-### Optional output storage
-
-By default, BabyChain stores provider output references exactly as returned. Set `BABYCHAIN_STORAGE_PROVIDER` to copy completed step outputs into durable object storage before the step is marked succeeded:
-
-| Provider    | `BABYCHAIN_STORAGE_PROVIDER` | Required env vars                                                                                                |
-| :---------- | :--------------------------- | :--------------------------------------------------------------------------------------------------------------- |
-| Vercel Blob | `vercel-blob`                | `BLOB_READ_WRITE_TOKEN`                                                                                          |
-| AWS S3      | `aws-s3`                     | `AWS_S3_REGION`, `AWS_S3_BUCKET_NAME`, `AWS_S3_ACCESS_KEY_ID`, `AWS_S3_SECRET_ACCESS_KEY`, `AWS_S3_ENDPOINT_URL` |
-| Disabled    | `none`                       | none                                                                                                             |
-
-Storage is best-effort: if an output upload fails, the run keeps the original provider output reference instead of failing the chain. Data URL outputs and HTTPS provider outputs are supported; output downloads are size-limited and checked through BabyChain's network safety guard before upload.
-
 ## 3. Quickstart
 
 Prerequisites: Node.js 24+, pnpm, and an accessible PostgreSQL database (AWS Aurora or local). See [Database](#database-aws-aurora--postgresql) for cluster setup.
@@ -469,6 +457,61 @@ BabyChain supports two self-hosted provider modes:
 BabySea mode relies on the BabySea SDK's normalized `generation_*` contract. BYOK mode relies on Semantic Lady's normalized `generation_*` contract: it provides provider-aware model metadata, field definitions, enum options, defaults, and validation/UI alignment for direct adapters without storing credentials or executing provider calls.
 
 All modes keep caller applications on BabyChain API keys. Provider credentials never belong in frontend code or caller requests.
+
+### Storage
+
+BabyChain runs without media storage by default. In that mode it keeps the provider URL or inline data URL returned by the inference provider. For production chains, enable storage so completed step outputs are copied into your own bucket/blob store before the step is marked succeeded. API responses, canvas previews, downstream handoff, and Chain Agent checkpoints then prefer the stored public URL.
+
+Use Vercel Blob when the app is deployed on Vercel and you want the simplest hosted object store:
+
+```bash
+BABYCHAIN_STORAGE_PROVIDER=vercel-blob
+BLOB_READ_WRITE_TOKEN=vercel_blob_rw_...
+```
+
+Create the token in Vercel Storage, add it to the same Vercel project as BabyChain, then redeploy. BabyChain writes objects under `runs/<runId>/<stepKey>/output-<index>.<ext>` and stores the returned Blob URL in run metadata.
+
+Use AWS S3 when you want your own S3 bucket, CloudFront distribution, or custom media domain:
+
+```bash
+BABYCHAIN_STORAGE_PROVIDER=aws-s3
+AWS_S3_REGION=us-east-1
+AWS_S3_BUCKET_NAME=your-babychain-media-bucket
+AWS_S3_ACCESS_KEY_ID=...
+AWS_S3_SECRET_ACCESS_KEY=...
+AWS_S3_ENDPOINT_URL=https://media.example.com
+```
+
+`AWS_S3_ENDPOINT_URL` is the browser-readable base URL BabyChain returns for stored media. It can be a CloudFront distribution domain, your custom CloudFront domain, a bucket-hosted S3 URL, or a path-style S3-compatible URL. Do not set a second public base URL.
+
+Create an IAM user or role for BabyChain with object write/read access limited to the media bucket. Replace `your-babychain-media-bucket` with the value used in `AWS_S3_BUCKET_NAME`:
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "BabyChainListBucket",
+      "Effect": "Allow",
+      "Action": ["s3:ListBucket"],
+      "Resource": "arn:aws:s3:::your-babychain-media-bucket"
+    },
+    {
+      "Sid": "BabyChainWriteMediaObjects",
+      "Effect": "Allow",
+      "Action": [
+        "s3:GetObject",
+        "s3:PutObject",
+        "s3:PutObjectAcl",
+        "s3:DeleteObject"
+      ],
+      "Resource": "arn:aws:s3:::your-babychain-media-bucket/*"
+    }
+  ]
+}
+```
+
+For CloudFront, point the distribution origin at the same S3 bucket and set `AWS_S3_ENDPOINT_URL` to the CloudFront or custom domain. If the bucket itself is private, configure CloudFront origin access so browsers can read the CloudFront URL while BabyChain writes with the IAM credentials above.
 
 ### Chain Agent
 

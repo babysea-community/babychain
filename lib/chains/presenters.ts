@@ -1,7 +1,10 @@
 import { getErrorGuidance } from '@/lib/utils/error-guidance';
 
 import type { ChainRunWithSteps, JsonObject } from './types';
-import { serializeOutputFileReferences } from './output-files';
+import {
+  outputFilesWithStorageUrls,
+  serializeOutputFileReferences,
+} from './output-files';
 
 /**
  * Discriminator describing how the run was executed.
@@ -64,8 +67,10 @@ function serializeStepGeneral(
   }
 
   if (step.outputFiles.length > 0) {
+    const outputFiles = publicOutputFiles(step);
+
     serialized.generation_output_file = serializeOutputFileReferences({
-      files: step.outputFiles,
+      files: outputFiles,
       runId,
       stepKey: step.stepKey,
     });
@@ -265,8 +270,10 @@ export function serializeCompletedRunOutput(
     output.final_step_key = finalStep.stepKey;
 
     if (finalStep.outputFiles.length > 0) {
+      const outputFiles = publicOutputFiles(finalStep);
+
       output.output_files = serializeOutputFileReferences({
-        files: finalStep.outputFiles,
+        files: outputFiles,
         runId: record.run.id,
         stepKey: finalStep.stepKey,
       });
@@ -355,8 +362,9 @@ function createOutputReferenceMap(
 ): OutputReferenceMap {
   return new Map(
     steps.map((step) => {
+      const outputFiles = publicOutputFiles(step);
       const references = serializeOutputFileReferences({
-        files: step.outputFiles,
+        files: outputFiles,
         runId,
         stepKey: step.stepKey,
       });
@@ -369,6 +377,13 @@ function createOutputReferenceMap(
       ];
     }),
   );
+}
+
+function publicOutputFiles(step: Step) {
+  return outputFilesWithStorageUrls({
+    files: step.outputFiles,
+    providerMetadata: step.providerMetadata,
+  });
 }
 
 function isProviderRoutingRequestParam(key: string) {

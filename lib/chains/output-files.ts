@@ -1,5 +1,7 @@
 import { Buffer } from 'node:buffer';
 
+import type { JsonObject } from './types';
+
 export type DataUrlOutputFile = {
   bytes: Buffer;
   mediaType: string;
@@ -23,6 +25,64 @@ export function serializeOutputFileReferences({
 
     return `/api/v1/chains/get/${runId}/outputs/${encodeURIComponent(stepKey)}/${index}`;
   });
+}
+
+export function outputFilesWithStorageUrls({
+  files,
+  providerMetadata,
+}: {
+  files: readonly string[];
+  providerMetadata?: JsonObject | null;
+}) {
+  const storageAssets = readStorageAssets(providerMetadata);
+
+  if (storageAssets.length === 0) {
+    return [...files];
+  }
+
+  const hasIndexedAssets = storageAssets.some((asset) => asset.hasOutputIndex);
+
+  return files.map((file, index) => {
+    const asset = hasIndexedAssets
+      ? storageAssets.find((candidate) => candidate.outputIndex === index)
+      : storageAssets[index];
+
+    return asset?.url ?? file;
+  });
+}
+
+function readStorageAssets(providerMetadata: JsonObject | null | undefined) {
+  const storage = providerMetadata?.babychain_storage;
+
+  if (!isRecord(storage) || !Array.isArray(storage.assets)) {
+    return [];
+  }
+
+  return storage.assets.flatMap((asset, fallbackIndex) => {
+    if (!isRecord(asset) || typeof asset.url !== 'string') {
+      return [];
+    }
+
+    const url = asset.url.trim();
+    if (!url) {
+      return [];
+    }
+
+    return [
+      {
+        hasOutputIndex: typeof asset.output_index === 'number',
+        outputIndex:
+          typeof asset.output_index === 'number'
+            ? asset.output_index
+            : fallbackIndex,
+        url,
+      },
+    ];
+  });
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 }
 
 export function isDataUrlOutputFile(value: string) {

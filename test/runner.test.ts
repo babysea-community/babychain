@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import {
   assertSafeCallbackUrl,
@@ -15,6 +15,11 @@ import {
 import { createDataUrlOutputResponse } from '@/lib/chains/output-files';
 import type { ChainRunWithSteps, JsonObject } from '@/lib/chains/types';
 import { BabyChainError } from '@/lib/utils/errors';
+
+afterEach(() => {
+  vi.unstubAllEnvs();
+  vi.unstubAllGlobals();
+});
 
 describe('runner callback validation', () => {
   it('accepts https callback URLs', () => {
@@ -785,6 +790,158 @@ describe('runner step claiming', () => {
     );
   });
 
+  it('uses storage-backed output URLs for normal downstream step handoff', async () => {
+    const record = createRunWithSteps({
+      run: {
+        currentStepKey: null,
+        status: 'running',
+      },
+      step: {
+        babyseaGenerationId: 'gen_image',
+        completedAt: new Date().toISOString(),
+        outputFiles: ['data:image/png;base64,aW1hZ2U='],
+        providerMetadata: {
+          babychain_storage: {
+            assets: [
+              {
+                content_type: 'image/png',
+                output_index: 0,
+                provider: 'aws-s3',
+                storage_path:
+                  'runs/af252a34-977d-4fc5-81ac-502d2fb94421/image/output-0.png',
+                url: 'https://8.8.8.8/runs/af252a34-977d-4fc5-81ac-502d2fb94421/image/output-0.png',
+              },
+            ],
+            provider: 'aws-s3',
+          },
+        },
+        status: 'succeeded',
+      },
+    });
+    const queuedVideoStep = {
+      ...record.steps[0]!,
+      babyseaGenerationId: null,
+      completedAt: null,
+      dependsOn: ['image'],
+      id: '5f1c6f0a-95c5-4f1d-9f74-8f2f5b8f1c20',
+      modelIdentifier: 'bytedance/seedance-1.5-pro',
+      outputFiles: [],
+      providerMetadata: null,
+      requestParams: null,
+      startedAt: null,
+      status: 'queued' as const,
+      stepIndex: 1,
+      stepKey: 'video',
+      stepKind: 'video' as const,
+    };
+    let updatedRecord: ChainRunWithSteps = {
+      ...record,
+      steps: [record.steps[0]!, queuedVideoStep],
+    };
+    let submittedParams: Record<string, unknown> | null = null;
+    const store = createMutableAgentStore(updatedRecord, (next) => {
+      updatedRecord = next;
+    });
+    const babysea = {
+      generate: async (_model: string, params: Record<string, unknown>) => {
+        submittedParams = params;
+
+        return {
+          data: { generation_id: 'gen_video' },
+          idempotency_replayed: false,
+          request_id: 'req_video',
+        };
+      },
+    };
+
+    const result = await processRun(updatedRecord, {
+      babysea: babysea as never,
+      store: store as never,
+    });
+
+    expect(result.run.status).toBe('running');
+    expect(submittedParams).toMatchObject({
+      generation_input_file: [
+        'https://8.8.8.8/runs/af252a34-977d-4fc5-81ac-502d2fb94421/image/output-0.png',
+      ],
+    });
+  });
+
+  it('persists synchronous completed provider outputs through optional storage', async () => {
+    vi.stubEnv('NEXT_PUBLIC_SITE_URL', 'https://app.example.com');
+    vi.stubEnv('BABYCHAIN_API_KEY', 'bchn_test_key');
+    vi.stubEnv('BABYCHAIN_CALLBACK_SECRET', 'callback_secret');
+    vi.stubEnv('BABYCHAIN_CRON_SECRET', 'cron_secret');
+    vi.stubEnv('DATABASE_URL', 'postgres://test:test@localhost:5432/test');
+    vi.stubEnv('OPENAI_API_KEY', 'openai_test_key');
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(
+        async () =>
+          new Response(
+            JSON.stringify({
+              data: [{ b64_json: 'aW1hZ2U=' }],
+            }),
+            { status: 200 },
+          ),
+      ),
+    );
+    const record = createRunWithSteps({
+      run: {
+        byokCredentials: { mode: 'server_env', providers: ['openai'] },
+      },
+      step: {
+        modelIdentifier: 'gpt/image-2',
+      },
+    });
+    let updatedRecord = record;
+    const store = createMutableAgentStore(updatedRecord, (next) => {
+      updatedRecord = next;
+    });
+    const storageWrites: Array<{ contentType: string; key: string }> = [];
+    const storage = {
+      id: 'aws-s3' as const,
+      label: 'test s3',
+      store: async (input: { contentType: string; key: string }) => {
+        storageWrites.push({ contentType: input.contentType, key: input.key });
+
+        return {
+          publicUrl: `https://cdn.example.com/${input.key}`,
+          storagePath: input.key,
+        };
+      },
+    };
+
+    const result = await processRun(record, {
+      storage,
+      store: store as never,
+    });
+
+    expect(result.steps[0]).toMatchObject({
+      outputFiles: [
+        'https://cdn.example.com/runs/af252a34-977d-4fc5-81ac-502d2fb94421/image/output-0.png',
+      ],
+      status: 'succeeded',
+    });
+    expect(result.steps[0]?.providerMetadata).toMatchObject({
+      babychain_storage: {
+        assets: [
+          {
+            output_index: 0,
+            provider: 'aws-s3',
+            url: 'https://cdn.example.com/runs/af252a34-977d-4fc5-81ac-502d2fb94421/image/output-0.png',
+          },
+        ],
+      },
+    });
+    expect(storageWrites).toEqual([
+      {
+        contentType: 'image/png',
+        key: 'runs/af252a34-977d-4fc5-81ac-502d2fb94421/image/output-0.png',
+      },
+    ]);
+  });
+
   it('pauses a Chain Agent Review run at the next checkpoint', async () => {
     const record = chainAgentRecord('review');
     let updatedRecord = record;
@@ -836,6 +993,50 @@ describe('runner step claiming', () => {
       generation_prompt: 'A user-filled downstream video prompt.',
     });
     expect(result.steps[1]!.status).toBe('queued');
+  });
+
+  it('passes storage-backed previous output URLs to Chain Agent context', async () => {
+    const record = chainAgentRecord('review');
+    record.steps[0] = {
+      ...record.steps[0]!,
+      providerMetadata: {
+        babychain_storage: {
+          assets: [
+            {
+              content_type: 'image/png',
+              output_index: 0,
+              provider: 'aws-s3',
+              storage_path: `${record.run.id}/image/output-0.png`,
+              url: `https://media.example.com/runs/${record.run.id}/image/output-0.png`,
+            },
+          ],
+          provider: 'aws-s3',
+        },
+      },
+    };
+    let updatedRecord = record;
+    let previousOutputFiles: string[] = [];
+    const store = createMutableAgentStore(updatedRecord, (next) => {
+      updatedRecord = next;
+    });
+    const agent = createPromptAgent({
+      selectedPrompt: 'Slow cinematic dolly-in.',
+      selectedParams: { generation_prompt: 'Slow cinematic dolly-in.' },
+      onContext: (context) => {
+        previousOutputFiles = context.previousStep.outputFiles;
+      },
+    });
+
+    const result = await processRun(record, {
+      agent,
+      babysea: {} as never,
+      store: store as never,
+    });
+
+    expect(result.run).toMatchObject({ status: 'awaiting_agent' });
+    expect(previousOutputFiles).toEqual([
+      `https://media.example.com/runs/${record.run.id}/image/output-0.png`,
+    ]);
   });
 
   it('excludes reserved media fields from Chain Agent downstream schema', async () => {
@@ -1222,6 +1423,73 @@ describe('runner response presentation', () => {
     ]);
     expect(JSON.stringify(response)).not.toContain('data:image/jpeg;base64');
     expect(JSON.stringify(response)).not.toContain('data:image/png');
+  });
+
+  it('serializes storage-backed output URLs instead of inline output routes', () => {
+    const record = createRunWithSteps({
+      step: {
+        outputFiles: ['data:image/jpeg;base64,aW1hZ2U='],
+        providerMetadata: {
+          babychain_storage: {
+            assets: [
+              {
+                content_type: 'image/jpeg',
+                output_index: 0,
+                provider: 'aws-s3',
+                storage_path:
+                  'runs/af252a34-977d-4fc5-81ac-502d2fb94421/image/output-0.jpg',
+                url: 'https://media.example.com/runs/af252a34-977d-4fc5-81ac-502d2fb94421/image/output-0.jpg',
+              },
+            ],
+            provider: 'aws-s3',
+          },
+        },
+        status: 'succeeded',
+      },
+    });
+
+    const response = serializeRunWithSteps(record) as SerializedRunResponse;
+    const step = response.steps[0]!;
+
+    expect(step.generation_output_file).toEqual([
+      'https://media.example.com/runs/af252a34-977d-4fc5-81ac-502d2fb94421/image/output-0.jpg',
+    ]);
+    expect(JSON.stringify(response)).not.toContain('/outputs/image/0');
+  });
+
+  it('does not shift storage-backed output URLs after partial storage success', () => {
+    const record = createRunWithSteps({
+      step: {
+        outputFiles: [
+          'data:image/jpeg;base64,Zmlyc3Q=',
+          'data:image/jpeg;base64,c2Vjb25k',
+        ],
+        providerMetadata: {
+          babychain_storage: {
+            assets: [
+              {
+                content_type: 'image/jpeg',
+                output_index: 1,
+                provider: 'aws-s3',
+                storage_path:
+                  'runs/af252a34-977d-4fc5-81ac-502d2fb94421/image/output-1.jpg',
+                url: 'https://media.example.com/runs/af252a34-977d-4fc5-81ac-502d2fb94421/image/output-1.jpg',
+              },
+            ],
+            provider: 'aws-s3',
+          },
+        },
+        status: 'succeeded',
+      },
+    });
+
+    const response = serializeRunWithSteps(record) as SerializedRunResponse;
+    const step = response.steps[0]!;
+
+    expect(step.generation_output_file).toEqual([
+      '/api/v1/chains/get/af252a34-977d-4fc5-81ac-502d2fb94421/outputs/image/0',
+      'https://media.example.com/runs/af252a34-977d-4fc5-81ac-502d2fb94421/image/output-1.jpg',
+    ]);
   });
 
   it('serves parameterized inline output media with the original content type', async () => {

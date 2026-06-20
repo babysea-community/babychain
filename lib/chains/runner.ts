@@ -33,6 +33,7 @@ import { signJsonPayload } from '@/lib/security/crypto';
 import { getEnv } from '@/lib/utils/env';
 import { BabyChainError, toErrorMessage } from '@/lib/utils/errors';
 import { persistOutputFiles } from '@/lib/storage';
+import type { StorageProvider } from '@/lib/storage';
 import {
   isBlockedNetworkHostname,
   lookupAllowedNetworkAddress,
@@ -41,6 +42,7 @@ import {
 import { createSemanticRequestSchema } from '@/lib/models/semantic-schema';
 import { chainFieldModeForRole } from '@/lib/models/chain-schema';
 import type { ChainSchemaStepRole } from '@/lib/models/chain-schema';
+import { outputFilesWithStorageUrls } from './output-files';
 
 import {
   serializeCompletedRunOutput,
@@ -89,6 +91,7 @@ const AGENT_RESERVED_PARAM_KEYS = new Set([
 export type RunnerDependencies = {
   agent?: ChainAgent;
   babysea?: BabySea;
+  storage?: StorageProvider | null;
   store?: ChainStore;
 };
 
@@ -342,6 +345,7 @@ export async function processRun(
       providerOverrides,
       store,
       agentCheckpoint.checkpoint,
+      dependencies.storage,
     );
     return mustGetRun(store, record.run.id);
   }
@@ -650,6 +654,7 @@ async function startStep(
   providerOverrides: { babysea?: BabySea },
   store: ChainStore,
   agentCheckpoint: ChainAgentCheckpointRecord | null = null,
+  storageProvider: StorageProvider | null | undefined = undefined,
 ) {
   const stepTemplate = template.steps.find(
     (candidate) => candidate.key === step.stepKey,
@@ -766,7 +771,9 @@ async function startStep(
 
     const updatedStep = await store.updateRunningStep(
       claimedStep.id,
-      submitResultPatch(result, provider.name),
+      await submitResultPatch(result, provider.name, claimedStep, {
+        storage: storageProvider,
+      }),
     );
 
     if (!updatedStep) {
@@ -886,14 +893,21 @@ async function prepareAgentCheckpoint(args: {
 
   try {
     const agent = args.agent ?? createChainAgent(execution);
+    const previousStepForAgent = {
+      ...previousStep,
+      outputFiles: outputFilesWithStorageUrls({
+        files: previousStep.outputFiles,
+        providerMetadata: previousStep.providerMetadata,
+      }),
+    };
     const agentContext = {
       currentInput: record.run.input as JsonObject,
       flow: {
-        currentStepKey: previousStep.stepKey,
+        currentStepKey: previousStepForAgent.stepKey,
         nextStepKey: readyStep.stepKey,
         mode: execution.mode,
       },
-      previousStep,
+      previousStep: previousStepForAgent,
       nextStep: {
         ...readyStep,
         requestParams: agentStepRequestParams(record, readyStep),
@@ -936,7 +950,11 @@ async function prepareAgentCheckpoint(args: {
     }
 
     const checkpoint = await store.createAgentCheckpoint({
-      inputSnapshot: agentInputSnapshot(record, previousStep, readyStep),
+      inputSnapshot: agentInputSnapshot(
+        record,
+        previousStepForAgent,
+        readyStep,
+      ),
       mode: execution.mode,
       modelIdentifier: execution.modelIdentifier,
       output: {
@@ -1565,16 +1583,33 @@ function requestIdFromProviderMetadata(
     : null;
 }
 
-function submitResultPatch(result: ProviderSubmitResult, providerName: string) {
+async function submitResultPatch(
+  result: ProviderSubmitResult,
+  providerName: string,
+  step: ChainStepRecord,
+  options: { storage?: StorageProvider | null } = {},
+) {
   if (result.kind === 'completed') {
+    const persistedOutputs = await persistOutputFiles({
+      outputFiles: result.outputFiles,
+      ...(options.storage !== undefined ? { provider: options.storage } : {}),
+      runId: step.runId,
+      stepKey: step.stepKey,
+    });
+    const providerMetadata = persistedOutputs.storageMetadata
+      ? mergeProviderMetadata(result.providerMetadata ?? null, {
+          babychain_storage: persistedOutputs.storageMetadata,
+        })
+      : (result.providerMetadata ?? null);
+
     return {
       babyseaGenerationId: result.generationId,
       babyseaIdempotencyReplayed: false,
       babyseaPredictionId: null,
       babyseaRequestId: requestIdFromProviderMetadata(result.providerMetadata),
       completedAt: new Date().toISOString(),
-      outputFiles: result.outputFiles,
-      providerMetadata: result.providerMetadata ?? null,
+      outputFiles: persistedOutputs.outputFiles,
+      providerMetadata,
       providerOrder: result.providerOrder,
       providerUsed: result.providerUsed,
       status: 'succeeded' as const,
@@ -1668,21 +1703,25 @@ function isStartingStepStale(step: ChainStepRecord) {
 function toStepContext(steps: ChainStepRecord[]) {
   const entries = steps
     .filter((step) => step.status === 'succeeded')
-    .map(
-      (step) =>
-        [
-          step.stepKey,
-          {
-            generationId: step.babyseaGenerationId ?? '',
-            modelIdentifier: step.modelIdentifier,
-            outputFiles: step.outputFiles,
-            predictionId: step.babyseaPredictionId,
-            providerOrder: step.providerOrder,
-            providerUsed: step.providerUsed,
-            status: 'succeeded',
-          } satisfies ChainStepOutput,
-        ] as const,
-    );
+    .map((step) => {
+      const outputFiles = outputFilesWithStorageUrls({
+        files: step.outputFiles,
+        providerMetadata: step.providerMetadata,
+      });
+
+      return [
+        step.stepKey,
+        {
+          generationId: step.babyseaGenerationId ?? '',
+          modelIdentifier: step.modelIdentifier,
+          outputFiles,
+          predictionId: step.babyseaPredictionId,
+          providerOrder: step.providerOrder,
+          providerUsed: step.providerUsed,
+          status: 'succeeded',
+        } satisfies ChainStepOutput,
+      ] as const;
+    });
 
   return Object.fromEntries(entries);
 }

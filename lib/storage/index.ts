@@ -25,6 +25,7 @@ export type PersistOutputFilesResult = {
       byte_length: number;
       content_type: string;
       original_url: string;
+      output_index: number;
       provider: BabyChainStorageProviderId;
       storage_path: string;
       url: string;
@@ -67,6 +68,7 @@ export async function persistOutputFiles(input: {
         byte_length: media.bytes.byteLength,
         content_type: media.contentType,
         original_url: safeStorageOriginalReference(outputFile),
+        output_index: index,
         provider: provider.id,
         storage_path: stored.storagePath,
         url,
