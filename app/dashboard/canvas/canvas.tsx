@@ -1820,6 +1820,10 @@ function AgentCheckpointPanel({
   const suggestions = checkpoint.suggestions ?? [];
   const isAutopilot = mode === 'agent_autopilot';
   const promptField = hasProposedField(fields, 'generation_prompt');
+  const promptVisible = suggestions.length > 0 || promptField;
+  const paramFields = fields.filter(
+    (field) => field.name !== 'generation_prompt',
+  );
 
   // Seed the editable form from the agent's proposal. The parent remounts this
   // panel via `key={checkpoint.id}`, so a new checkpoint always starts fresh.
@@ -1830,34 +1834,44 @@ function AgentCheckpointPanel({
       fields,
     );
     const initial: Record<string, FieldValue> = {};
-    for (const field of fields) {
+    for (const field of paramFields) {
       initial[field.name] = checkpointFieldValue(proposed[field.name], field);
     }
     return initial;
   });
   const [locked, setLocked] = useState<Record<string, boolean>>({});
-  const [selectedSuggestion, setSelectedSuggestion] = useState<number | null>(
-    null,
+  // Prompt picker: one of the agent suggestions, or 'custom' for a user prompt.
+  const [promptChoice, setPromptChoice] = useState<number | 'custom'>(() => {
+    if (suggestions.length === 0) return 'custom';
+    const matchIndex = suggestions.findIndex(
+      (suggestion) => suggestion.prompt === checkpoint.selected_prompt,
+    );
+    return matchIndex >= 0 ? matchIndex : 0;
+  });
+  const [customPrompt, setCustomPrompt] = useState(() =>
+    suggestions.length === 0 ? (checkpoint.selected_prompt ?? '') : '',
   );
   const [approving, setApproving] = useState(false);
 
-  const promptValue = promptField
-    ? String(values.generation_prompt ?? '').trim()
+  const effectivePrompt = (
+    promptChoice === 'custom'
+      ? customPrompt
+      : (suggestions[promptChoice]?.prompt ?? '')
+  ).trim();
+  const promptValue = promptVisible
+    ? effectivePrompt
     : (checkpoint.selected_prompt ?? '').trim();
 
-  const applySuggestion = (index: number) => {
+  const chooseSuggestion = (index: number) => {
+    setPromptChoice(index);
     const suggestion = suggestions[index];
-    if (!suggestion) return;
+    if (!suggestion?.params) return;
 
-    setSelectedSuggestion(index);
     setValues((current) => {
       const next = { ...current };
-      if (promptField && !locked.generation_prompt) {
-        next.generation_prompt = suggestion.prompt ?? '';
-      }
       for (const [key, raw] of Object.entries(suggestion.params ?? {})) {
         if (locked[key]) continue;
-        const field = fields.find((candidate) => candidate.name === key);
+        const field = paramFields.find((candidate) => candidate.name === key);
         if (field) {
           next[key] = checkpointFieldValue(raw, field);
         }
@@ -1868,14 +1882,14 @@ function AgentCheckpointPanel({
 
   const approve = async () => {
     if (approving) return;
-    if (promptField && !promptValue) {
+    if (!promptValue) {
       toast.error('Choose or write an Agentic Workflow prompt first.');
       return;
     }
 
     setApproving(true);
     try {
-      const params = coerceCheckpointParams(values, fields);
+      const params = coerceCheckpointParams(values, paramFields);
       if (promptField) {
         params.generation_prompt = promptValue;
       }
@@ -1900,17 +1914,20 @@ function AgentCheckpointPanel({
           </p>
         ) : null}
 
-        {!pending && suggestions.length > 0 ? (
+        {!pending && promptVisible ? (
           <div className="grid gap-1.5">
+            <span className="text-[0.62rem] font-medium uppercase tracking-wide text-muted-foreground">
+              prompt
+            </span>
             {suggestions.map((suggestion, index) => (
               <button
                 type="button"
                 key={`${checkpoint.id}:${index}`}
                 disabled={disabled || approving}
-                onClick={() => applySuggestion(index)}
+                onClick={() => chooseSuggestion(index)}
                 className={cn(
                   'nodrag border px-2 py-1.5 text-left text-[0.65rem] leading-4 transition disabled:opacity-60',
-                  index === selectedSuggestion
+                  promptChoice === index
                     ? 'border-ring bg-muted text-foreground'
                     : 'border-border text-muted-foreground hover:border-ring hover:text-foreground',
                 )}
@@ -1923,15 +1940,45 @@ function AgentCheckpointPanel({
                 </span>
               </button>
             ))}
+            {!isAutopilot ? (
+              <button
+                type="button"
+                disabled={disabled || approving}
+                onClick={() => setPromptChoice('custom')}
+                className={cn(
+                  'nodrag border px-2 py-1.5 text-left text-[0.65rem] leading-4 transition disabled:opacity-60',
+                  promptChoice === 'custom'
+                    ? 'border-ring bg-muted text-foreground'
+                    : 'border-border text-muted-foreground hover:border-ring hover:text-foreground',
+                )}
+              >
+                <span className="block font-medium text-foreground">
+                  Your prompt
+                </span>
+                <span className="mt-1 block">
+                  Write a custom prompt for this step.
+                </span>
+              </button>
+            ) : null}
+            {!isAutopilot && promptChoice === 'custom' ? (
+              <TextInputControl
+                as="textarea"
+                className="nodrag min-h-20 w-full resize-y border border-border bg-input px-2.5 py-1.5 text-xs text-foreground outline-none focus-visible:border-ring disabled:opacity-50"
+                disabled={disabled || approving}
+                rows={3}
+                value={customPrompt}
+                onChange={(value) => setCustomPrompt(String(value ?? ''))}
+              />
+            ) : null}
           </div>
         ) : null}
 
-        {!pending && fields.length > 0 ? (
+        {!pending && paramFields.length > 0 ? (
           <div className="grid gap-2 border border-border p-2">
             <span className="text-[0.62rem] font-medium uppercase tracking-wide text-muted-foreground">
               proposed_fields
             </span>
-            {fields.map((field) => {
+            {paramFields.map((field) => {
               const fieldLocked = Boolean(locked[field.name]);
 
               return (
@@ -1982,9 +2029,7 @@ function AgentCheckpointPanel({
           <Button
             className="nodrag w-full"
             size="sm"
-            disabled={
-              disabled || pending || approving || (promptField && !promptValue)
-            }
+            disabled={disabled || pending || approving || !promptValue}
             onClick={approve}
           >
             <FontAwesomeIcon
