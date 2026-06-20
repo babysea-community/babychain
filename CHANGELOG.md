@@ -20,6 +20,7 @@ All notable changes will be documented here. The format follows [Keep a Changelo
 - Canvas run buttons now stay disabled until required fields are filled and schema-invalid zero numeric values are corrected, with defensive validation repeated before run creation.
 - Each canvas model node now includes a collapsible JSON Schema view for the effective node inputs, matching the schema inspection pattern used on the templates page.
 - Each canvas flow now includes a separate API card in the final utility column beside the runner controls, using the current flow input and the same scroll-safe highlighted request styling.
+- BabyChain can now optionally copy completed step outputs to AWS S3 or Vercel Blob via `BABYCHAIN_STORAGE_PROVIDER`, while keeping provider output references unchanged when storage is disabled or a best-effort upload fails.
 - Library canvas cards now show the real `run_id` above the Canvas ID and Created metadata; canvas API and runner cards stay focused on requests and controls.
 - Library canvas cards now show full public model names such as `Qwen Image 2.0 Pro`, `FLUX 2 Max`, and `Runway Gen-4.5` instead of collapsing the Models section to provider-family labels.
 - Canvas API and runner cards now keep their dragged position like model cards, and the API card exposes List chains, Create chain, Get run, and Cancel run cURL snippets for debugging.

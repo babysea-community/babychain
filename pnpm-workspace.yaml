@@ -4,6 +4,7 @@ packages:
 minimumReleaseAge: 0
 
 catalog:
+  '@aws-sdk/client-s3': 3.1047.0
   '@eslint/js': 10.0.1
   '@next/eslint-plugin-next': 16.2.9
   '@radix-ui/react-slot': 1.2.4
@@ -13,6 +14,7 @@ catalog:
   '@types/pg': 8.15.6
   '@types/react': 19.2.14
   '@types/react-dom': 19.2.3
+  '@vercel/blob': 2.0.1
   '@xyflow/react': 12.11.0
   babysea: 2.0.0
   babel-plugin-react-compiler: 1.0.0

@@ -32,6 +32,7 @@ import type { ProviderSubmitResult } from '@/lib/providers/types';
 import { signJsonPayload } from '@/lib/security/crypto';
 import { getEnv } from '@/lib/utils/env';
 import { BabyChainError, toErrorMessage } from '@/lib/utils/errors';
+import { persistOutputFiles } from '@/lib/storage';
 import {
   isBlockedNetworkHostname,
   lookupAllowedNetworkAddress,
@@ -1245,10 +1246,10 @@ async function applyGenerationStatus(
   const status = generation.generation_status;
   const providerOrder =
     generation.generation_provider_order ?? step.providerOrder;
-  const outputFiles = generation.generation_output_file ?? step.outputFiles;
+  let outputFiles = generation.generation_output_file ?? step.outputFiles;
   const completedAt =
     generation.generation_completed_at ?? new Date().toISOString();
-  const mergedProviderMetadata = mergeProviderMetadata(
+  let mergedProviderMetadata = mergeProviderMetadata(
     step.providerMetadata,
     generation.provider_metadata,
   );
@@ -1263,6 +1264,18 @@ async function applyGenerationStatus(
       : step.babyseaPredictionId;
 
   if (status === 'succeeded') {
+    const persistedOutputs = await persistOutputFiles({
+      outputFiles,
+      runId: step.runId,
+      stepKey: step.stepKey,
+    });
+    outputFiles = persistedOutputs.outputFiles;
+    if (persistedOutputs.storageMetadata) {
+      mergedProviderMetadata = mergeProviderMetadata(mergedProviderMetadata, {
+        babychain_storage: persistedOutputs.storageMetadata,
+      });
+    }
+
     await store.updateRunningStep(step.id, {
       completedAt,
       babyseaPredictionId: predictionId,

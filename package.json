@@ -47,8 +47,10 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "catalog:",
     "@radix-ui/react-slot": "catalog:",
     "@sentry/nextjs": "catalog:",
+    "@vercel/blob": "catalog:",
     "@xyflow/react": "catalog:",
     "babysea": "catalog:",
     "class-variance-authority": "catalog:",

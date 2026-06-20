@@ -223,6 +223,18 @@ flowchart LR
 
 Aurora is the system of record: every run, step, output URL, API key hash, audit event, callback delivery, inbound BabySea webhook delivery, and saved canvas lives in the `babychain_private` schema. Vercel hosts the stateless control plane; any function instance can pick up a run mid-chain because all state round-trips through Aurora. Polling `GET /api/v1/chains/get/{runId}` (or the cron route) advances in-flight runs, so long chains survive serverless function time limits.
 
+### Optional output storage
+
+By default, BabyChain stores provider output references exactly as returned. Set `BABYCHAIN_STORAGE_PROVIDER` to copy completed step outputs into durable object storage before the step is marked succeeded:
+
+| Provider    | `BABYCHAIN_STORAGE_PROVIDER` | Required env vars                                                                                                |
+| :---------- | :--------------------------- | :--------------------------------------------------------------------------------------------------------------- |
+| Vercel Blob | `vercel-blob`                | `BLOB_READ_WRITE_TOKEN`                                                                                          |
+| AWS S3      | `aws-s3`                     | `AWS_S3_REGION`, `AWS_S3_BUCKET_NAME`, `AWS_S3_ACCESS_KEY_ID`, `AWS_S3_SECRET_ACCESS_KEY`, `AWS_S3_ENDPOINT_URL` |
+| Disabled    | `none`                       | none                                                                                                             |
+
+Storage is best-effort: if an output upload fails, the run keeps the original provider output reference instead of failing the chain. Data URL outputs and HTTPS provider outputs are supported; output downloads are size-limited and checked through BabyChain's network safety guard before upload.
+
 ## 3. Quickstart
 
 Prerequisites: Node.js 24+, pnpm, and an accessible PostgreSQL database (AWS Aurora or local). See [Database](#database-aws-aurora--postgresql) for cluster setup.

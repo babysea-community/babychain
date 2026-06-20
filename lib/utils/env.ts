@@ -72,6 +72,16 @@ const EnvSchema = z.object({
   AWS_BEARER_TOKEN_BEDROCK: OptionalLongSecretSchema,
   BEDROCK_REGION: OptionalNonEmptyStringSchema,
   BEDROCK_NOVA_AGENT_MODEL: OptionalNonEmptyStringSchema,
+  BABYCHAIN_STORAGE_PROVIDER: z.preprocess(
+    emptyStringToUndefined,
+    z.enum(['none', 'vercel-blob', 'aws-s3']).default('none'),
+  ),
+  BLOB_READ_WRITE_TOKEN: OptionalLongSecretSchema,
+  AWS_S3_REGION: OptionalNonEmptyStringSchema,
+  AWS_S3_BUCKET_NAME: OptionalNonEmptyStringSchema,
+  AWS_S3_ACCESS_KEY_ID: OptionalNonEmptyStringSchema,
+  AWS_S3_SECRET_ACCESS_KEY: OptionalLongSecretSchema,
+  AWS_S3_ENDPOINT_URL: OptionalUrlSchema,
 });
 
 export type BabyChainEnv = z.infer<typeof EnvSchema>;
