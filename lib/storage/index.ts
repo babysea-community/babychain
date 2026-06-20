@@ -17,6 +17,9 @@ export type { BabyChainStorageProviderId, StorageProvider } from './types';
 
 const MAX_OUTPUT_STORAGE_BYTES = 200 * 1024 * 1024;
 const OUTPUT_FETCH_TIMEOUT_MS = 60_000;
+// Send a User-Agent so CDNs/WAFs (e.g. AWS WAF Core Rule Set fronting
+// CloudFront, or Vercel Blob) don't reject the download with a 403.
+const OUTPUT_DOWNLOAD_USER_AGENT = 'BabyChain/0.1';
 
 export type PersistOutputFilesResult = {
   outputFiles: string[];
@@ -169,7 +172,10 @@ function downloadOutputMedia(parsed: URL, resolved: LookupAddress) {
       const request = httpsRequest(
         parsed,
         {
-          headers: { accept: 'image/*,video/*' },
+          headers: {
+            accept: 'image/*,video/*',
+            'user-agent': OUTPUT_DOWNLOAD_USER_AGENT,
+          },
           lookup: (_hostname, options, callback) => {
             if (typeof options === 'object' && options.all) {
               const allCallback = callback as unknown as (

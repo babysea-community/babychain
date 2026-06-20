@@ -1,7 +1,8 @@
 import 'server-only';
 
 export {
-  buildChainAgentInstruction,
+  buildChainAgentSystemPrompt,
+  buildChainAgentUserPrompt,
   CHAIN_AGENT_INSTRUCTION_VERSION,
 } from './chain-agent-instruction';
 export {

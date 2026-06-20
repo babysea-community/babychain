@@ -167,6 +167,210 @@ describe('Bedrock Nova Chain Agent', () => {
     );
   });
 
+  it('puts stable behavior in the system role and run context in the user role', async () => {
+    setMinimalEnv();
+    const requestBodies: Record<string, unknown>[] = [];
+    const fetchImpl = vi.fn(async (_url, init) => {
+      requestBodies.push(
+        JSON.parse(String(init?.body)) as Record<string, unknown>,
+      );
+
+      return Response.json({
+        output: {
+          message: {
+            content: [
+              {
+                text: JSON.stringify({
+                  observations: {},
+                  suggestions: [
+                    {
+                      title: 'Dolly Drift',
+                      prompt:
+                        'A gentle dolly-in continues the product shot with soft studio reflections and a controlled focus pull.',
+                    },
+                    {
+                      title: 'Light Sweep',
+                      prompt:
+                        'A slow light sweep moves across the product surface while the camera glides slightly to reveal depth.',
+                    },
+                    {
+                      title: 'Subtle Orbit',
+                      prompt:
+                        'The camera makes a restrained micro-orbit around the product, preserving the studio setup and polished highlights.',
+                    },
+                  ],
+                  selected_prompt:
+                    'A gentle dolly-in continues the product shot with soft studio reflections and a controlled focus pull.',
+                  selected_params: {
+                    generation_duration: 4,
+                    generation_prompt:
+                      'A gentle dolly-in continues the product shot with soft studio reflections and a controlled focus pull.',
+                  },
+                }),
+              },
+            ],
+          },
+        },
+        usage: { inputTokens: 10, outputTokens: 20 },
+      });
+    });
+
+    const { createBedrockNovaAgent } =
+      await import('@/lib/agents/bedrock-nova');
+    const agent = createBedrockNovaAgent({
+      apiKey: 'bedrock_test_key_12345678',
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+      modelIdentifier: 'us.amazon.nova-pro-v1:0',
+      region: 'us-east-1',
+    });
+
+    await agent.suggestNextStep({
+      currentInput: {},
+      flow: {
+        currentStepKey: 'image',
+        mode: 'autopilot',
+        nextStepKey: 'video',
+      },
+      nextStep: {
+        modelIdentifier: 'google/veo-3.1-fast',
+        requestParams: null,
+        schema: {
+          type: 'object',
+          required: ['generation_prompt', 'generation_duration'],
+          properties: {
+            generation_prompt: { type: 'string' },
+            generation_duration: { type: 'number', minimum: 1, maximum: 8 },
+          },
+        },
+        stepKey: 'video',
+        stepKind: 'video',
+      },
+      previousStep: {
+        modelIdentifier: 'bfl/flux-1.1-pro',
+        outputFiles: [],
+        requestParams: { generation_prompt: 'A product render' },
+        stepKey: 'image',
+        stepKind: 'image',
+      },
+    });
+
+    const requestBody = requestBodies[0];
+    const systemText = agentSystemText(requestBody);
+    const userText = agentPromptText(requestBody);
+
+    // Stable behavioral parameters belong in the Nova system role.
+    expect(systemText).toContain('## Persona');
+    expect(systemText).toContain('## Reasoning Method');
+    expect(systemText).toContain('## Model Instructions');
+    expect(systemText).toContain('## Scope And Trust Boundary');
+    expect(systemText).toContain('Output JSON schema:');
+
+    // Per-run context belongs in the user role, not the system role.
+    expect(userText).toContain('## Runtime Context');
+    expect(userText).toContain('Downstream schema JSON');
+    expect(systemText).not.toContain('Downstream schema JSON');
+
+    // The few-shot exemplar is opt-in and excluded by default.
+    expect(systemText).not.toContain('## Example (Illustrative Only)');
+  });
+
+  it('includes the few-shot exemplar only when enabled', async () => {
+    setMinimalEnv();
+    const requestBodies: Record<string, unknown>[] = [];
+    const fetchImpl = vi.fn(async (_url, init) => {
+      requestBodies.push(
+        JSON.parse(String(init?.body)) as Record<string, unknown>,
+      );
+
+      return Response.json({
+        output: {
+          message: {
+            content: [
+              {
+                text: JSON.stringify({
+                  observations: {},
+                  suggestions: [
+                    {
+                      title: 'Dolly Drift',
+                      prompt:
+                        'A gentle dolly-in continues the product shot with soft studio reflections and a controlled focus pull.',
+                    },
+                    {
+                      title: 'Light Sweep',
+                      prompt:
+                        'A slow light sweep moves across the product surface while the camera glides slightly to reveal depth.',
+                    },
+                    {
+                      title: 'Subtle Orbit',
+                      prompt:
+                        'The camera makes a restrained micro-orbit around the product, preserving the studio setup and polished highlights.',
+                    },
+                  ],
+                  selected_prompt:
+                    'A gentle dolly-in continues the product shot with soft studio reflections and a controlled focus pull.',
+                  selected_params: {
+                    generation_duration: 4,
+                    generation_prompt:
+                      'A gentle dolly-in continues the product shot with soft studio reflections and a controlled focus pull.',
+                  },
+                }),
+              },
+            ],
+          },
+        },
+        usage: { inputTokens: 10, outputTokens: 20 },
+      });
+    });
+
+    const { createBedrockNovaAgent } =
+      await import('@/lib/agents/bedrock-nova');
+    const agent = createBedrockNovaAgent({
+      apiKey: 'bedrock_test_key_12345678',
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+      includeExemplar: true,
+      modelIdentifier: 'us.amazon.nova-pro-v1:0',
+      region: 'us-east-1',
+    });
+
+    await agent.suggestNextStep({
+      currentInput: {},
+      flow: {
+        currentStepKey: 'image',
+        mode: 'autopilot',
+        nextStepKey: 'video',
+      },
+      nextStep: {
+        modelIdentifier: 'google/veo-3.1-fast',
+        requestParams: null,
+        schema: {
+          type: 'object',
+          required: ['generation_prompt', 'generation_duration'],
+          properties: {
+            generation_prompt: { type: 'string' },
+            generation_duration: { type: 'number', minimum: 1, maximum: 8 },
+          },
+        },
+        stepKey: 'video',
+        stepKind: 'video',
+      },
+      previousStep: {
+        modelIdentifier: 'bfl/flux-1.1-pro',
+        outputFiles: [],
+        requestParams: { generation_prompt: 'A product render' },
+        stepKey: 'image',
+        stepKind: 'image',
+      },
+    });
+
+    const systemText = agentSystemText(requestBodies[0]);
+    expect(systemText).toContain('## Example (Illustrative Only)');
+    expect(systemText).toContain('Observe -> Diverge -> Decide');
+    // The exemplar lives in the system role, never the user role.
+    expect(agentPromptText(requestBodies[0])).not.toContain(
+      '## Example (Illustrative Only)',
+    );
+  });
+
   it('repairs invalid selected params once and records observability', async () => {
     setMinimalEnv();
     const responses = [
@@ -685,6 +889,19 @@ describe('Bedrock Nova Chain Agent', () => {
     expect(fetchImpl).toHaveBeenCalledTimes(1);
   });
 });
+
+function agentSystemText(requestBody: Record<string, unknown> | undefined) {
+  const system = requestBody?.system;
+  if (!Array.isArray(system)) return '';
+
+  return system
+    .map((part) =>
+      part && typeof part === 'object' && 'text' in part
+        ? String(part.text)
+        : '',
+    )
+    .join('\n');
+}
 
 function agentPromptText(requestBody: Record<string, unknown> | undefined) {
   const messages = requestBody?.messages;

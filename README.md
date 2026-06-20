@@ -112,10 +112,14 @@ See [`CHANGELOG.md`](CHANGELOG.md) to track releases and public contract changes
 - [1. Overview](#1-overview)
 - [2. Architecture](#2-architecture)
 - [3. Quickstart](#3-quickstart)
-- [4. Deployment](#4-deployment)
-- [5. Security and Compliance](#5-security-and-compliance)
-- [6. Community](#6-community)
-- [7. License](#7-license)
+- [4. Database](#4-database)
+- [5. Models and Modes](#5-models-and-modes)
+- [6. Storage](#6-storage)
+- [7. Chain Agent](#7-chain-agent)
+- [8. Deployment](#8-deployment)
+- [9. Security and Compliance](#9-security-and-compliance)
+- [10. Community](#10-community)
+- [11. License](#11-license)
 
 ---
 
@@ -225,7 +229,7 @@ Aurora is the system of record: every run, step, output URL, API key hash, audit
 
 ## 3. Quickstart
 
-Prerequisites: Node.js 24+, pnpm, and an accessible PostgreSQL database (AWS Aurora or local). See [Database](#database-aws-aurora--postgresql) for cluster setup.
+Prerequisites: Node.js 24+, pnpm, and an accessible PostgreSQL database (AWS Aurora or local). See [4. Database](#4-database) for cluster setup.
 
 Run locally:
 
@@ -247,7 +251,129 @@ Open <http://localhost:3011>. The owner dashboard lives at `/dashboard/canvas`; 
 
 > `pnpm run aurora:migrate` reads `DATABASE_URL` from `.env.local` and applies [`scripts/aurora-migrate.mjs`](scripts/aurora-migrate.mjs). It is idempotent (`create … if not exists`), so it is safe to re-run after schema changes.
 
-### Database (AWS Aurora / PostgreSQL)
+### API
+
+| Action                          | Method and path                        |
+| :------------------------------ | :------------------------------------- |
+| List chains                     | `GET /api/v1/chains`                   |
+| Create chain                    | `POST /api/v1/chains/runs`             |
+| Get run                         | `GET /api/v1/chains/get/{runId}`       |
+| Continue Chain Agent Review run | `POST /api/v1/chains/continue/{runId}` |
+| Cancel run                      | `POST /api/v1/chains/cancel/{runId}`   |
+
+All requests require `Authorization: Bearer <API key>`. Keys are bootstrapped from [`.env.example`](.env.example) or provisioned in the `babychain_private.api_key` table.
+
+BYOK callers should read request field definitions from Semantic Lady model schema routes (`GET /api/v1/models` or `GET /api/v1/models/{modelId}`) before constructing `generation_*` input objects.
+
+**cURL shape:**
+
+> List chains
+
+```bash
+curl --request GET \
+  --url "https://your-domain.example.com/api/v1/chains" \
+  --header "Authorization: Bearer $BABYCHAIN_API_KEY"
+```
+
+> Create chain
+
+`refine_model` / `modify_model` and their `*_model_input` objects are optional — include them only for the longer variants in the [Chain template](#chain-template) table. `execution` defaults to `{ "type": "self_control" }`; set `type` to `chain_agent` with `mode` of `review` or `autopilot` to use the Chain Agent. `webhook_url` is optional and receives the one final signed callback. The `Idempotency-Key` header is optional but recommended so retries do not create duplicate runs.
+
+```bash
+curl --request POST \
+  --url "https://your-domain.example.com/api/v1/chains/runs" \
+  --header "Authorization: Bearer $BABYCHAIN_API_KEY" \
+  --header "Content-Type: application/json" \
+  --header "Idempotency-Key: your-unique-idempotency-key" \
+  --data '{
+  "input": {
+    "chain_models": {
+      "image_model": "...",
+      "refine_model": "...",
+      "video_model": "...",
+      "modify_model": "..."
+    },
+    "image_model_input": {},
+    "refine_model_input": {},
+    "video_model_input": {},
+    "modify_model_input": {}
+  },
+  "execution": { "type": "self_control" },
+  "webhook_url": "https://your-app.example.com/webhooks/babychain"
+}'
+```
+
+> Get run
+
+```bash
+curl --request GET \
+  --url "https://your-domain.example.com/api/v1/chains/get/{runId}" \
+  --header "Authorization: Bearer $BABYCHAIN_API_KEY"
+```
+
+> Continue Chain Agent Review run
+
+Only Chain Agent **Review** runs use this route (Autopilot advances automatically). Start the run with `"execution": { "type": "chain_agent", "mode": "review" }`, then poll `GET /api/v1/chains/get/{runId}` until the run `status` is `awaiting_agent`. Take the `agent_checkpoints[]` entry whose `status` is `suggested`, send its `id` as `checkpoint_id` to approve it, and edit `selected_prompt` / `selected_params` first if you want to override the agent's suggestion.
+
+```bash
+curl --request POST \
+  --url "https://your-domain.example.com/api/v1/chains/continue/{runId}" \
+  --header "Authorization: Bearer $BABYCHAIN_API_KEY" \
+  --header "Content-Type: application/json" \
+  --data '{
+  "checkpoint_id": "00000000-0000-0000-0000-000000000000",
+  "selected_prompt": "A gentle dolly-in as warm window light flickers across her face.",
+  "selected_params": {
+    "generation_prompt": "A gentle dolly-in as warm window light flickers across her face.",
+    "generation_duration": 5
+  }
+}'
+```
+
+> Cancel run
+
+```bash
+curl --request POST \
+  --url "https://your-domain.example.com/api/v1/chains/cancel/{runId}" \
+  --header "Authorization: Bearer $BABYCHAIN_API_KEY"
+```
+
+**Response details:**
+
+- `timeline`: ordered array of step status, timing, provider, output count, and error details. Renders the full run history without reshaping the raw `steps` payload.
+- `agent_checkpoints`: Chain Agent suggestions, selected prompt data, and checkpoint status for Review/Autopilot runs.
+- `guidance.what_to_try_next`: actionable list on error responses covering provider failures, invalid model fields, missing credentials, and chain incompatibilities.
+
+### Runtime
+
+- Each invocation starts or polls one provider step.
+- Step output URLs are supplied to dependent steps by BabyChain, while generated media is exposed in run and step responses.
+- A configured `webhook_url` receives one final signed callback with the same public run resource returned by `GET /api/v1/chains/get/{runId}`.
+- Provider credentials stay server-side.
+- Step submit idempotency keys are deterministic per run, step, and chain version, helping retries avoid duplicate provider submits when the downstream provider honors idempotency.
+
+### Tests
+
+Provider adapter contract lives with the provider adapter suite:
+
+```bash
+pnpm test:run -- test/provider-adapters.test.ts
+```
+
+The shared contract checks that each adapter returns zero-cost direct estimates and accepts best-effort cancel contexts. Provider-specific cases below it guard Semantic Lady field translation, output extraction, and failure normalization.
+
+### Troubleshooting
+
+| Symptom                     | Fix                                                                                                                                                                                      |
+| :-------------------------- | :--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `doctor` fails              | Read the provider-mode summary, missing env var, or deploy file printed by `doctor`; env names live in [`.env.example`](.env.example).                                                   |
+| Studio shows `fetch failed` | On Vercel, confirm `NEXT_PUBLIC_SITE_URL` is the deployed `https://...` URL and all required env vars pass `pnpm run doctor`. Locally, run with `pnpm dev` on port `3011` or set `PORT`. |
+| Route returns 401           | Confirm the caller key exists in the bootstrap value from [`.env.example`](.env.example) or `babychain_private.api_key`.                                                                 |
+| Route returns 404           | Compare the requested path with the API table above.                                                                                                                                     |
+| Run stays queued            | Check provider credentials, webhook reachability, and scheduler execution.                                                                                                               |
+| Callback is missing         | Check `webhook_url`, callback host DNS, receiver status codes, and callback delivery records.                                                                                            |
+
+## 4. Database
 
 BabyChain stores all durable runtime state in a private `babychain_private` schema on AWS Aurora PostgreSQL: API keys, chain runs, ordered steps, saved canvases, webhook deliveries, callbacks, and audit events. `DATABASE_URL` is the only required database value.
 
@@ -258,9 +384,9 @@ DATABASE_URL=postgresql://USER:PASSWORD@CLUSTER.cluster-xxxxxxxxxxxx.REGION.rds.
 
 Aurora presents an Amazon RDS CA that is not in the Node.js trust store. For Aurora/RDS endpoints, include `?sslmode=require` in `DATABASE_URL` so the connection clearly requests TLS. BabyChain's pool strips `sslmode`/`ssl` query params and connects with TLS using `rejectUnauthorized: false`, so no manual CA bundle is required. To connect to a local PostgreSQL instead, point `DATABASE_URL` at `localhost` (TLS is auto-disabled for `localhost`/`127.0.0.1`).
 
-### Create the cluster in the AWS Console
+### AWS Console
 
-The fastest path is **RDS → Create database** in the AWS Console. These are the selections used by the BabyChain demo deployment. They create an Aurora PostgreSQL Serverless v2 cluster that works with the checked-in `pg` connection code after you allow network access to port `5432` and run `pnpm run aurora:migrate`.
+The fastest path is **RDS → Create database** in the AWS Console. These are the selections used by the BabyChain demo deployment. They create an Aurora Serverless v2 cluster that works with the checked-in `pg` connection code after you allow network access to port `5432` and run `pnpm run aurora:migrate`.
 
 | Setting                       | Selection                                           |
 | :---------------------------- | :-------------------------------------------------- |
@@ -303,9 +429,9 @@ Notes:
 
 Once the cluster is **Available**, copy the **writer endpoint** from the Connectivity & security tab, build `DATABASE_URL` as shown above, add the required inbound security-group rule for port `5432`, then run `pnpm run aurora:migrate`.
 
-### Provision Aurora PostgreSQL with VPC networking
+### AWS CLI
 
-The steps below create an Aurora PostgreSQL cluster reachable from your app (Vercel functions, a Codespace, or your laptop). Replace `REGION`, IDs, and the CIDR/IP placeholders.
+The steps below create an Aurora cluster reachable from your app (Vercel functions, a Codespace, or your laptop). Replace `REGION`, IDs, and the CIDR/IP placeholders.
 
 **1. VPC and subnets**
 
@@ -352,36 +478,37 @@ aws ec2 authorize-security-group-ingress \
 
 **4. Cluster and instance**
 
-Create the Aurora PostgreSQL cluster + a writer instance:
+Create the Aurora PostgreSQL cluster + a writer instance. The engine version and capacity below match the console selections (Aurora PostgreSQL 17.7, Serverless v2 with 1-2 ACUs):
 
 ```bash
+# Confirm the exact Aurora PostgreSQL 17.7 version string for your region first:
+#   aws rds describe-db-engine-versions --engine aurora-postgresql \
+#     --query 'DBEngineVersions[].EngineVersion' --output text
 aws rds create-db-cluster \
   --db-cluster-identifier babychain \
   --engine aurora-postgresql \
-  --engine-version 16.4 \
+  --engine-version 17.7 \
   --master-username postgres \
   --master-user-password '<STRONG_PASSWORD>' \
   --db-subnet-group-name babychain-subnets \
   --vpc-security-group-ids <SG_ID> \
-  --database-name postgres
+  --database-name postgres \
+  --port 5432 \
+  --serverless-v2-scaling-configuration MinCapacity=1,MaxCapacity=2
 
 aws rds create-db-instance \
   --db-instance-identifier babychain-1 \
   --db-cluster-identifier babychain \
   --engine aurora-postgresql \
-  --db-instance-class db.serverless   # or db.r6g.large for provisioned
+  --db-instance-class db.serverless \
+  --publicly-accessible
 ```
 
-For Aurora Serverless v2, also set capacity on the cluster:
-
-```bash
-aws rds modify-db-cluster --db-cluster-identifier babychain \
-  --serverless-v2-scaling-configuration MinCapacity=0.5,MaxCapacity=4
-```
+> The console's **RDS Proxy** and **RDS Data API** are optional and not required here: BabyChain connects to the Aurora writer endpoint with `pg`, so the CLI path omits them. Add them later only for an in-VPC runtime or admin tooling that needs them.
 
 **5. Public reachability**
 
-Only if connecting from outside the VPC. To reach Aurora from your laptop or a Codespace, the instance needs `--publicly-accessible`, the subnets need a route to an internet gateway, and your IP must be allowed in the security group (step 3). For Vercel/production, keep the cluster private and connect from within the VPC (VPC peering / PrivateLink) or via RDS Proxy.
+The writer instance above is created with `--publicly-accessible` to match the console's **Public access: Yes**. To actually reach it from your laptop or a Codespace, the subnets also need a route to an internet gateway and your IP must be allowed in the security group (step 3). For Vercel/production you can instead keep the cluster private and connect from within the VPC (VPC peering / PrivateLink) or via RDS Proxy.
 
 **6. Endpoint and build database**
 
@@ -399,7 +526,7 @@ aws rds describe-db-clusters --db-cluster-identifier babychain \
 pnpm run aurora:migrate
 ```
 
-> Aurora Serverless v2 can scale to zero / pause; the first connection after idle may take 10–30s to wake the cluster. BabyChain's pool uses a 30s connection timeout to absorb this cold start so the first run does not fail.
+> A minimum of 1 ACU (set above) keeps the cluster warm so it does not pause. If you lower `MinCapacity` to a value that allows auto-pause, the first connection after idle may take 10-30s to wake the cluster; BabyChain's pool uses a 30s connection timeout to absorb that cold start so the first run does not fail.
 
 **Connectivity troubleshooting**
 
@@ -441,7 +568,7 @@ For a temporary public demo, the least-broad inbound rule is:
 
 Remove that broad rule after the demo/judging window and replace it with static egress IPs, private networking, or an AWS runtime inside the VPC.
 
-### Models and modes
+## 5. Models and Modes
 
 Set `BABYCHAIN_PROVIDER_MODE=byok` for direct inference provider execution or `BABYCHAIN_PROVIDER_MODE=babysea` for BabySea SDK execution.
 
@@ -458,28 +585,20 @@ BabySea mode relies on the BabySea SDK's normalized `generation_*` contract. BYO
 
 All modes keep caller applications on BabyChain API keys. Provider credentials never belong in frontend code or caller requests.
 
-### Storage
+## 6. Storage
 
 BabyChain runs without media storage by default. In that mode it keeps the provider URL or inline data URL returned by the inference provider. For production chains, enable storage so completed step outputs are copied into your own bucket/blob store before the step is marked succeeded. API responses, canvas previews, downstream handoff, and Chain Agent checkpoints then prefer the stored public URL.
 
-Use Vercel Blob when the app is deployed on Vercel and you want the simplest hosted object store:
-
-```bash
-BABYCHAIN_STORAGE_PROVIDER=vercel-blob
-BLOB_READ_WRITE_TOKEN=vercel_blob_rw_...
-```
-
-Create the token in Vercel Storage, add it to the same Vercel project as BabyChain, then redeploy. BabyChain writes objects under `runs/<runId>/<stepKey>/output-<index>.<ext>` and stores the returned Blob URL in run metadata.
+### AWS S3
 
 Use AWS S3 when you want your own S3 bucket, CloudFront distribution, or custom media domain:
 
 ```bash
-BABYCHAIN_STORAGE_PROVIDER=aws-s3
-AWS_S3_REGION=us-east-1
-AWS_S3_BUCKET_NAME=your-babychain-media-bucket
-AWS_S3_ACCESS_KEY_ID=...
-AWS_S3_SECRET_ACCESS_KEY=...
-AWS_S3_ENDPOINT_URL=https://media.example.com
+AWS_S3_REGION=
+AWS_S3_ACCESS_KEY_ID=
+AWS_S3_SECRET_ACCESS_KEY=
+AWS_S3_BUCKET_NAME=
+AWS_S3_ENDPOINT_URL=
 ```
 
 `AWS_S3_ENDPOINT_URL` is the browser-readable base URL BabyChain returns for stored media. It can be a CloudFront distribution domain, your custom CloudFront domain, a bucket-hosted S3 URL, or an AWS S3 path-style bucket URL. BabyChain still writes objects to AWS S3 using `AWS_S3_REGION` and `AWS_S3_BUCKET_NAME`; true S3-compatible services with custom write endpoints are not part of this provider. Do not set a second public base URL.
@@ -513,7 +632,18 @@ Create an IAM user or role for BabyChain with object write/read access limited t
 
 For CloudFront, point the distribution origin at the same S3 bucket and set `AWS_S3_ENDPOINT_URL` to the CloudFront or custom domain. If the bucket itself is private, configure CloudFront origin access so browsers can read the CloudFront URL while BabyChain writes with the IAM credentials above.
 
-### Chain Agent
+### Vercel Blob
+
+Use Vercel Blob when the app is deployed on Vercel and you want the simplest hosted object store:
+
+```bash
+BABYCHAIN_STORAGE_PROVIDER=vercel-blob
+BLOB_READ_WRITE_TOKEN=
+```
+
+Create the token in Vercel Storage, add it to the same Vercel project as BabyChain, then redeploy. BabyChain writes objects under `runs/<runId>/<stepKey>/output-<index>.<ext>` and stores the returned Blob URL in run metadata.
+
+## 7. Chain Agent
 
 BabyChain supports three `chain_runner` modes:
 
@@ -525,7 +655,7 @@ BabyChain supports three `chain_runner` modes:
 
 Chain Agent uses Amazon Nova through Amazon Bedrock as a prompt-planning layer. It does not add a fifth model role to `chain_models`; the media workflow remains `image_model`, optional `refine_model`, `video_model`, and optional `modify_model`. The agent stores checkpoint suggestions, selected prompts, validation outcomes, repair attempts, instruction version, schema version, model id, latency, and token usage in Aurora alongside the run timeline.
 
-Agent prompts live under `lib/agents/instructions`. BabyChain currently uses a typed internal tool boundary (`read_downstream_schema`, `read_previous_step_summary`, `select_schema_defaults`, `retrieve_brand_context`) to ground Nova before prompting. Bedrock tool calling and Knowledge Bases are not required for the current flow; add a Knowledge Base later only for durable brand/style memory across runs.
+Agent prompts live under `lib/agents/instructions`. The agent sends Nova a stable system prompt (persona, an Observe -> Diverge -> Decide reasoning method, the schema-true JSON output contract, and a trust boundary that treats run input and media as untrusted data) plus a per-run user message carrying the media and context. Before prompting, BabyChain grounds Nova with a typed internal tool boundary: today it runs `read_downstream_schema` and `select_schema_defaults`, while `read_previous_step_summary` and `retrieve_brand_context` are reserved for future grounding. Bedrock tool calling and Knowledge Bases are not required for the current flow; add a Knowledge Base later only for durable brand/style memory across runs.
 
 Configure Chain Agent with:
 
@@ -533,74 +663,51 @@ Configure Chain Agent with:
 AWS_BEARER_TOKEN_BEDROCK=
 BEDROCK_REGION=us-east-1
 BEDROCK_NOVA_AGENT_MODEL=us.amazon.nova-pro-v1:0
+BEDROCK_NOVA_AGENT_EXEMPLAR=off
 ```
 
 Until BabyChain Media Storage is enabled, Chain Agent reads previous outputs from the existing provider URL or inline data URL. Provider URLs can expire, redirect, or exceed the temporary 24MB checkpoint media limit, so storage should be added before relying on long-running or large-video agent workflows in production.
 
-### API
+### Model profile: Amazon Nova Pro
 
-| Action                          | Method and path                        |
-| :------------------------------ | :------------------------------------- |
-| List chains                     | `GET /api/v1/chains`                   |
-| Create chain                    | `POST /api/v1/chains/runs`             |
-| Get run                         | `GET /api/v1/chains/get/{runId}`       |
-| Continue Chain Agent Review run | `POST /api/v1/chains/continue/{runId}` |
-| Cancel run                      | `POST /api/v1/chains/cancel/{runId}`   |
+The Chain Agent runs on **Amazon Nova Pro** through Amazon Bedrock — `BEDROCK_NOVA_AGENT_MODEL=us.amazon.nova-pro-v1:0` by default — and BabyChain calls it through the `Converse` API (see [`lib/agents/bedrock-nova.ts`](lib/agents/bedrock-nova.ts)). Nova Pro is Amazon's balanced multimodal model for text, image, and video understanding. Source: [Amazon Nova Pro model card](https://docs.aws.amazon.com/bedrock/latest/userguide/model-card-amazon-nova-pro.html).
 
-All requests require `Authorization: Bearer <API key>`. Keys are bootstrapped from [`.env.example`](.env.example) or provisioned in the `babychain_private.api_key` table.
+### Model details
 
-BYOK callers should read request field definitions from Semantic Lady model schema routes (`GET /api/v1/models` or `GET /api/v1/models/{modelId}`) before constructing `generation_*` input objects.
+| Property          | Value                                                                                   |
+| :---------------- | :-------------------------------------------------------------------------------------- |
+| Provider          | Amazon                                                                                  |
+| Launch date       | Dec 05, 2024                                                                            |
+| Lifecycle         | Active (EOL no sooner than 2025-12-04)                                                  |
+| Context window    | 300K tokens                                                                             |
+| Max output tokens | 5K                                                                                      |
+| Knowledge cutoff  | Oct 2024                                                                                |
+| License / Terms   | [AWS third-party model terms](https://aws.amazon.com/legal/bedrock/third-party-models/) |
 
-**Response details:**
+### Modalities
 
-- `timeline`: ordered array of step status, timing, provider, output count, and error details. Renders the full run history without reshaping the raw `steps` payload.
-- `agent_checkpoints`: Chain Agent suggestions, selected prompt data, and checkpoint status for Review/Autopilot runs.
-- `guidance.what_to_try_next`: actionable list on error responses covering provider failures, invalid model fields, missing credentials, and chain incompatibilities.
+| Modality  | Input | Output |
+| :-------- | :---: | :----: |
+| Text      |  ✅   |   ✅   |
+| Image     |  ✅   |   ❌   |
+| Video     |  ✅   |   ❌   |
+| Audio     |  ❌   |   ❌   |
+| Speech    |  ❌   |   ❌   |
+| Embedding |   —   |   ❌   |
 
-### Runtime
+### APIs and endpoints
 
-- Each invocation starts or polls one provider step.
-- Step output URLs are supplied to dependent steps by BabyChain, while generated media is exposed in run and step responses.
-- A configured `webhook_url` receives one final signed callback with the same public run resource returned by `GET /api/v1/chains/get/{runId}`.
-- Provider credentials stay server-side.
-- Step submit idempotency keys are deterministic per run, step, and chain version, helping retries avoid duplicate provider submits when the downstream provider honors idempotency.
+`bedrock-runtime` is the only supported endpoint (`bedrock-mantle` is not supported). Supported APIs: **Converse** ✅ and **Invoke** ✅ (Chat Completions ❌, Responses ❌). BabyChain uses **Converse**.
 
-### Tests
+### Prompt caching
 
-Provider adapter contract lives with the provider adapter suite:
+| Supported | Min tokens / checkpoint | Max checkpoints | TTL       | Cacheable fields        |
+| :-------: | :---------------------- | :-------------: | :-------- | :---------------------- |
+|    ✅     | 1K\*                    |        4        | 5 minutes | `system` and `messages` |
 
-```bash
-pnpm test:run -- test/provider-adapters.test.ts
-```
+\* Amazon Nova models support up to 20K tokens for prompt caching, primarily for text prompts. See [Prompt caching](https://docs.aws.amazon.com/bedrock/latest/userguide/prompt-caching.html).
 
-The shared contract checks that each adapter returns zero-cost direct estimates and accepts best-effort cancel contexts. Provider-specific cases below it guard Semantic Lady field translation, output extraction, and failure normalization.
-
-### Customize
-
-| Change     | Files                                                                                                   |
-| :--------- | :------------------------------------------------------------------------------------------------------ |
-| UI         | `app/page.tsx`, `app/dashboard/canvas/page.tsx`, `app/dashboard/canvas/canvas.tsx`                      |
-| Chains     | `lib/chains/templates.ts`, `lib/chains/types.ts`, `test/templates.test.ts`                              |
-| Runner     | `lib/chains/runner.ts`                                                                                  |
-| Agent      | `lib/agents`, `app/api/v1/chains/continue/[runId]/route.ts`                                             |
-| Responses  | `lib/chains/presenters.ts`                                                                              |
-| Auth       | `lib/api/auth.ts`, `lib/api/index.ts`, `scripts/aurora-migrate.mjs`                                     |
-| Storage    | `lib/chains/store.ts`, `scripts/aurora-migrate.mjs`                                                     |
-| Monitoring | `instrumentation.ts`, `instrumentation-client.ts`, `lib/monitoring`, `scripts/sentry-project-check.mjs` |
-| Deploy     | `.env.example`, `vercel.json`, `scripts/doctor.mjs`                                                     |
-
-### Troubleshooting
-
-| Symptom                     | Fix                                                                                                                                                                                      |
-| :-------------------------- | :--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `doctor` fails              | Read the provider-mode summary, missing env var, or deploy file printed by `doctor`; env names live in [`.env.example`](.env.example).                                                   |
-| Studio shows `fetch failed` | On Vercel, confirm `NEXT_PUBLIC_SITE_URL` is the deployed `https://...` URL and all required env vars pass `pnpm run doctor`. Locally, run with `pnpm dev` on port `3011` or set `PORT`. |
-| Route returns 401           | Confirm the caller key exists in the bootstrap value from [`.env.example`](.env.example) or `babychain_private.api_key`.                                                                 |
-| Route returns 404           | Compare the requested path with the API table above.                                                                                                                                     |
-| Run stays queued            | Check provider credentials, webhook reachability, and scheduler execution.                                                                                                               |
-| Callback is missing         | Check `webhook_url`, callback host DNS, receiver status codes, and callback delivery records.                                                                                            |
-
-## 4. Deployment
+## 8. Deployment
 
 ### Vercel
 
@@ -608,7 +715,7 @@ The shared contract checks that each adapter returns zero-cost direct estimates 
 
 Use the Vercel button to clone the starter and create the project. Then set every value from [`.env.example`](.env.example) in the Vercel project, especially `NEXT_PUBLIC_SITE_URL`, `DATABASE_URL`, the `OWNER_*` dashboard credentials, the `BABYCHAIN_*` secrets, and the provider keys for your chosen mode.
 
-BabyChain still needs a reachable PostgreSQL database. Follow [Database (AWS Aurora / PostgreSQL)](#database-aws-aurora--postgresql) to create the database, build `DATABASE_URL`, allow Vercel to reach port `5432`, and run `pnpm run aurora:migrate` once against the production database before the first real run.
+BabyChain still needs a reachable PostgreSQL database. Follow [4. Database](#4-database) to create the database, build `DATABASE_URL`, allow Vercel to reach port `5432`, and run `pnpm run aurora:migrate` once against the production database before the first real run.
 
 **Cron and function limits.** The checked-in [`vercel.json`](vercel.json) uses `maxDuration = 300` on long-running routes and a daily recovery cron, which is the safe default. On plans that support it, you can change the cron schedule to `* * * * *` for one-minute recovery and raise route `maxDuration` only where your Vercel plan allows the higher budget.
 
@@ -653,14 +760,14 @@ Use Fly.io when you want a long-running Docker deployment with Fly-managed TLS, 
 
 Use Google Cloud Run when you want managed HTTPS, autoscaling, Cloud Logging, Secret Manager integration, and Cloud Scheduler queued-run recovery around the BabyChain Docker image. Full end-to-end guide: [docs/deployment/google-cloud-run.md](docs/deployment/google-cloud-run.md).
 
-## 5. Security and Compliance
+## 9. Security and Compliance
 
 The project publishes its trust signals through public GitHub, GitLab, or other CI provider checks so contributors can inspect the actual CI configuration, jobs, and reports.
 
-## 6. Community
+## 10. Community
 
 Issues, pull requests, design discussion, and security reports should follow [`CONTRIBUTING.md`](CONTRIBUTING.md), [`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md), and [`SECURITY.md`](SECURITY.md).
 
-## 7. License
+## 11. License
 
 [Apache License 2.0](LICENSE).

@@ -18,7 +18,8 @@ import type {
   ChainAgentSuggestion,
 } from './types';
 import {
-  buildChainAgentInstruction,
+  buildChainAgentSystemPrompt,
+  buildChainAgentUserPrompt,
   CHAIN_AGENT_INSTRUCTION_VERSION,
 } from './instructions';
 import {
@@ -33,10 +34,15 @@ const BEDROCK_NOVA_PRO_MAX_OUTPUT_TOKENS = 5000;
 const BEDROCK_TIMEOUT_MS = 120_000;
 const MEDIA_DOWNLOAD_TIMEOUT_MS = 60_000;
 const MAX_AGENT_MEDIA_BYTES = 24 * 1024 * 1024;
+// Some CDNs/WAFs (e.g. AWS WAF Core Rule Set NoUserAgent_HEADER fronting
+// CloudFront, or Vercel Blob) reject requests without a User-Agent with a 403,
+// even though browsers can load the same public URL. Always send one.
+const MEDIA_DOWNLOAD_USER_AGENT = 'BabyChain/0.1';
 
 type BedrockNovaConfig = {
   apiKey?: string;
   fetchImpl?: typeof fetch;
+  includeExemplar?: boolean;
   modelIdentifier?: string;
   region?: string;
 };
@@ -57,6 +63,8 @@ export function createBedrockNovaAgent(
     config.modelIdentifier ??
     env.BEDROCK_NOVA_AGENT_MODEL ??
     BEDROCK_DEFAULT_MODEL;
+  const includeExemplar =
+    config.includeExemplar ?? env.BEDROCK_NOVA_AGENT_EXEMPLAR === 'on';
 
   return {
     async suggestNextStep(
@@ -75,6 +83,7 @@ export function createBedrockNovaAgent(
         apiKey,
         context: input,
         fetchImpl,
+        includeExemplar,
         modelIdentifier,
         region,
       });
@@ -96,6 +105,7 @@ export function createBedrockNovaAgent(
         apiKey,
         context: input,
         fetchImpl,
+        includeExemplar,
         modelIdentifier,
         previousJson: first.result.rawText,
         region,
@@ -145,12 +155,14 @@ async function invokeAgent(args: {
   apiKey: string;
   context: ChainAgentPromptContext;
   fetchImpl: typeof fetch;
+  includeExemplar?: boolean;
   modelIdentifier: string;
   previousJson?: string | null;
   region: string;
   repairError?: string | null;
 }) {
   const body = await buildConverseBody(args.context, args.fetchImpl, {
+    includeExample: args.includeExemplar ?? false,
     previousJson: args.previousJson ?? null,
     repairError: args.repairError ?? null,
   });
@@ -172,7 +184,11 @@ async function invokeAgent(args: {
 async function buildConverseBody(
   context: ChainAgentPromptContext,
   fetchImpl: typeof fetch,
-  options: { repairError?: string | null; previousJson?: string | null } = {},
+  options: {
+    includeExample?: boolean;
+    repairError?: string | null;
+    previousJson?: string | null;
+  } = {},
 ) {
   const content: JsonObject[] = [];
 
@@ -208,9 +224,10 @@ async function buildConverseBody(
     });
   }
 
-  content.push({ text: buildChainAgentInstruction(context, options) });
+  content.push({ text: buildChainAgentUserPrompt(context, options) });
 
   return {
+    system: [{ text: buildChainAgentSystemPrompt(options) }],
     messages: [
       {
         role: 'user',
@@ -495,7 +512,10 @@ function downloadAgentMediaWithPinnedAddress(
     const request = httpsRequest(
       parsed,
       {
-        headers: { accept: 'image/*,video/*' },
+        headers: {
+          accept: 'image/*,video/*',
+          'user-agent': MEDIA_DOWNLOAD_USER_AGENT,
+        },
         lookup: (_hostname, options, callback) => {
           if (typeof options === 'object' && options.all) {
             const allCallback = callback as unknown as (
@@ -550,7 +570,10 @@ async function downloadAgentMediaWithFetch(
   const response = await fetchImpl(parsed.href, {
     method: 'GET',
     redirect: 'manual',
-    headers: { accept: 'image/*,video/*' },
+    headers: {
+      accept: 'image/*,video/*',
+      'user-agent': MEDIA_DOWNLOAD_USER_AGENT,
+    },
     signal: AbortSignal.timeout(MEDIA_DOWNLOAD_TIMEOUT_MS),
   }).catch((error: unknown) => {
     throw new BabyChainError(
