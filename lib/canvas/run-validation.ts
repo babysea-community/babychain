@@ -9,6 +9,7 @@ export type CanvasRunValidationField = {
   min?: number;
   name: string;
   required?: boolean;
+  type?: 'text' | 'textarea' | 'number' | 'select' | 'boolean';
   valueKind?: 'string' | 'number' | 'boolean' | 'string-array' | 'json';
 };
 
@@ -93,7 +94,15 @@ export function validateCanvasFlowRun({
 
     for (const field of fields) {
       const value = node.data.values[field.name];
-      const requestValue = meaningfulCanvasValue(value) ? value : field.default;
+      const requestValue = hasSelectedCanvasValue(field, value)
+        ? value
+        : field.default;
+
+      if (isUnselectedSelectValue(field, value)) {
+        return blocked(
+          `Choose ${field.name} in the ${node.data.role}_model node.`,
+        );
+      }
 
       if (shouldBlockZeroValue(field) && isZeroValue(requestValue, field)) {
         return blocked(
@@ -101,7 +110,7 @@ export function validateCanvasFlowRun({
         );
       }
 
-      if (isRequiredRunField(field) && !meaningfulCanvasValue(value)) {
+      if (isRequiredRunField(field) && !hasSelectedCanvasValue(field, value)) {
         return blocked(
           `Fill ${field.name} in the ${node.data.role}_model node.`,
         );
@@ -146,6 +155,24 @@ function meaningfulCanvasValue(value: unknown): boolean {
   }
 
   return true;
+}
+
+function hasSelectedCanvasValue(
+  field: CanvasRunValidationField,
+  value: unknown,
+) {
+  return meaningfulCanvasValue(value) && !isUnselectedSelectValue(field, value);
+}
+
+function isUnselectedSelectValue(
+  field: CanvasRunValidationField,
+  value: unknown,
+) {
+  return (
+    field.type === 'select' &&
+    typeof value === 'string' &&
+    value.trim().toLowerCase() === 'select'
+  );
 }
 
 function shouldBlockZeroValue(field: CanvasRunValidationField): boolean {

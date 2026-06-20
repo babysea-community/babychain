@@ -49,6 +49,22 @@ const fieldsByModel = {
   [modelSchemaCacheKey('video', 'google/veo-3.1')]: veoFields,
 };
 
+const fieldsByModelWithRequiredSelect = {
+  ...fieldsByModel,
+  [modelSchemaCacheKey('image', 'bfl/flux-2-max')]: {
+    ...fluxFields,
+    core: [
+      ...fluxFields.core,
+      {
+        name: 'generation_aspect_ratio',
+        required: true,
+        type: 'select' as const,
+        valueKind: 'string' as const,
+      },
+    ],
+  },
+};
+
 function flowNodes(
   imageValues: Record<string, unknown>,
   videoValues: Record<string, unknown>,
@@ -145,6 +161,27 @@ describe('canvas run validation', () => {
     ).toMatchObject({
       ok: false,
       reason: 'generation_width cannot be 0 in the image_model node.',
+    });
+  });
+
+  it('blocks select placeholders before a provider run starts', () => {
+    expect(
+      validateCanvasFlowRun({
+        fieldsByModel: fieldsByModelWithRequiredSelect,
+        flowNodes: flowNodes(
+          {
+            generation_aspect_ratio: 'Select',
+            generation_height: 720,
+            generation_prompt: 'A product photo',
+            generation_width: 1280,
+          },
+          { generation_prompt: 'Animate the frame' },
+        ),
+        models,
+      }),
+    ).toMatchObject({
+      ok: false,
+      reason: 'Choose generation_aspect_ratio in the image_model node.',
     });
   });
 
