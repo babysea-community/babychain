@@ -24,12 +24,14 @@ import {
   renameCanvas,
   saveCanvas,
   saveWorkspaceCanvas,
+  setCanvasLastRun,
 } from '@/lib/canvas/canvas-store';
 import { MAX_CANVAS_TITLE_LENGTH } from '@/lib/canvas/names';
 
 const OWNER = 'owner@example.com';
 const CANVAS_ID = '7b9d3f60-1f7c-4a64-9a52-0d6f6a3a2b11';
 const RUN_ID = '10f7f30d-c59f-4d10-aa1f-77f285922ef8';
+const PREVIOUS_RUN_ID = 'b2c3d4e5-1111-4abc-8def-222233334444';
 const SAVE_VERSION = 1000;
 
 function node(overrides: Partial<StoredCanvasNode> = {}): StoredCanvasNode {
@@ -380,6 +382,103 @@ describe('getCanvas/listCanvases/deleteCanvas', () => {
     expect(queryMock.mock.calls[0]?.[0]).toContain(
       "jsonb_set(entry, '{values,name}', to_jsonb($3::text))",
     );
+  });
+});
+
+describe('setCanvasLastRun', () => {
+  it('short-circuits invalid ids without querying', async () => {
+    expect(await setCanvasLastRun(OWNER, 'not-a-uuid', RUN_ID)).toBe(false);
+    expect(await setCanvasLastRun(OWNER, CANVAS_ID, 'not-a-uuid')).toBe(false);
+    expect(queryMock).not.toHaveBeenCalled();
+  });
+
+  it('returns false when no canvas matched', async () => {
+    queryMock.mockResolvedValueOnce({ rows: [] });
+
+    expect(await setCanvasLastRun(OWNER, CANVAS_ID, RUN_ID)).toBe(false);
+    expect(deleteStoredAssetsMock).not.toHaveBeenCalled();
+  });
+
+  it('reclaims the superseded run assets when no canvas still references it', async () => {
+    queryMock
+      .mockResolvedValueOnce({
+        rows: [{ previous_last_run_id: PREVIOUS_RUN_ID, updated_count: 1 }],
+      })
+      .mockResolvedValueOnce({ rows: [{ referenced: false }] })
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            provider_metadata: {
+              babychain_storage: {
+                provider: 'aws-s3',
+                assets: [
+                  {
+                    provider: 'aws-s3',
+                    storage_path: `runs/${PREVIOUS_RUN_ID}/image/output-0.png`,
+                  },
+                ],
+              },
+            },
+          },
+        ],
+      });
+
+    const updated = await setCanvasLastRun(OWNER, CANVAS_ID, RUN_ID);
+
+    expect(updated).toBe(true);
+    // 1) supersede update, 2) reference check, 3) step lookup for cleanup
+    expect(queryMock).toHaveBeenCalledTimes(3);
+    expect(queryMock.mock.calls[0]?.[0]).toContain('returning');
+    expect(queryMock.mock.calls[1]?.[0]).toContain(
+      'jsonb_each_text(flow_runs)',
+    );
+    expect(queryMock.mock.calls[2]?.[0]).toContain(
+      'from babychain_private.chain_step',
+    );
+    expect(deleteStoredAssetsMock).toHaveBeenCalledWith([
+      {
+        provider: 'aws-s3',
+        storagePath: `runs/${PREVIOUS_RUN_ID}/image/output-0.png`,
+      },
+    ]);
+  });
+
+  it('keeps the superseded run assets when another canvas still references it', async () => {
+    queryMock
+      .mockResolvedValueOnce({
+        rows: [{ previous_last_run_id: PREVIOUS_RUN_ID, updated_count: 1 }],
+      })
+      .mockResolvedValueOnce({ rows: [{ referenced: true }] });
+
+    const updated = await setCanvasLastRun(OWNER, CANVAS_ID, RUN_ID);
+
+    expect(updated).toBe(true);
+    expect(queryMock).toHaveBeenCalledTimes(2);
+    expect(deleteStoredAssetsMock).not.toHaveBeenCalled();
+  });
+
+  it('does not reclaim when the run pointer is unchanged', async () => {
+    queryMock.mockResolvedValueOnce({
+      rows: [{ previous_last_run_id: RUN_ID, updated_count: 1 }],
+    });
+
+    const updated = await setCanvasLastRun(OWNER, CANVAS_ID, RUN_ID);
+
+    expect(updated).toBe(true);
+    expect(queryMock).toHaveBeenCalledTimes(1);
+    expect(deleteStoredAssetsMock).not.toHaveBeenCalled();
+  });
+
+  it('updates the pointer without cleanup when there was no previous run', async () => {
+    queryMock.mockResolvedValueOnce({
+      rows: [{ previous_last_run_id: null, updated_count: 1 }],
+    });
+
+    const updated = await setCanvasLastRun(OWNER, CANVAS_ID, RUN_ID);
+
+    expect(updated).toBe(true);
+    expect(queryMock).toHaveBeenCalledTimes(1);
+    expect(deleteStoredAssetsMock).not.toHaveBeenCalled();
   });
 });
 

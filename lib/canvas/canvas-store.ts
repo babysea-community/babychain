@@ -412,6 +412,45 @@ export async function deleteCanvas(
 }
 
 /**
+ * Reclaims a run's stored output assets once no canvas still references it —
+ * neither a saved canvas's last run nor a workspace flow pointer. This is the
+ * storage-lifecycle guard that stops a superseded run from leaving orphaned
+ * media behind, while never deleting assets for a run that is still shown
+ * somewhere. The chain_run / chain_step history rows are untouched.
+ */
+async function reclaimRunAssetsIfOrphaned(
+  owner: string,
+  runId: string,
+): Promise<void> {
+  if (!UUID_PATTERN.test(runId)) {
+    return;
+  }
+
+  const referenced = await auroraQuery<{ referenced: boolean }>(
+    `select exists (
+       select 1
+         from babychain_private.canvas
+        where owner_email = $1
+          and (
+            last_run_id = $2::uuid
+            or exists (
+              select 1
+                from jsonb_each_text(flow_runs) as fr
+               where fr.value = $2
+            )
+          )
+     ) as referenced`,
+    [owner, runId],
+  );
+
+  if (referenced.rows[0]?.referenced) {
+    return;
+  }
+
+  await deleteRunOutputAssets(runId);
+}
+
+/**
  * Deletes the stored output assets for a run from the configured storage
  * provider, using the `babychain_storage` metadata recorded on each step when
  * the files were persisted. Inference-hosted outputs (no stored metadata) are
@@ -537,14 +576,57 @@ export async function setCanvasLastRun(
     return false;
   }
 
-  const result = await auroraQuery(
-    `update babychain_private.canvas
-        set last_run_id = $3
-      where owner_email = $1 and id = $2 and not workspace`,
-    [normalizeOwnerEmail(ownerEmail), canvasId, runId],
+  const owner = normalizeOwnerEmail(ownerEmail);
+
+  // Capture the run this canvas pointed at before the update. The two CTEs run
+  // against the same snapshot, so `prev` reads the pre-update value even though
+  // `updated` overwrites it — letting us reclaim a superseded run's media.
+  const result = await auroraQuery<{
+    previous_last_run_id: string | null;
+    updated_count: number;
+  }>(
+    `with prev as (
+       select last_run_id as previous_last_run_id
+         from babychain_private.canvas
+        where owner_email = $1 and id = $2 and not workspace
+     ),
+     updated as (
+       update babychain_private.canvas
+          set last_run_id = $3
+        where owner_email = $1 and id = $2 and not workspace
+        returning id
+     )
+     select prev.previous_last_run_id,
+            (select count(*) from updated)::int as updated_count
+       from prev`,
+    [owner, canvasId, runId],
   );
 
-  return (result.rowCount ?? 0) > 0;
+  const row = result.rows[0];
+
+  if (!row || Number(row.updated_count) === 0) {
+    return false;
+  }
+
+  // Enterprise storage lifecycle: a saved canvas only ever shows its latest
+  // run, so the run it just replaced is no longer reachable from here. If no
+  // other canvas (or the workspace's flow pointers) still references it, its
+  // stored image/video files are now orphaned — reclaim them. The chain_run /
+  // chain_step history rows are kept; only the binary assets are removed.
+  const previousRunId = row.previous_last_run_id;
+
+  if (previousRunId && previousRunId !== runId) {
+    try {
+      await reclaimRunAssetsIfOrphaned(owner, previousRunId);
+    } catch (error) {
+      console.warn('[babychain] superseded run asset cleanup failed', {
+        error: error instanceof Error ? error.message : String(error),
+        runId: previousRunId,
+      });
+    }
+  }
+
+  return true;
 }
 
 function validateSaveInput(input: SaveCanvasInput): SaveCanvasInput {

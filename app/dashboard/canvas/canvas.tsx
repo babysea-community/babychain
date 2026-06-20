@@ -60,6 +60,7 @@ import {
   InlineZImage as InlineModelZImage,
 } from '@/components/icons/inline-model';
 import { Button } from '@/components/ui/button';
+import { useConfirm } from '@/components/ui/confirm-dialog';
 import {
   createCanvasId,
   type StoredCanvasNode,
@@ -3120,6 +3121,7 @@ function CanvasInner(props: CanvasProps) {
   } = props;
   const saveToastIdRef = useRef<string | number | null>(null);
   const { fitView } = useReactFlow();
+  const [confirm, confirmDialog] = useConfirm();
 
   const firstImage = firstAvailableModelForRole(models, 'image');
   const firstVideo = firstAvailableModelForRole(models, 'video');
@@ -3818,14 +3820,15 @@ function CanvasInner(props: CanvasProps) {
   // Remove an entire flow (its model cards + runner). Any in-flight run for
   // the flow stops being tracked here; the run itself stays in Aurora.
   const removeFlow = useCallback(
-    (flowId: string) => {
-      if (
-        !window.confirm(
-          'Remove this flow from the canvas? Saved canvases in the Library are not affected.',
-        )
-      ) {
-        return;
-      }
+    async (flowId: string) => {
+      const confirmed = await confirm({
+        title: 'Remove this flow?',
+        description:
+          'This removes the flow and its cards from the canvas. Saved canvases in your Library are not affected.',
+        confirmLabel: 'Remove flow',
+        destructive: true,
+      });
+      if (!confirmed) return;
 
       const timer = pollTimersRef.current.get(flowId);
       if (timer) clearTimeout(timer);
@@ -3853,7 +3856,7 @@ function CanvasInner(props: CanvasProps) {
         return next;
       });
     },
-    [setNodes, queueFitViewForFlows],
+    [confirm, setNodes, queueFitViewForFlows],
   );
 
   const addNodeToFlow = useCallback(
@@ -3957,14 +3960,15 @@ function CanvasInner(props: CanvasProps) {
     });
   }, [setNodes, buildDefaultFlow, queueFitViewForFlows]);
 
-  const resetCanvas = useCallback(() => {
-    if (
-      !window.confirm(
-        'Reset the canvas? This removes every flow from your workspace. Saved canvases in the Library are not affected.',
-      )
-    ) {
-      return;
-    }
+  const resetCanvas = useCallback(async () => {
+    const confirmed = await confirm({
+      title: 'Reset the canvas?',
+      description:
+        'This removes every flow from your workspace. Saved canvases in your Library are not affected.',
+      confirmLabel: 'Reset canvas',
+      destructive: true,
+    });
+    if (!confirmed) return;
 
     for (const timer of pollTimersRef.current.values()) {
       clearTimeout(timer);
@@ -4010,6 +4014,7 @@ function CanvasInner(props: CanvasProps) {
     };
     void persistReset();
   }, [
+    confirm,
     buildDefaultFlow,
     setNodes,
     saveWorkspaceAction,
@@ -4609,6 +4614,7 @@ function CanvasInner(props: CanvasProps) {
 
   return (
     <div className="flex h-full flex-col">
+      {confirmDialog}
       <div className="flex h-16 shrink-0 items-center gap-3 border-b border-border bg-sidebar px-4">
         <div className="flex items-center gap-1.5">
           <Button size="sm" disabled={!hydrated} onClick={addFlow}>

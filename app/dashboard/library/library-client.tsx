@@ -34,6 +34,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
+import { useConfirm } from '@/components/ui/confirm-dialog';
 import {
   MAX_CANVAS_TITLE_LENGTH,
   normalizeCanvasTitle,
@@ -121,6 +122,7 @@ export function LibraryClient({
   renameCanvasAction,
 }: LibraryClientProps) {
   const [canvases, setCanvases] = useState(initialCanvases);
+  const [confirm, confirmDialog] = useConfirm();
 
   useEffect(() => {
     if (loadFailed) {
@@ -150,6 +152,7 @@ export function LibraryClient({
 
   return (
     <main className="flex h-full flex-col">
+      {confirmDialog}
       <div className="flex h-16 shrink-0 items-center justify-between gap-3 border-b border-border bg-sidebar px-4">
         <Button asChild size="sm">
           <Link href="/dashboard/canvas">
@@ -173,6 +176,7 @@ export function LibraryClient({
             {canvases.map((canvas) => (
               <CanvasCard
                 canvas={canvas}
+                confirm={confirm}
                 deleteCanvasAction={deleteCanvasAction}
                 renameCanvasAction={renameCanvasAction}
                 key={canvas.id}
@@ -190,6 +194,7 @@ export function LibraryClient({
 
 function CanvasCard({
   canvas,
+  confirm,
   deleteCanvasAction,
   renameCanvasAction,
   onDeleted,
@@ -197,6 +202,7 @@ function CanvasCard({
   onError,
 }: {
   canvas: CanvasLibraryItem;
+  confirm: ReturnType<typeof useConfirm>[0];
   deleteCanvasAction: LibraryClientProps['deleteCanvasAction'];
   renameCanvasAction: LibraryClientProps['renameCanvasAction'];
   onDeleted: (canvasId: string) => void;
@@ -242,28 +248,33 @@ function CanvasCard({
   };
 
   const handleDelete = () => {
-    if (
-      !window.confirm(
-        'Delete this canvas? This permanently removes it from your library.',
-      )
-    ) {
-      return;
-    }
+    void (async () => {
+      const confirmed = await confirm({
+        title: 'Delete this canvas?',
+        description:
+          'This permanently removes it from your Library and deletes the stored image and video files for its last run. This cannot be undone.',
+        confirmLabel: 'Delete canvas',
+        cancelLabel: 'Keep canvas',
+        destructive: true,
+      });
 
-    startDelete(async () => {
-      onError(null);
-      const result = await deleteCanvasAction(canvas.id).catch(() => ({
-        ok: false as const,
-        error: 'Deleting the canvas failed. Try again.',
-      }));
+      if (!confirmed) return;
 
-      if (!result.ok) {
-        onError(result.error);
-        return;
-      }
+      startDelete(async () => {
+        onError(null);
+        const result = await deleteCanvasAction(canvas.id).catch(() => ({
+          ok: false as const,
+          error: 'Deleting the canvas failed. Try again.',
+        }));
 
-      onDeleted(canvas.id);
-    });
+        if (!result.ok) {
+          onError(result.error);
+          return;
+        }
+
+        onDeleted(canvas.id);
+      });
+    })();
   };
 
   return (
