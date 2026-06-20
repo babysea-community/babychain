@@ -1,5 +1,6 @@
 import 'server-only';
 
+import { randomInt } from 'node:crypto';
 import type { LookupAddress } from 'node:dns';
 import type { IncomingMessage } from 'node:http';
 import { request as httpsRequest } from 'node:https';
@@ -923,14 +924,15 @@ async function prepareAgentCheckpoint(args: {
         allowSelectedPromptFallback: schemaSupportsAgentPrompt(nextStepSchema),
       },
     );
-    const completedSelectedParams = completeChainAgentSelectedParams(
-      selectedParams,
-      {
+    const completedSelectedParams = withFreshAgentSeed(
+      completeChainAgentSelectedParams(selectedParams, {
         nextStep: {
           requestParams: agentContext.nextStep.requestParams,
           schema: nextStepSchema,
         },
-      },
+      }),
+      nextStepSchema,
+      record,
     );
     const validation = validateChainAgentResult(
       {
@@ -1044,6 +1046,118 @@ function agentStepSchema(step: ChainStepRecord): JsonObject {
   return createSemanticRequestSchema(step.modelIdentifier, {
     chainFieldMode: chainFieldModeForRole(stepRole),
   }) as JsonObject;
+}
+
+// BabyChain assigns a fresh generation_seed to every agent-planned step so the
+// Agentic Workflow never reuses a model default (e.g. 42) or the same seed twice
+// in a run. The value stays within the downstream schema's range so it still
+// passes validation.
+const AGENT_SEED_DEFAULT_MIN = 1;
+const AGENT_SEED_DEFAULT_MAX = 2_147_483_647;
+
+function withFreshAgentSeed(
+  params: JsonObject,
+  schema: JsonObject | null | undefined,
+  record: ChainRunWithSteps,
+): JsonObject {
+  const range = agentSeedRange(schema);
+
+  if (!range) {
+    return params;
+  }
+
+  const seed = freshAgentSeedValue(range, collectUsedAgentSeeds(record));
+
+  return { ...params, generation_seed: seed };
+}
+
+export function agentSeedRange(schema: JsonObject | null | undefined) {
+  if (!schema || typeof schema !== 'object' || Array.isArray(schema)) {
+    return null;
+  }
+
+  const properties = schema.properties;
+
+  if (
+    !properties ||
+    typeof properties !== 'object' ||
+    Array.isArray(properties)
+  ) {
+    return null;
+  }
+
+  const field = (properties as Record<string, unknown>).generation_seed;
+
+  if (!field || typeof field !== 'object' || Array.isArray(field)) {
+    return null;
+  }
+
+  const spec = field as Record<string, unknown>;
+  const min =
+    typeof spec.minimum === 'number'
+      ? Math.ceil(spec.minimum)
+      : AGENT_SEED_DEFAULT_MIN;
+  const max =
+    typeof spec.maximum === 'number'
+      ? Math.floor(spec.maximum)
+      : AGENT_SEED_DEFAULT_MAX;
+
+  if (!Number.isFinite(min) || !Number.isFinite(max) || max <= min) {
+    return null;
+  }
+
+  return {
+    min,
+    max,
+    defaultValue: typeof spec.default === 'number' ? spec.default : null,
+  };
+}
+
+function collectUsedAgentSeeds(record: ChainRunWithSteps): Set<number> {
+  const used = new Set<number>();
+
+  const add = (params: unknown) => {
+    if (params && typeof params === 'object' && !Array.isArray(params)) {
+      const seed = (params as Record<string, unknown>).generation_seed;
+
+      if (typeof seed === 'number' && Number.isFinite(seed)) {
+        used.add(seed);
+      }
+    }
+  };
+
+  for (const step of record.steps) {
+    add(step.requestParams);
+  }
+
+  for (const checkpoint of record.agentCheckpoints) {
+    add(checkpoint.selectedParams);
+  }
+
+  return used;
+}
+
+export function freshAgentSeedValue(
+  range: { min: number; max: number; defaultValue: number | null },
+  used: Set<number>,
+): number {
+  const span = range.max - range.min + 1;
+  let candidate = range.min + randomInt(0, span);
+
+  for (
+    let attempt = 0;
+    attempt < 16 && (candidate === range.defaultValue || used.has(candidate));
+    attempt += 1
+  ) {
+    candidate = range.min + randomInt(0, span);
+  }
+
+  // Guarantee the seed differs from the model default even in tiny ranges.
+  if (candidate === range.defaultValue) {
+    candidate = candidate < range.max ? candidate + 1 : range.min;
+  }
+
+  return candidate;
 }
 
 function toChainSchemaStepRole(value: string): ChainSchemaStepRole | null {

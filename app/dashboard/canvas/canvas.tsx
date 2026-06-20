@@ -495,11 +495,16 @@ function RunModeDropdown({
                   setOpen(false);
                 }}
                 className={cn(
-                  'flex w-full items-center px-2.5 py-1.5 text-left text-xs transition hover:bg-muted',
-                  active ? 'bg-muted text-foreground' : 'text-muted-foreground',
+                  'nodrag flex w-full flex-col gap-0.5 px-2.5 py-1.5 text-left transition hover:bg-muted',
+                  active ? 'bg-muted' : '',
                 )}
               >
-                <span className="min-w-0 flex-1 truncate">{option.label}</span>
+                <span className="truncate text-xs font-medium text-foreground">
+                  {option.label}
+                </span>
+                <span className="text-[0.62rem] leading-snug text-muted-foreground">
+                  {option.description}
+                </span>
               </button>
             );
           })}
@@ -1813,72 +1818,99 @@ function AgentCheckpointPanel({
   onApprove: (prompt: string, params: Record<string, unknown>) => Promise<void>;
 }) {
   const suggestions = checkpoint.suggestions ?? [];
-  const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
-  const [approving, setApproving] = useState(false);
-  const selected =
-    selectedIndex === null ? undefined : suggestions[selectedIndex];
-  const approvedPrompt = checkpoint.selected_prompt ?? '';
-  const approvablePrompt = (selected?.prompt ?? approvedPrompt).trim();
-  const selectedParams = proposedParamsForSelection(
-    checkpoint.selected_params ?? {},
-    selected,
-    fields,
-  );
-  const proposedFields = orderedProposedFields(fields, selectedParams);
+  const isAutopilot = mode === 'agent_autopilot';
+  const promptField = hasProposedField(fields, 'generation_prompt');
 
-  useEffect(() => {
-    setSelectedIndex(null);
-    setApproving(false);
-  }, [checkpoint.id]);
+  // Seed the editable form from the agent's proposal. The parent remounts this
+  // panel via `key={checkpoint.id}`, so a new checkpoint always starts fresh.
+  const [values, setValues] = useState<Record<string, FieldValue>>(() => {
+    const proposed = proposedParamsForSelection(
+      checkpoint.selected_params ?? {},
+      undefined,
+      fields,
+    );
+    const initial: Record<string, FieldValue> = {};
+    for (const field of fields) {
+      initial[field.name] = checkpointFieldValue(proposed[field.name], field);
+    }
+    return initial;
+  });
+  const [locked, setLocked] = useState<Record<string, boolean>>({});
+  const [selectedSuggestion, setSelectedSuggestion] = useState<number | null>(
+    null,
+  );
+  const [approving, setApproving] = useState(false);
+
+  const promptValue = promptField
+    ? String(values.generation_prompt ?? '').trim()
+    : (checkpoint.selected_prompt ?? '').trim();
+
+  const applySuggestion = (index: number) => {
+    const suggestion = suggestions[index];
+    if (!suggestion) return;
+
+    setSelectedSuggestion(index);
+    setValues((current) => {
+      const next = { ...current };
+      if (promptField && !locked.generation_prompt) {
+        next.generation_prompt = suggestion.prompt ?? '';
+      }
+      for (const [key, raw] of Object.entries(suggestion.params ?? {})) {
+        if (locked[key]) continue;
+        const field = fields.find((candidate) => candidate.name === key);
+        if (field) {
+          next[key] = checkpointFieldValue(raw, field);
+        }
+      }
+      return next;
+    });
+  };
 
   const approve = async () => {
     if (approving) return;
-
-    const prompt = approvablePrompt;
-    if (!prompt) {
-      toast.error('Choose or write a Chain Agent prompt first.');
+    if (promptField && !promptValue) {
+      toast.error('Choose or write an Agentic Workflow prompt first.');
       return;
     }
 
     setApproving(true);
     try {
-      await onApprove(prompt, {
-        ...selectedParams,
-        ...(hasProposedField(fields, 'generation_prompt')
-          ? { generation_prompt: prompt }
-          : {}),
-      });
+      const params = coerceCheckpointParams(values, fields);
+      if (promptField) {
+        params.generation_prompt = promptValue;
+      }
+      await onApprove(promptValue, params);
     } finally {
       setApproving(false);
     }
   };
-  const isAutopilot = mode === 'agent_autopilot';
 
   return (
     <div className="border border-border bg-muted/20">
       <div className="border-b border-border px-2.5 py-1.5 text-[0.68rem] font-medium uppercase tracking-wide text-muted-foreground">
-        {isAutopilot ? 'Agent (Autopilot)' : 'Agent (Review)'}
+        {isAutopilot
+          ? 'Agentic Workflow · Autopilot'
+          : 'Agentic Workflow · Review'}
       </div>
       <div className="space-y-2 p-2.5">
         {pending ? (
           <p className="text-[0.65rem] leading-4 text-muted-foreground">
-            Waiting for the previous step output. The propose fields will appear
+            Waiting for the previous step output. The proposed fields appear
             here before this step starts.
           </p>
         ) : null}
-        {suggestions.length > 0 ? (
+
+        {!pending && suggestions.length > 0 ? (
           <div className="grid gap-1.5">
             {suggestions.map((suggestion, index) => (
               <button
                 type="button"
                 key={`${checkpoint.id}:${index}`}
                 disabled={disabled || approving}
-                onClick={() => {
-                  setSelectedIndex(index);
-                }}
+                onClick={() => applySuggestion(index)}
                 className={cn(
                   'nodrag border px-2 py-1.5 text-left text-[0.65rem] leading-4 transition disabled:opacity-60',
-                  index === selectedIndex
+                  index === selectedSuggestion
                     ? 'border-ring bg-muted text-foreground'
                     : 'border-border text-muted-foreground hover:border-ring hover:text-foreground',
                 )}
@@ -1893,43 +1925,73 @@ function AgentCheckpointPanel({
             ))}
           </div>
         ) : null}
-        {!pending && suggestions.length === 0 && approvedPrompt ? (
-          <div className="whitespace-pre-wrap break-words border border-blue-400 bg-blue-500/10 px-2 py-1.5 text-xs leading-5 text-foreground">
-            {approvedPrompt}
-          </div>
-        ) : null}
-        {!pending && proposedFields.length > 0 ? (
-          <div className="overflow-hidden border border-border">
-            <div className="border-b border-border px-2 py-1 text-[0.62rem] font-medium uppercase tracking-wide text-muted-foreground">
+
+        {!pending && fields.length > 0 ? (
+          <div className="grid gap-2 border border-border p-2">
+            <span className="text-[0.62rem] font-medium uppercase tracking-wide text-muted-foreground">
               proposed_fields
-            </div>
-            <div className="divide-y divide-border">
-              {proposedFields.map(([key, value]) => (
-                <div
-                  key={key}
-                  className="grid grid-cols-[11rem_minmax(0,1fr)] gap-2 px-2 py-1.5 text-[0.65rem] leading-4"
-                >
-                  <span className="font-mono text-muted-foreground">{key}</span>
-                  <span className="whitespace-pre-wrap break-words text-foreground">
-                    {formatCheckpointValue(value)}
-                  </span>
+            </span>
+            {fields.map((field) => {
+              const fieldLocked = Boolean(locked[field.name]);
+
+              return (
+                <div key={field.name} className="grid gap-1">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="font-mono text-[0.7rem] text-muted-foreground">
+                      {field.name}
+                      {field.required ? (
+                        <span className="text-destructive"> *</span>
+                      ) : null}
+                    </span>
+                    {!isAutopilot ? (
+                      <label className="nodrag flex shrink-0 cursor-pointer items-center gap-1 text-[0.6rem] text-muted-foreground">
+                        <input
+                          type="checkbox"
+                          className="nodrag size-3 accent-primary"
+                          checked={fieldLocked}
+                          disabled={disabled || approving}
+                          onChange={(event) =>
+                            setLocked((current) => ({
+                              ...current,
+                              [field.name]: event.target.checked,
+                            }))
+                          }
+                        />
+                        lock
+                      </label>
+                    ) : null}
+                  </div>
+                  <FieldControl
+                    field={field}
+                    value={values[field.name]}
+                    disabled={disabled || approving || fieldLocked}
+                    onChange={(next) =>
+                      setValues((current) => ({
+                        ...current,
+                        [field.name]: next,
+                      }))
+                    }
+                  />
                 </div>
-              ))}
-            </div>
+              );
+            })}
           </div>
         ) : null}
+
         {!isAutopilot ? (
           <Button
             className="nodrag w-full"
             size="sm"
-            disabled={disabled || pending || approving || !approvablePrompt}
+            disabled={
+              disabled || pending || approving || (promptField && !promptValue)
+            }
             onClick={approve}
           >
             <FontAwesomeIcon
               className={approving ? 'animate-spin' : undefined}
               icon={approving ? 'spinner' : 'check'}
             />
-            {approving ? 'Continuing...' : 'Continue with Agent'}
+            {approving ? 'Continuing...' : 'Approve & continue'}
           </Button>
         ) : null}
       </div>
@@ -1952,13 +2014,6 @@ function proposedParamsForSelection(
   }
 
   return params;
-}
-
-function orderedProposedFields(
-  fields: FieldSpec[],
-  params: Record<string, unknown>,
-) {
-  return fields.map((field) => [field.name, params[field.name]] as const);
 }
 
 function completeProposedParams(
@@ -2002,12 +2057,67 @@ function hasProposedField(fields: FieldSpec[], fieldName: string) {
   return fields.some((field) => field.name === fieldName);
 }
 
-function formatCheckpointValue(value: unknown) {
-  if (value === null || value === undefined) return '';
-  if (typeof value === 'string') return value;
-  if (typeof value === 'number' || typeof value === 'boolean')
-    return String(value);
-  return JSON.stringify(value, null, 2);
+function checkpointFieldValue(value: unknown, field: FieldSpec): FieldValue {
+  const resolved =
+    value === undefined || value === null
+      ? proposedFieldFallback(field)
+      : value;
+
+  if (
+    typeof resolved === 'string' ||
+    typeof resolved === 'number' ||
+    typeof resolved === 'boolean'
+  ) {
+    return resolved;
+  }
+
+  if (resolved === undefined || resolved === null) {
+    return '';
+  }
+
+  return JSON.stringify(resolved);
+}
+
+function coerceCheckpointParams(
+  values: Record<string, FieldValue>,
+  fields: FieldSpec[],
+): Record<string, unknown> {
+  const params: Record<string, unknown> = {};
+
+  for (const field of fields) {
+    const value = values[field.name];
+    if (value === undefined) {
+      continue;
+    }
+
+    if (field.valueKind === 'number' || field.type === 'number') {
+      if (typeof value === 'number') {
+        params[field.name] = value;
+      } else {
+        const numeric = Number(value);
+        params[field.name] = Number.isFinite(numeric) ? numeric : value;
+      }
+      continue;
+    }
+
+    if (field.valueKind === 'string-array') {
+      params[field.name] = normalizeStringArrayValue(value);
+      continue;
+    }
+
+    if (field.valueKind === 'json' && typeof value === 'string') {
+      try {
+        params[field.name] = JSON.parse(value);
+      } catch {
+        params[field.name] = value;
+      }
+      continue;
+    }
+
+    params[field.name] = value;
+  }
+
+  return params;
 }
 
 function CheckpointNodeComponent({ data }: NodeProps) {
@@ -2062,6 +2172,7 @@ function CheckpointNodeComponent({ data }: NodeProps) {
 
       <div className="p-3">
         <AgentCheckpointPanel
+          key={checkpoint.id}
           checkpoint={checkpoint}
           mode={runMode}
           disabled={!running || runMode !== 'agent_review' || !state}
@@ -2396,10 +2507,27 @@ function RunnerNodeComponent({ data }: NodeProps) {
   );
 }
 
-const RUN_MODE_OPTIONS: Array<{ label: string; value: RunMode }> = [
-  { label: 'Self Control', value: 'self_control' },
-  { label: 'Agent (Review)', value: 'agent_review' },
-  { label: 'Agent (Autopilot)', value: 'agent_autopilot' },
+const RUN_MODE_OPTIONS: Array<{
+  label: string;
+  description: string;
+  value: RunMode;
+}> = [
+  {
+    label: 'Self Control',
+    description: 'You write every step; BabyChain runs the chain as-is.',
+    value: 'self_control',
+  },
+  {
+    label: 'Agentic · Review',
+    description:
+      'An Amazon Nova planner proposes each next step; you approve or edit it.',
+    value: 'agent_review',
+  },
+  {
+    label: 'Agentic · Autopilot',
+    description: 'An Amazon Nova planner writes and runs every next step.',
+    value: 'agent_autopilot',
+  },
 ];
 
 function RunnerActionLabel({ children }: { children: ReactNode }) {
@@ -4328,7 +4456,7 @@ function CanvasInner(props: CanvasProps) {
     ) => {
       const runId = flowRunIdRef.current.get(flowId);
       if (!runId) {
-        toast.error('This Chain Agent run is no longer being tracked.');
+        toast.error('This Agentic Workflow run is no longer being tracked.');
         return;
       }
 

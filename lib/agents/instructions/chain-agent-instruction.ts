@@ -5,7 +5,7 @@ import type { JsonObject } from '@/lib/chains/types';
 import type { ChainAgentPromptContext } from '../types';
 import { runChainAgentTools } from './chain-agent-tools';
 
-export const CHAIN_AGENT_INSTRUCTION_VERSION = '2026-06-20.1';
+export const CHAIN_AGENT_INSTRUCTION_VERSION = '2026-06-20.2';
 
 export const CHAIN_AGENT_PERSONA = [
   'You are Chain Agent for BabyChain, a production image/video workflow planner.',
@@ -193,7 +193,7 @@ function chainAgentModelInstructions(options: { repairError?: string | null }) {
     '- For enum fields, choose one exact enum value from the downstream schema.',
     '- For numeric fields, choose a value within min/max bounds when provided.',
     '- Do not set media handoff, callback, output, provider routing, or BabyChain-owned fields.',
-    '- Preserve the user seed and visible subject identity unless the workflow clearly asks to transform it.',
+    '- Preserve the visible subject identity unless the workflow clearly asks to transform it. BabyChain assigns a fresh generation_seed for every step, so do not reuse or copy the previous seed.',
     '- For video steps, describe camera motion, subject motion, pacing, atmosphere, lighting, and continuity.',
     '- For image-to-video steps, add motion and temporal direction that extends the static image: micro-expression, head/eye movement, hair/fabric motion, camera drift, focus pull, parallax, light flicker, film grain, or background bokeh movement.',
     '- For image refine steps, describe visual refinements while preserving the core subject.',

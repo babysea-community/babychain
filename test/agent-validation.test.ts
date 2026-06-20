@@ -169,6 +169,78 @@ describe('validateChainAgentResult', () => {
         'selected_prompt must exactly match selected_params.generation_prompt.',
     });
   });
+
+  it('drops generation_prompt for downstream schemas that do not accept it', () => {
+    const modifyContext: ChainAgentPromptContext = {
+      currentInput: {},
+      flow: {
+        currentStepKey: 'video',
+        mode: 'autopilot',
+        nextStepKey: 'modify',
+      },
+      nextStep: {
+        modelIdentifier: 'runway/aleph-2',
+        requestParams: null,
+        schema: {
+          type: 'object',
+          properties: {
+            generation_seed: {
+              type: 'integer',
+              minimum: 0,
+              maximum: 2147483647,
+            },
+          },
+        },
+        stepKey: 'modify',
+        stepKind: 'video',
+      },
+      previousStep: {
+        modelIdentifier: 'google/veo-3.1',
+        outputFiles: [],
+        requestParams: { generation_prompt: 'A living portrait video.' },
+        stepKey: 'video',
+        stepKind: 'video',
+      },
+    };
+
+    const completed = completeChainAgentSelectedParams(
+      {
+        generation_prompt: 'Re-grade the footage as vintage Kodachrome film.',
+        generation_seed: 7,
+      },
+      modifyContext,
+    );
+
+    expect(completed).not.toHaveProperty('generation_prompt');
+    expect(completed).toMatchObject({ generation_seed: 7 });
+
+    const validation = validateChainAgentResult(
+      {
+        selectedParams: {
+          generation_prompt: 'Re-grade the footage as vintage Kodachrome film.',
+          generation_seed: 7,
+        },
+        selectedPrompt: 'Re-grade the footage as vintage Kodachrome film.',
+        suggestions: [
+          {
+            title: 'Kodachrome',
+            prompt: 'Re-grade as vintage Kodachrome with soft halation.',
+          },
+          {
+            title: 'Teal',
+            prompt: 'Re-grade as cool teal cinema with fine grain.',
+          },
+          {
+            title: 'Sepia',
+            prompt: 'Re-grade as warm sepia with a gentle vignette.',
+          },
+        ],
+      },
+      modifyContext,
+    );
+
+    expect(validation).toMatchObject({ ok: true });
+  });
 });
 
 function contextWithCurrentInput(
