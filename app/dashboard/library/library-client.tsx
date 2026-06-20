@@ -490,6 +490,8 @@ function ResultPreview({
         <img
           src={preview.url}
           alt={`${title} — image result`}
+          loading="lazy"
+          decoding="async"
           onError={() => setFailed(true)}
           onLoad={() => setLoaded(true)}
           className="h-full w-full border border-border bg-black object-contain"
