@@ -68,11 +68,19 @@ Canvas studio, agentic planner, and durable chain API for image and video model 
 
 <br/>
 
-<img src="public/card.png" alt="BabyChain card" />
+<img src="public/agent-autopilot.png" alt="BabyChain dashboard" />
 
 <br />
 
-<img src="public/dashboard.png" alt="BabyChain dashboard" />
+<img src="public/proposed-fields.png" alt="BabyChain dashboard" />
+
+<br />
+
+<img src="public/agent-copilot.png" alt="BabyChain dashboard" />
+
+<br />
+
+<img src="public/results-from-autopilot.png" alt="BabyChain dashboard" />
 
 </div>
 
