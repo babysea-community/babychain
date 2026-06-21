@@ -190,7 +190,7 @@ function executionConfigFromPayload(
 
   return {
     type: 'chain_agent',
-    mode: value.mode ?? 'review',
+    mode: value.mode ?? 'copilot',
     provider: value.provider ?? 'bedrock',
     modelIdentifier:
       value.model_identifier ?? defaultBedrockNovaModelIdentifier(),

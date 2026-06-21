@@ -786,7 +786,7 @@ function toAgentCheckpointRecord(row: Row): ChainAgentCheckpointRecord {
     runId: row.run_id as string,
     stepKey: row.step_key as string,
     previousStepKey: row.previous_step_key as string,
-    mode: row.mode as 'review' | 'autopilot',
+    mode: row.mode as 'copilot' | 'autopilot',
     provider: row.provider as 'bedrock',
     modelIdentifier: row.model_identifier as string,
     status: row.status as ChainAgentCheckpointStatus,
@@ -812,7 +812,7 @@ function executionConfig(value: unknown): ChainExecutionConfig {
 
   if (
     config.type === 'chain_agent' &&
-    (config.mode === 'review' || config.mode === 'autopilot') &&
+    (config.mode === 'copilot' || config.mode === 'autopilot') &&
     config.provider === 'bedrock' &&
     typeof config.modelIdentifier === 'string' &&
     config.modelIdentifier.length > 0

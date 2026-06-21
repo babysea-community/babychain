@@ -314,7 +314,7 @@ function deriveSemanticFields(modelId: string, role: StepRole): FieldGroup {
   });
 
   if (!schema) {
-    // Defensive fallback — every catalog model ships a Semantic Lady schema.
+    // Defensive fallback: every catalog model ships a Semantic Lady schema.
     return {
       core: [
         {

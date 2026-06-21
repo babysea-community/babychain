@@ -2,7 +2,7 @@ import 'server-only';
 
 import type { ChainStepRecord, JsonObject } from '@/lib/chains/types';
 
-export type ChainAgentMode = 'review' | 'autopilot';
+export type ChainAgentMode = 'copilot' | 'autopilot';
 export type ChainAgentProvider = 'bedrock';
 
 export type ChainAgentConfig = {

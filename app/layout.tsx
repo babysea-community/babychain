@@ -15,7 +15,7 @@ const fontMono = JetBrains_Mono({
 
 const title = 'BabyChain';
 const description =
-  'Canvas studio and durable chain API for image and video model workflows with one final callback.';
+  'Canvas studio, agentic planner, and durable chain API for image and video model workflows with one final callback.';
 const socialImageUrl = 'https://cdn.babysea.live/assets/oss/babychain-card.png';
 
 export const metadata: Metadata = {
@@ -39,6 +39,9 @@ export const metadata: Metadata = {
     'generative-media',
     'aws-aurora',
     'vercel',
+    'amazon-nova',
+    'aws-s3',
+    'vercel-blob',
     'react-flow',
     'semantic-lady',
     'sentry',

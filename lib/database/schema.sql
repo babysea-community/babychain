@@ -85,7 +85,7 @@ create table if not exists babychain_private.chain_agent_checkpoint (
   run_id uuid not null references babychain_private.chain_run(id) on delete cascade,
   step_key text not null,
   previous_step_key text not null,
-  mode text not null check (mode in ('review','autopilot')),
+  mode text not null check (mode in ('copilot','autopilot')),
   provider text not null check (provider in ('bedrock')),
   model_identifier text not null,
   status text not null default 'suggested' check (status in ('suggested','approved','applied','failed')),

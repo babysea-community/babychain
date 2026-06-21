@@ -137,7 +137,7 @@ export type StoredAssetReference = {
 /**
  * Best-effort deletion of previously stored output assets (the image/video
  * files written by {@link persistOutputFiles}). Only assets whose recorded
- * provider matches the currently configured storage provider are removed —
+ * provider matches the currently configured storage provider are removed;
  * other providers' credentials are not available at runtime. Storage being
  * disabled (`none`) or misconfigured is treated as a no-op so callers never
  * fail because of cleanup.

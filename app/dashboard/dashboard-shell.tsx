@@ -28,7 +28,7 @@ export function DashboardShell({
 
   // One stable element tree for both layouts: only the sidebar toggles.
   // Returning a different tree shape per route would unmount the children
-  // (and kill any in-flight canvas run — poll timer, step statuses, outputs)
+  // (and kill any in-flight canvas run: poll timer, step statuses, outputs)
   // when the route changes between canvas views.
   return (
     <div className="flex h-screen overflow-hidden bg-background text-foreground">

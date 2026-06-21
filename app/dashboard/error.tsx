@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 /**
  * Dashboard error boundary: a transient Aurora/network failure renders a
  * recoverable retry screen instead of the framework's raw error page. State
- * is safe — runs and canvases live server-side, so retrying re-reads them.
+ * is safe: runs and canvases live server-side, so retrying re-reads them.
  */
 export default function DashboardError({
   reset,

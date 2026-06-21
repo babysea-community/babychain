@@ -1,7 +1,7 @@
 {
   "name": "babychain",
-  "version": "0.1.1",
-  "description": "Canvas studio and durable chain API for image and video model workflows with one final callback.",
+  "version": "0.2.0",
+  "description": "Canvas studio, agentic planner, and durable chain API for image and video model workflows with one final callback.",
   "private": true,
   "license": "Apache-2.0",
   "homepage": "https://babychain.babysea.live",
@@ -22,6 +22,9 @@
     "generative-media",
     "aws-aurora",
     "vercel",
+    "amazon-nova",
+    "aws-s3",
+    "vercel-blob",
     "react-flow",
     "semantic-lady",
     "sentry"

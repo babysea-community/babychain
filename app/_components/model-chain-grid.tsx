@@ -40,7 +40,7 @@ export function ModelChainGrid({
     startIndex + catalogPage.entries.length,
     catalogPage.total,
   );
-  const visiblePageNumbers = getVisiblePageNumbers(currentPage, pageCount, 15);
+  const visiblePageNumbers = getVisiblePageNumbers(currentPage, pageCount, 10);
 
   useEffect(() => {
     const normalizedQuery = deferredQuery.trim().toLowerCase();

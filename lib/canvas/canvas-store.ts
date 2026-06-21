@@ -13,7 +13,7 @@ import { normalizeCanvasTitle } from './names';
  * Canvases are the saved node graphs from the dashboard canvas. They are
  * stored in AWS Aurora (PostgreSQL) so they survive logout, new devices, and
  * browser storage resets. Every query is scoped by `owner_email` from the
- * verified dashboard session — the id alone never grants access.
+ * verified dashboard session; the id alone never grants access.
  */
 
 const MAX_CANVASES_PER_OWNER = 200;
@@ -46,7 +46,10 @@ export type SaveCanvasInput = {
 
 export type CanvasResultPreview = {
   kind: 'image' | 'video';
-  url: string;
+  role: string;
+  status: string;
+  url: string | null;
+  error: string | null;
 };
 
 export type CanvasLibraryItem = Omit<StoredCanvas, 'nodes'> & {
@@ -72,9 +75,9 @@ export async function listCanvases(
   // The Library only renders model/inference badges and result previews, so
   // we never ship the full node graph here. Instead we reduce each canvas's
   // `nodes` to the list of model ids server-side (badges dedupe them) and let
-  // every succeeded step output of the run rides along (in step order,
-  // capped at 4) so the card can show image → refine → video → modify, not
-  // just the final pair.
+  // every step of the run ride along (status, output url, and error, in step
+  // order, capped at 4) so each role slot can show its result, a failure, or
+  // an unused state.
   const result = await auroraQuery<CanvasListRow>(
     `select c.id, c.title, c.run_id, c.created_at, c.updated_at,
             (
@@ -89,15 +92,21 @@ export async function listCanvases(
        from babychain_private.canvas c
        left join lateral (
          select jsonb_agg(
-                  jsonb_build_object('kind', p.step_kind, 'url', p.url)
+                  jsonb_build_object(
+                    'kind', p.step_kind,
+                    'role', p.step_key,
+                    'status', p.status,
+                    'url', p.url,
+                    'error', p.error
+                  )
                   order by p.step_index
                 ) as items
            from (
-             select s.step_kind, s.step_index, s.output_files[1] as url
+             select s.step_kind, s.step_key, s.step_index, s.status,
+                    s.output_files[1] as url,
+                    coalesce(s.error_message, s.error_code) as error
                from babychain_private.chain_step s
               where s.run_id = c.run_id
-                and s.status = 'succeeded'
-                and cardinality(s.output_files) > 0
               order by s.step_index
               limit ${MAX_RESULT_PREVIEWS}
            ) p
@@ -139,13 +148,18 @@ function toResultPreviews(value: unknown): CanvasResultPreview[] {
   for (const entry of value) {
     if (!entry || typeof entry !== 'object') continue;
     const kind = (entry as { kind?: unknown }).kind;
+    const role = (entry as { role?: unknown }).role;
+    const status = (entry as { status?: unknown }).status;
     const url = (entry as { url?: unknown }).url;
-    if (
-      (kind === 'image' || kind === 'video') &&
-      typeof url === 'string' &&
-      url.length > 0
-    ) {
-      previews.push({ kind, url });
+    const error = (entry as { error?: unknown }).error;
+    if (kind === 'image' || kind === 'video') {
+      previews.push({
+        kind,
+        role: typeof role === 'string' ? role : '',
+        status: typeof status === 'string' ? status : '',
+        url: typeof url === 'string' && url.length > 0 ? url : null,
+        error: typeof error === 'string' && error.length > 0 ? error : null,
+      });
     }
     if (previews.length >= MAX_RESULT_PREVIEWS) break;
   }
@@ -393,7 +407,7 @@ export async function deleteCanvas(
 
   // Reclaim the canvas's stored image/video files (S3 / Vercel Blob) for its
   // run. The chain_run / chain_step history rows are intentionally left
-  // in place — only the binary assets are removed. Cleanup is best-effort so a
+  // in place; only the binary assets are removed. Cleanup is best-effort so a
   // storage hiccup never blocks the delete the owner already requested.
   if (deleted.run_id) {
     try {
@@ -473,7 +487,7 @@ function extractStoredAssetReferences(value: unknown): StoredAssetReference[] {
 
 /**
  * Renames a saved (Library) canvas. Returns false when the canvas does not
- * exist for this owner — callers treat rename as best-effort (the flow may
+ * exist for this owner, so callers treat rename as best-effort (the flow may
  * not have been saved yet).
  */
 export async function renameCanvas(

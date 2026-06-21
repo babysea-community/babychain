@@ -1,3 +1,4 @@
+import { InlineAwsAurora } from '@/components/icons/inline-database';
 import {
   InlineAwsCloudFormation,
   InlineAwsEc2,
@@ -26,6 +27,11 @@ import {
   InlineRunwayLight as InlineInferenceRunwayLight,
   InlineTencentCloud as InlineInferenceTencentCloud,
 } from '@/components/icons/inline-inference';
+import { InlineAmazonNova } from '@/components/icons/inline-llm';
+import {
+  InlineAwsS3Storage,
+  InlineVercelBlob,
+} from '@/components/icons/inline-storage';
 import {
   listModelChainCatalog,
   listModelChainCatalogPage,
@@ -40,8 +46,11 @@ import { SectionHeading } from './_components/section-heading';
 import { SiteFooter } from './_components/site-footer';
 import { SiteHeader } from './_components/site-header';
 import {
+  agenticWorkflow,
   catalogIntro,
+  communityPrograms,
   createHomepageMetrics,
+  databaseEngine,
   homepageCta,
   homepageHero,
   providerModes,
@@ -52,7 +61,7 @@ import {
 
 export const dynamic = 'force-dynamic';
 
-const MODEL_CHAIN_PAGE_SIZE = 25;
+const MODEL_CHAIN_PAGE_SIZE = 10;
 const HOST_ICONS = [
   {
     Icon: InlineAwsCloudFormation,
@@ -93,6 +102,10 @@ const INFERENCE_ICONS = [
     label: 'Tencent Cloud',
   },
 ] as const;
+const STORAGE_ICONS = [
+  { Icon: InlineAwsS3Storage, label: 'AWS S3' },
+  { Icon: InlineVercelBlob, label: 'Vercel Blob' },
+] as const;
 
 export default function HomePage() {
   const catalog = listModelChainCatalog();
@@ -116,6 +129,105 @@ export default function HomePage() {
 
       <div className="flex flex-col gap-6 px-3 py-6 md:gap-12 md:px-5 md:py-12">
         <HomepageHero {...homepageHero} metrics={metrics} />
+
+        <section id="agentic-workflow">
+          <div className="mx-auto max-w-[1520px] border border-border bg-card">
+            <div className="grid border-b border-border lg:grid-cols-[1fr_auto]">
+              <div className="border-b border-border p-5 md:p-7 lg:border-b-0 lg:border-r">
+                <SectionHeading
+                  eyebrow={agenticWorkflow.eyebrow}
+                  title={agenticWorkflow.title}
+                  description={agenticWorkflow.description}
+                  maxWidthClass="max-w-5xl"
+                />
+              </div>
+
+              <div className="flex flex-col items-center justify-center p-5 text-center md:p-7 lg:w-96">
+                <div className="font-mono text-xs uppercase tracking-[0.18em] text-muted-foreground">
+                  {agenticWorkflow.modelLabel}
+                </div>
+                <span className="mt-4 grid size-20 place-items-center border border-border bg-muted">
+                  <InlineAmazonNova aria-hidden="true" className="size-12" />
+                </span>
+                <div className="mt-3 text-lg font-semibold text-foreground">
+                  {agenticWorkflow.modelName}
+                </div>
+              </div>
+            </div>
+
+            <div className="grid lg:grid-cols-[1fr_1fr_auto]">
+              {agenticWorkflow.features.map((feature) => {
+                const FeatureIcon = feature.icon;
+
+                return (
+                  <div
+                    className="min-w-0 border-b border-border p-5 md:p-7 lg:border-b-0 lg:border-r"
+                    key={feature.title}
+                  >
+                    <span className="grid size-12 place-items-center border border-border bg-muted text-foreground">
+                      <FeatureIcon aria-hidden="true" className="size-5" />
+                    </span>
+                    <div className="mt-5 font-mono text-xs uppercase tracking-[0.16em] text-muted-foreground">
+                      {feature.label}
+                    </div>
+                    <h3 className="mt-2 text-lg font-semibold tracking-tight text-foreground">
+                      {feature.title}
+                    </h3>
+                    <p className="mt-3 text-sm leading-7 text-muted-foreground">
+                      {feature.text}
+                    </p>
+                  </div>
+                );
+              })}
+
+              <div className="flex flex-col items-center justify-center p-5 text-center md:p-7 lg:w-96">
+                <div className="font-mono text-xs uppercase tracking-[0.18em] text-muted-foreground">
+                  {agenticWorkflow.storageLabel}
+                </div>
+                <div className="mt-4 flex justify-center gap-1 sm:gap-2">
+                  {STORAGE_ICONS.map(({ Icon, label }) => (
+                    <span
+                      aria-label={label}
+                      className="grid size-20 place-items-center border border-border bg-muted text-foreground"
+                      key={label}
+                      role="img"
+                      title={label}
+                    >
+                      <Icon className="size-12" aria-hidden="true" />
+                    </span>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section id="database-engine">
+          <div className="mx-auto max-w-[1520px] border border-border bg-card">
+            <div className="grid lg:grid-cols-[1fr_auto]">
+              <div className="border-b border-border p-5 md:p-7 lg:border-b-0 lg:border-r">
+                <SectionHeading
+                  eyebrow={databaseEngine.eyebrow}
+                  title={databaseEngine.title}
+                  description={databaseEngine.description}
+                  maxWidthClass="max-w-5xl"
+                />
+              </div>
+
+              <div className="flex flex-col items-center justify-center p-5 text-center md:p-7 lg:w-96">
+                <div className="font-mono text-xs uppercase tracking-[0.18em] text-muted-foreground">
+                  {databaseEngine.modelLabel}
+                </div>
+                <span className="mt-4 grid size-20 place-items-center border border-border bg-muted">
+                  <InlineAwsAurora aria-hidden="true" className="size-12" />
+                </span>
+                <div className="mt-3 text-lg font-semibold text-foreground">
+                  {databaseEngine.modelName}
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
 
         <section id="provider-modes">
           <div className="mx-auto max-w-[1520px] border border-border bg-card">
@@ -233,6 +345,45 @@ export default function HomePage() {
         <section>
           <div className="mx-auto max-w-[1520px] border border-border bg-card p-px">
             <FeatureGrid features={workflowNotes} />
+          </div>
+        </section>
+
+        <section id="community-programs">
+          <div className="mx-auto max-w-[1520px] border border-border bg-card">
+            <div className="border-b border-border p-5 md:p-7">
+              <SectionHeading
+                eyebrow={communityPrograms.eyebrow}
+                title={communityPrograms.title}
+                descriptionContent={
+                  <>
+                    <a
+                      href={communityPrograms.founderHref}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="font-medium text-foreground underline decoration-dotted decoration-muted-foreground/50 underline-offset-4 transition hover:text-primary hover:decoration-primary"
+                    >
+                      {communityPrograms.founderLabel}
+                    </a>
+                    {communityPrograms.description.slice(
+                      communityPrograms.founderLabel.length,
+                    )}
+                  </>
+                }
+                maxWidthClass="max-w-5xl"
+              />
+            </div>
+            <div className="grid gap-px bg-border sm:grid-cols-2 lg:grid-cols-4">
+              {communityPrograms.programs.map((program) => (
+                <div className="bg-card p-5 md:p-7" key={program.name}>
+                  <div className="font-mono text-xs uppercase tracking-[0.18em] text-muted-foreground">
+                    {program.org}
+                  </div>
+                  <div className="mt-2 text-lg font-semibold tracking-tight text-foreground">
+                    {program.name}
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         </section>
 

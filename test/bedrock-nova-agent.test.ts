@@ -43,7 +43,7 @@ describe('Bedrock Nova Chain Agent', () => {
         currentInput: {},
         flow: {
           currentStepKey: 'image',
-          mode: 'review',
+          mode: 'copilot',
           nextStepKey: 'video',
         },
         nextStep: {

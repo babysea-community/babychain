@@ -1,20 +1,28 @@
+import type { ReactNode } from 'react';
+
 import { Badge } from '@/components/ui/badge';
 
 export function SectionHeading({
   align = 'left',
   description,
+  descriptionContent,
   eyebrow,
   title,
+  maxWidthClass = 'max-w-3xl',
 }: {
   align?: 'left' | 'center';
   description?: string;
+  descriptionContent?: ReactNode;
   eyebrow?: string;
   title: string;
+  maxWidthClass?: string;
 }) {
   return (
     <div
       className={
-        align === 'center' ? 'mx-auto max-w-3xl text-center' : 'max-w-3xl'
+        align === 'center'
+          ? `mx-auto ${maxWidthClass} text-center`
+          : maxWidthClass
       }
     >
       {eyebrow ? <Badge variant="muted">{eyebrow}</Badge> : null}
@@ -29,13 +37,32 @@ export function SectionHeading({
             <span className="text-primary">Self-hosted</span> with your own keys
             and environment.
           </>
+        ) : title ===
+          'Design and chain your canvas with an agentic planner.' ? (
+          <>
+            <span className="text-primary">Design</span> and{' '}
+            <span className="text-primary">chain</span> your canvas
+            <br />
+            with an <span className="text-primary">agentic</span> planner.
+          </>
+        ) : title === 'Persist and replay every run on a durable database.' ? (
+          <>
+            Persist and replay <span className="text-primary">every run</span>
+            <br />
+            on a <span className="text-primary">durable</span> database.
+          </>
+        ) : title === 'We are part of the AI community.' ? (
+          <>
+            We are part of{' '}
+            <span className="text-primary">the AI community</span>.
+          </>
         ) : (
           title
         )}
       </h2>
-      {description ? (
+      {(descriptionContent ?? description) ? (
         <p className="mt-4 text-base leading-7 text-muted-foreground md:text-lg">
-          {description}
+          {descriptionContent ?? description}
         </p>
       ) : null}
     </div>

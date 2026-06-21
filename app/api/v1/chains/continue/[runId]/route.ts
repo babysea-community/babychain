@@ -27,7 +27,7 @@ type RouteContext = {
 /**
  * POST /api/v1/chains/continue/:runId
  *
- * Approves a Chain Agent Review checkpoint and resumes the run.
+ * Approves a Chain Agent Copilot checkpoint and resumes the run.
  */
 export async function POST(request: NextRequest, context: RouteContext) {
   try {

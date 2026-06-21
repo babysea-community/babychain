@@ -84,7 +84,7 @@ function createPrincipal(): ApiKeyPrincipal {
 /**
  * Minimal `pg` client that echoes inserted rows. The chain_run insert returns
  * the `input` jsonb with keys canonicalized (sorted) to simulate Postgres jsonb
- * reordering, plus the `input_order` sidecar — proving the store restores caller
+ * reordering, plus the `input_order` sidecar, proving the store restores caller
  * order from the sidecar rather than relying on jsonb order.
  */
 function createFakeClient() {

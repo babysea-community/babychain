@@ -16,7 +16,7 @@ import type {
 } from './types';
 
 /**
- * Black Forest Labs (BFL) — direct BYOK adapter.
+ * Black Forest Labs (BFL) - direct BYOK adapter.
  *
  * Design notes
  * -------------
@@ -24,7 +24,7 @@ import type {
  *
  *   1.  `POST https://api.<region>.bfl.ai/v1/<endpoint>` with `x-key: <key>`
  *       returns `{ id, polling_url }`. The polling URL MUST be used verbatim
- *       (it embeds the queue routing) — we never reconstruct it from the id.
+ *       (it embeds the queue routing), so we never reconstruct it from the id.
  *   2.  `GET <polling_url>` returns `{ status, result?: { sample, ... } }`.
  *   3.  No cancel endpoint exists, so `cancel()` is a no-op and BabyChain
  *       marks the step canceled locally without notifying BFL.
@@ -264,7 +264,7 @@ export function createBflProvider(config: BflProviderConfig): Provider {
     },
 
     async cancel(_context: ProviderCancelContext): Promise<void> {
-      // BFL exposes no cancel endpoint — the runner handles local cancellation.
+      // BFL exposes no cancel endpoint, so the runner handles local cancellation.
       return;
     },
   };

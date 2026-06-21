@@ -16,7 +16,7 @@ export const runtime = 'nodejs';
  * action while the page is open; this route exists for `navigator.sendBeacon`
  * on pagehide, which cannot call server actions. With a `canvas` target it
  * flushes a saved (Library) canvas; without one it flushes the owner's
- * workspace scratchpad. Owner session cookie required — no API key surface.
+ * workspace scratchpad. Owner session cookie required, with no API key surface.
  */
 export async function POST(request: NextRequest) {
   try {

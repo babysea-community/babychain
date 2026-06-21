@@ -28,7 +28,7 @@ COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 RUN pnpm install --prod --frozen-lockfile
 
 FROM node:24-alpine AS runner
-ARG BABYCHAIN_VERSION=0.1.1
+ARG BABYCHAIN_VERSION=0.2.0
 ARG BUILD_DATE=unknown
 ARG VCS_REF=unknown
 WORKDIR /app
@@ -38,7 +38,7 @@ ENV NEXT_TELEMETRY_DISABLED=1
 ENV PORT=3000
 
 LABEL org.opencontainers.image.title="BabyChain" \
-	org.opencontainers.image.description="Canvas studio and durable chain API for image and video model workflows with one final callback." \
+	org.opencontainers.image.description="Canvas studio, agentic planner, and durable chain API for image and video model workflows with one final callback." \
 	org.opencontainers.image.url="https://babychain.babysea.live" \
 	org.opencontainers.image.source="https://github.com/babysea-community/babychain" \
 	org.opencontainers.image.version="$BABYCHAIN_VERSION" \

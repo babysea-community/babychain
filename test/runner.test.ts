@@ -685,7 +685,7 @@ describe('runner step claiming', () => {
     expect(result.run.status).toBe('failed');
     expect(result.run.errorCode).toBe('provider_invalid_request');
     // No input will ever arrive for the queued video step once the image
-    // step has failed — it must be skipped immediately, not left queued.
+    // step has failed, so it must be skipped immediately, not left queued.
     expect(result.steps[1]!.status).toBe('skipped');
     expect(result.steps[1]!.completedAt).toBeTruthy();
   });
@@ -943,8 +943,8 @@ describe('runner step claiming', () => {
     ]);
   });
 
-  it('pauses a Chain Agent Review run at the next checkpoint', async () => {
-    const record = chainAgentRecord('review');
+  it('pauses a Chain Agent Copilot run at the next checkpoint', async () => {
+    const record = chainAgentRecord('copilot');
     let updatedRecord = record;
     let nextStepSchema: JsonObject | null = null;
     let nextStepRequestParams: JsonObject | null = null;
@@ -997,7 +997,7 @@ describe('runner step claiming', () => {
   });
 
   it('passes storage-backed previous output URLs to Chain Agent context', async () => {
-    const record = chainAgentRecord('review');
+    const record = chainAgentRecord('copilot');
     record.steps[0] = {
       ...record.steps[0]!,
       providerMetadata: {
@@ -1041,7 +1041,7 @@ describe('runner step claiming', () => {
   });
 
   it('excludes reserved media fields from Chain Agent downstream schema', async () => {
-    const record = chainAgentRecord('review', {
+    const record = chainAgentRecord('copilot', {
       videoModel: 'runway/act-two-image',
       videoModelInput: {
         generation_aspect_ratio: '1280:720',
@@ -1240,8 +1240,8 @@ describe('runner step claiming', () => {
     expect(result.agentCheckpoints).toHaveLength(0);
   });
 
-  it('rejects invalid Chain Agent Review approval params', async () => {
-    const record = chainAgentRecord('review');
+  it('rejects invalid Chain Agent Copilot approval params', async () => {
+    const record = chainAgentRecord('copilot');
     let updatedRecord = record;
     const store = createMutableAgentStore(updatedRecord, (next) => {
       updatedRecord = next;
@@ -1851,7 +1851,7 @@ function createRunWithSteps(
 }
 
 function chainAgentRecord(
-  mode: 'autopilot' | 'review',
+  mode: 'autopilot' | 'copilot',
   options: {
     videoModel?: string;
     videoModelInput?: JsonObject;
@@ -1974,7 +1974,7 @@ function createMutableAgentStore(
     },
     createAgentCheckpoint: async (input: {
       inputSnapshot: JsonObject;
-      mode: 'autopilot' | 'review';
+      mode: 'autopilot' | 'copilot';
       modelIdentifier: string;
       output: JsonObject;
       previousStepKey: string;

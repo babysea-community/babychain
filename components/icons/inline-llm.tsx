@@ -25,7 +25,7 @@ export function InlineAmazonNova({
       className={cn(className)}
       {...props}
     >
-      <title>Nova</title>
+      <title>Amazon Nova</title>
       <g mask="url(#nova-mask-outer)">
         <mask
           height="32"

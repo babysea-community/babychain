@@ -28,7 +28,7 @@ const OptionalUrlSchema = z.preprocess(
 const EnvSchema = z.object({
   NEXT_PUBLIC_SITE_URL: z.string().trim().url(),
   /**
-   * BabySea SDK credentials. Optional — leave unset for BYOK deployments.
+   * BabySea SDK credentials. Optional. Leave unset for BYOK deployments.
    * Required only when `BABYCHAIN_PROVIDER_MODE=babysea`.
    */
   BABYSEA_API_KEY: OptionalNonEmptyStringSchema,

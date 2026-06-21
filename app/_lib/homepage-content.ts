@@ -8,12 +8,17 @@ const Cloud = createFontAwesomeIcon('cloud');
 const CodeFork = createFontAwesomeIcon('code-fork');
 const Database = createFontAwesomeIcon('database');
 const Fingerprint = createFontAwesomeIcon('fingerprint');
+const Flag = createFontAwesomeIcon('flag');
 const Heart = createFontAwesomeIcon('heart');
 const Key = createFontAwesomeIcon('key');
 const Lock = createFontAwesomeIcon('lock');
+const Microchip = createFontAwesomeIcon('microchip');
 const Rocket = createFontAwesomeIcon('rocket');
+const Share = createFontAwesomeIcon('share');
 const ShieldHalved = createFontAwesomeIcon('shield-halved');
 const Terminal = createFontAwesomeIcon('terminal');
+const UserAstronaut = createFontAwesomeIcon('user-astronaut');
+const UserSecret = createFontAwesomeIcon('user-secret');
 
 export const siteNavigation = {
   brand: 'BabyChain',
@@ -33,7 +38,7 @@ export const siteNavigation = {
       variant: 'default' as const,
     },
     {
-      href: 'https://babychain.babysea.live/login',
+      href: '/login',
       icon: Cloud,
       label: 'Launch on Cloud',
       variant: 'outline' as const,
@@ -42,7 +47,7 @@ export const siteNavigation = {
 };
 
 export const homepageHero = {
-  eyebrow: 'Canvas studio + Chain API',
+  eyebrow: 'Canvas studio + Agentic Chain API',
   title: 'Every output becomes the next input.',
   description:
     'Compose image and video model chains on a visual canvas, then run the same flows through a durable self-hosted API with one final callback.',
@@ -74,12 +79,12 @@ export const homepageHero = {
     deployTitle: 'BabyChain deployment',
     lines: [
       'load the requested chain template',
-      'authenticate scoped request credentials',
+      'verify scoped caller identity',
       'resolve BYOK inference credentials',
-      'expand input.chain_models overrides',
-      'dedupe retries with idempotency keys',
-      'persist runs and ordered steps',
-      'run steps, hand off outputs, send signed callback',
+      'draft each next action with an agentic planner',
+      'approve copilot checkpoints or release autopilot',
+      'persist durable runs and ordered records',
+      'execute steps, hand off outputs, send signed callback',
     ],
     deployLinks: [
       {
@@ -173,6 +178,39 @@ export const providerModes = {
   ],
 };
 
+export const agenticWorkflow = {
+  eyebrow: 'Agentic Workflow',
+  title: 'Design and chain your canvas with an agentic planner.',
+  description:
+    'Lay out a chain on the canvas, then let an agentic planner reads the previous output, the chain context, and the model schema to propose the next step. Approve each checkpoint in Copilot, or hand it the wheel on Autopilot.',
+  modelLabel: 'Planner model',
+  modelName: 'Amazon Nova',
+  storageLabel: 'Storage providers',
+  features: [
+    {
+      icon: UserAstronaut,
+      label: 'Agentic · Copilot',
+      title: 'Approve every step',
+      text: 'Copilot proposes the prompt and fields for the next step; you lock the values and approve before it runs.',
+    },
+    {
+      icon: UserSecret,
+      label: 'Agentic · Autopilot',
+      title: 'Run the whole chain',
+      text: 'Autopilot applies each planned step automatically and hands every output to the next model.',
+    },
+  ],
+};
+
+export const databaseEngine = {
+  eyebrow: 'Persistence layer',
+  title: 'Persist and replay every run on a durable database.',
+  description:
+    'Every run, step, checkpoint, and output is written to a durable Postgres database, so retries stay idempotent and any paused run resumes exactly where it stopped. Your deployment owns the schema, rows, and full run history.',
+  modelLabel: 'Database engine',
+  modelName: 'Amazon Aurora',
+};
+
 export const workflowNotes = [
   {
     icon: CodeFork,
@@ -190,14 +228,29 @@ export const workflowNotes = [
     text: 'Runs, ordered steps, outputs, provider metadata, callbacks, and replay checks stay in server-side storage.',
   },
   {
+    icon: Microchip,
+    title: 'Autopilot planning',
+    text: 'Autopilot-mode can propose each next step from the previous output, chain context, and model schema.',
+  },
+  {
+    icon: Flag,
+    title: 'Copilot approvals',
+    text: 'Copilot-mode checkpoints persist server-side, so you lock and approve each planned step or resume an awaiting run later.',
+  },
+  {
     icon: ShieldHalved,
     title: 'Credential isolation',
     text: 'Caller apps authenticate at your API boundary while provider BYOK credentials remain inside your backend.',
   },
   {
-    icon: Database,
+    icon: Share,
     title: 'Output handoff',
     text: 'A successful generation output becomes the next model input without extra orchestration from the caller.',
+  },
+  {
+    icon: Database,
+    title: 'File storage',
+    text: 'Completed image and video outputs can be copied to your own storage, while provider URLs keep working when storage is off.',
   },
   {
     icon: Terminal,
@@ -210,7 +263,7 @@ export const homepageCta = {
   eyebrow: 'Launch your media workflow stack',
   title: 'Design on the canvas. Ship the API.',
   description:
-    'Fork the starter, connect your provider keys, compose flows in the canvas studio, and expose stable image and video workflow routes to products, automations, and internal tools.',
+    'Fork the starter, connect your provider keys, and compose flows on the canvas, or hand the next step to an agentic planner. Every run persists in durable database and ships through stable image and video routes for products, automations, and internal tools.',
   actions: [
     {
       href: 'https://github.com/babysea-community/babychain',
@@ -221,10 +274,25 @@ export const homepageCta = {
   ],
 };
 
+export const communityPrograms = {
+  eyebrow: 'Ecosystem programs',
+  title: 'We are part of the AI community.',
+  founderLabel: 'BabySea and its founder',
+  founderHref: 'https://babysea.ai/about',
+  description:
+    'BabySea and its founder, the builder of BabyChain, are active across the AI community; joining accelerators and creator cohorts, sharing early feedback with model and tooling teams, and helping shape how image and video generation reaches real creative workflows.',
+  programs: [
+    { org: 'OpenAI', name: 'OpenAI for Startups' },
+    { org: 'Alibaba Cloud', name: 'Alibaba AI Catalyst Program' },
+    { org: 'Black Forest Labs', name: 'FLUX Creators' },
+    { org: 'Runway', name: 'Runway Builders' },
+  ],
+};
+
 export const siteFooter = {
   brand: 'BabyChain',
   description:
-    'Canvas studio and durable chain API for image and video model workflows with one final callback.',
+    'Canvas studio, agentic planner, and durable chain API for image and video model workflows with one final callback.',
   githubPipeline: {
     eyebrow: 'Repository CI/CD',
     href: 'https://github.com/babysea-community/babychain/actions',

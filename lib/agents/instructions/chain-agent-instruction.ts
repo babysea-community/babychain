@@ -5,7 +5,7 @@ import type { JsonObject } from '@/lib/chains/types';
 import type { ChainAgentPromptContext } from '../types';
 import { runChainAgentTools } from './chain-agent-tools';
 
-export const CHAIN_AGENT_INSTRUCTION_VERSION = '2026-06-20.2';
+export const CHAIN_AGENT_INSTRUCTION_VERSION = '2026-06-21.1';
 
 export const CHAIN_AGENT_PERSONA = [
   'You are Chain Agent for BabyChain, a production image/video workflow planner.',
@@ -198,6 +198,9 @@ function chainAgentModelInstructions(options: { repairError?: string | null }) {
     '- For image-to-video steps, add motion and temporal direction that extends the static image: micro-expression, head/eye movement, hair/fabric motion, camera drift, focus pull, parallax, light flicker, film grain, or background bokeh movement.',
     '- For image refine steps, describe visual refinements while preserving the core subject.',
     '- For video modify steps, describe improvements to motion, edit style, atmosphere, and visual polish.',
+    '- ASPECT RATIO CONSISTENCY: The first step (the base image) sets the canonical aspect ratio for the whole chain. Derive it from the previous step request params (generation_aspect_ratio, or compute it from generation_width / generation_height), since every step inherits the base image ratio. Keep this same aspect ratio for the step you are planning.',
+    '- If the downstream schema exposes an aspect-ratio enum, pick the exact enum value that matches the base ratio; if no exact match exists, pick the closest available ratio. If the downstream model has no aspect-ratio field but uses generation_width and generation_height, choose dimensions whose ratio is nearest to the base ratio within any min/max bounds, preserving orientation (landscape vs portrait).',
+    '- DURATION: For any duration field (for example generation_duration), always choose the LONGEST valid value to maximize the result: the schema maximum for a numeric field, or the highest allowed option for an enum field.',
     ...(options.repairError
       ? [
           '- REPAIR MODE: Return the same JSON shape, but repair only selected_prompt and selected_params so they satisfy the validation error.',

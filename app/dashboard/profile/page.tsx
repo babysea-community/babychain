@@ -16,7 +16,7 @@ export default async function ProfilePage() {
   const ownerEmail = owner.email;
   const displayName =
     session.name && session.name !== session.email ? session.name : owner.name;
-  const lastSignIn = session.issuedAt ? formatDate(session.issuedAt) : '—';
+  const lastSignIn = session.issuedAt ? formatDate(session.issuedAt) : '-';
   // The workspace exists from the first canvas row in Aurora (the permanent
   // scratchpad or the first saved canvas), so this reflects real usage.
   const workspaceCreatedAt = await getWorkspaceCreatedAt(session.email).catch(
@@ -24,7 +24,7 @@ export default async function ProfilePage() {
   );
   const workspaceCreated = workspaceCreatedAt
     ? formatDate(workspaceCreatedAt)
-    : '—';
+    : '-';
   const userId = stableOwnerId(ownerEmail);
 
   return (

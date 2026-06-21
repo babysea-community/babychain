@@ -16,7 +16,7 @@ import type {
 } from './types';
 
 /**
- * BytePlus ModelArk — direct BYOK adapter.
+ * BytePlus ModelArk - direct BYOK adapter.
  *
  * Surface
  * -------
@@ -174,7 +174,7 @@ export function createBytePlusProvider(
           signal: AbortSignal.timeout(POLL_TIMEOUT_MS),
         });
       } catch (error) {
-        // BytePlus rejects DELETE while the task is running — runner falls back
+        // BytePlus rejects DELETE while the task is running, so the runner falls back
         // to local cancellation, mirroring the BabySea-default behaviour.
         if (
           !(error instanceof BabyChainError) ||

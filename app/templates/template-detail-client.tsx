@@ -120,7 +120,7 @@ export function TemplateDetailClient({
     );
   }
 
-  // The active combination is synthesized locally — the full image × refine ×
+  // The active combination is synthesized locally because the full image × refine ×
   // video × modify matrix (≈79k entries) is never shipped to the client.
   const entry = synthesizeTemplateEntry({
     imageModel,

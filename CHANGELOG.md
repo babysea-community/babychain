@@ -4,16 +4,32 @@ All notable changes will be documented here. The format follows [Keep a Changelo
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-06-21
+
+### Added
+
+- Added durable Chain Agent checkpoints in Aurora, public `agent_checkpoints` response serialization, timeline events, and `POST /api/v1/chains/continue/:runId` for approving Copilot-mode checkpoints.
+- Added a separate Amazon Bedrock Nova Chain Agent service boundary using `AWS_BEARER_TOKEN_BEDROCK`, `BEDROCK_REGION`, and `BEDROCK_NOVA_AGENT_MODEL`, with documented no-storage media context limits while BabyChain storage remains deferred.
+- Added an optional `BEDROCK_NOVA_AGENT_EXEMPLAR` flag that appends a compact image-to-video few-shot exemplar to the Agentic Workflow system prompt; it is off by default to keep prompts lean.
+- Added authenticated run-output URLs under `GET /api/v1/chains/get/:runId/outputs/:stepKey/:outputIndex` and dashboard preview URLs under `/api/dashboard/chains/get/:runId/outputs/:stepKey/:outputIndex` so inline provider media can be fetched separately without embedding base64 payloads inside run JSON.
+- Added explicit media-driven variants for `runway/act-two`, `wan/2.2-animate-mix`, and `wan/2.2-animate-move`: Image variants run as `video_model` steps with caller reference media, while Video variants run as `modify_model` steps with the required caller companion media.
+- Added Docker Hub publishing metadata and runtime health checks for the public `babyseaoss/babychain:0.1.1` and `babyseaoss/babychain:latest` image tags.
+- Added a large attached flow-level move handle above each `canvas_flow` info card so an entire flow can be dragged together without moving cards one by one.
+- Each canvas model card now keeps an always-visible results section while its run is in flight, with a live elapsed processing timer and explicit queued, running, failed, and skipped states instead of a fabricated progress percent.
+- Image and video model cards now show a large round add button so the next optional step (refine after image, modify after video) is easy to discover.
+- Agentic checkpoint cards now show a live planner status badge (waiting, thinking, done) and an Amazon Nova section that carries the active Copilot or Autopilot mode.
+
 ### Changed
 
+- Renamed the Agentic Workflow **Review** mode to **Copilot** so the two agentic modes read symmetrically (Copilot and Autopilot); this changes the canvas run-mode value (`agent_copilot`), the run API `execution.mode` value (`"copilot"`), the checkpoint record mode, and the `chain_agent_checkpoint.mode` constraint.
 - The Library now reduces each saved canvas to its model ids in SQL instead of shipping the full node graph to the browser, so the Library page no longer stalls while loading owners with many saved canvases.
 - Renamed the canvas `last_run_id` column and `lastRunId` field to `run_id`/`runId` across the schema, store, run API, and Library, since each saved card maps to exactly one run that never changes.
-- Agentic Workflow · Review now keeps **Approve & continue** disabled until every proposed field is locked (picking a prompt locks it automatically) and shows a hint explaining the requirement; approving now writes the approved values onto the step's model card immediately instead of after the result lands.
+- Agentic Workflow · Copilot now keeps **Approve & continue** disabled until every proposed field is locked (picking a prompt locks it automatically) and shows a hint explaining the requirement; approving now writes the approved values onto the step's model card immediately instead of after the result lands.
 - Deleting a saved canvas now also removes that canvas's stored image and video files from S3 or Vercel Blob (storage providers gained a `remove` operation), while the `chain_run`/`chain_step` history rows are intentionally kept; cleanup is best-effort and never blocks the delete.
 - Canvas delete, flow removal, and canvas reset now use an in-app confirmation dialog built on the project's UI primitives instead of the browser `window.confirm`.
 - Canvas nodes now require a `flowId`; the optional single-flow fallback and other pre-multi-flow backward-compatibility handling were removed for a clean, current-schema-only model.
-- BabyChain runs now carry an explicit execution mode, allowing the existing self-control runner to opt into Agent Review or Autopilot without mixing agent planning into media provider routing.
-- Canvas `canvas_flow` cards now expose a `chain_runner` dropdown with Self Control, Agentic · Review, and Agentic · Autopilot; agent modes render dedicated, fully editable checkpoint cards inline in the flow — each downstream field uses the same control as its model card (dropdown, text, number, or toggle) with a per-field lock, and the prompt is chosen from three agent suggestions or a custom "Your prompt" input — while Autopilot applies the planned step automatically.
+- BabyChain runs now carry an explicit execution mode, allowing the existing self-control runner to opt into Agent Copilot or Autopilot without mixing agent planning into media provider routing.
+- Canvas `canvas_flow` cards now expose a `chain_runner` dropdown with Self Control, Agentic · Copilot, and Agentic · Autopilot; agent modes render dedicated, fully editable checkpoint cards inline in the flow, where each downstream field uses the same control as its model card (dropdown, text, number, or toggle) with a per-field lock, and the prompt is chosen from three agent suggestions or a custom "Your prompt" input, while Autopilot applies the planned step automatically.
 - Chain Agent now validates Nova-selected params against the downstream schema, performs one repair call when validation fails, and records instruction version, schema version, model id, latency, token usage, selected suggestion index, and validation outcomes in checkpoint observability.
 - Chain Agent prompt, persona, tone, RAG notes, and typed internal tool boundaries now live under `lib/agents/instructions` for easier iteration and review.
 - Renamed the Chain Agent feature to **Agentic Workflow** across the canvas run-mode selector, checkpoint cards, README, and submission docs; the underlying `chain_runner`, `execution.type`, and API field names are unchanged.
@@ -48,16 +64,11 @@ All notable changes will be documented here. The format follows [Keep a Changelo
 - The production Docker image now uses `node:24-alpine` for build, dependency, and runtime stages instead of the Debian slim base, reducing the published image size and removing the inherited high/critical Debian OS findings reported against `node:24-bookworm-slim`.
 - Docker host docs and templates now keep `SENTRY_AUTH_TOKEN` out of runtime container secrets; it is documented as a CI/build-time-only value for optional source map uploads.
 - CloudFormation, Fly.io, Coolify, and Compose Docker host paths now use the same `/api/v1/models` health endpoint, and CloudFormation placeholder/helper Node images use Alpine instead of Debian slim.
-
-### Added
-
-- Added durable Chain Agent checkpoints in Aurora, public `agent_checkpoints` response serialization, timeline events, and `POST /api/v1/chains/continue/:runId` for approving Review-mode checkpoints.
-- Added a separate Amazon Bedrock Nova Chain Agent service boundary using `AWS_BEARER_TOKEN_BEDROCK`, `BEDROCK_REGION`, and `BEDROCK_NOVA_AGENT_MODEL`, with documented no-storage media context limits while BabyChain storage remains deferred.
-- Added an optional `BEDROCK_NOVA_AGENT_EXEMPLAR` flag that appends a compact image-to-video few-shot exemplar to the Agentic Workflow system prompt; it is off by default to keep prompts lean.
-- Added authenticated run-output URLs under `GET /api/v1/chains/get/:runId/outputs/:stepKey/:outputIndex` and dashboard preview URLs under `/api/dashboard/chains/get/:runId/outputs/:stepKey/:outputIndex` so inline provider media can be fetched separately without embedding base64 payloads inside run JSON.
-- Added explicit media-driven variants for `runway/act-two`, `wan/2.2-animate-mix`, and `wan/2.2-animate-move`: Image variants run as `video_model` steps with caller reference media, while Video variants run as `modify_model` steps with the required caller companion media.
-- Added Docker Hub publishing metadata and runtime health checks for the public `babyseaoss/babychain:0.1.1` and `babyseaoss/babychain:latest` image tags.
-- Added a large attached flow-level move handle above each `canvas_flow` info card so an entire flow can be dragged together without moving cards one by one.
+- The Agentic Workflow planner now keeps one consistent aspect ratio across the whole chain, matching the first image step and falling back to the nearest available ratio (or width/height) when no exact enum match exists, and always picks the longest valid duration to maximize results.
+- Agentic checkpoint Approve buttons and status text now follow the server checkpoint status (suggested, approved, applied, failed), so "Approved" persists after a step finishes and Copilot and Autopilot each show accurate processing, complete, and failed states; the waiting message and the Autopilot run-mode hint now read correctly for each mode.
+- Locked prompt fields (during a run or under Autopilot) now show the full prompt in an auto-height read-only block instead of cropping it inside a fixed-height textarea.
+- Library canvas cards now render a fixed 2x2 result grid with one square slot per role (image, refine, video, modify); each slot shows the media result, the failed step's error, a "Removed by your inference" notice for expired media, or "Not used".
+- The Autopilot run-mode description now notes that the operator still picks each card's model and the agent runs the model shown.
 
 ### Fixed
 
@@ -65,7 +76,7 @@ All notable changes will be documented here. The format follows [Keep a Changelo
 - Chain Agent media reads now pin the validated DNS address for HTTPS downloads, preventing DNS rebinding between safety validation and fetch.
 - Agentic Workflow and output-storage media downloads now send a `User-Agent` header, so CDNs and WAFs that reject empty-User-Agent requests (for example AWS WAF in front of CloudFront, or Vercel Blob) no longer return 403 when a later step reads a stored output.
 - Video-to-video modify checkpoints no longer fail validation with "generation_prompt is not supported by the downstream schema"; BabyChain now drops the injected `generation_prompt` when the downstream model schema does not declare it.
-- Agent-selected params can no longer override BabyChain-owned handoff, callback, provider-order, provider-used, or output fields when Review or Autopilot applies a prompt to the downstream generation step.
+- Agent-selected params can no longer override BabyChain-owned handoff, callback, provider-order, provider-used, or output fields when Copilot or Autopilot applies a prompt to the downstream generation step.
 - Canvas failed-run toasts now read the serialized `error.message` response shape, so provider and agent failure guidance remains visible in the dashboard.
 - Workspace `RUN + SAVE` no longer creates a Library card before a run id exists, preventing fast navigation from leaving an orphan "not run yet" card and tempting a duplicate publish.
 - Media-input and callback URL safety checks now fail closed when DNS resolution hangs, bounding how long provider submission or terminal callback delivery waits on a slow resolver.
@@ -79,6 +90,8 @@ All notable changes will be documented here. The format follows [Keep a Changelo
 - Editing text fields inside canvas model cards no longer jumps the cursor back to the end while typing in the middle of prompts or media URL fields.
 - Optional `refine_model_input` and `modify_model_input` no longer materialize as empty objects when their matching optional models are omitted, keeping chain validation focused on fields the caller actually sent.
 - Environment validation now classifies missing required variables correctly with the Zod 4 issue shape used by the current dependency set.
+- Canvas model, field, and run-mode dropdowns now close on any outside click, including clicks on the canvas surface, instead of only when toggled (an outside click on the React Flow pane previously left them open).
+- Adding or duplicating a canvas flow now reliably pans and zooms onto the new flow once its cards are measured, so the view no longer jumps to placeholder bounds, and the canvas minimap is interactive (pannable and zoomable).
 
 ### Removed
 
@@ -114,9 +127,9 @@ All notable changes will be documented here. The format follows [Keep a Changelo
 - `image_model` cards now accept a starting image (`generation_input_file`, HTTPS URL) for image-to-image-capable models, matching the run API contract; the field carries across model switches and is stripped from chain-wired steps.
 - Stop now cancels the run server-side (`POST /api/v1/chains/cancel/:runId`), so stopped chains no longer keep processing or spending provider credits; canceled step statuses paint onto the cards.
 - Dashboard-wide loading state and a recoverable error boundary (transient Aurora/network failures show a retry screen instead of the framework error page).
-- The canvas is now a permanent multi-flow workspace: "Add canvas flow" drops a fresh image → video chain onto the canvas, and every flow ends in a dedicated runner card wired after its last model card ("Run only" runs in place; "RUN + SAVE" also snapshots that flow into the Library and attaches the run to it). Hovering a card's connection edge reveals "+ refine_model"/"+ modify_model" to extend that flow, and the runner card follows automatically. The workspace persists in Aurora per owner — it survives reloads, navigation, logout/login, and device switches — and only the explicit "Reset canvas" action clears it. In-progress runs resume per flow after a reload.
+- The canvas is now a permanent multi-flow workspace: "Add canvas flow" drops a fresh image → video chain onto the canvas, and every flow ends in a dedicated runner card wired after its last model card ("Run only" runs in place; "RUN + SAVE" also snapshots that flow into the Library and attaches the run to it). Hovering a card's connection edge reveals "+ refine_model"/"+ modify_model" to extend that flow, and the runner card follows automatically. The workspace persists in Aurora per owner (it survives reloads, navigation, logout/login, and device switches) and only the explicit "Reset canvas" action clears it. In-progress runs resume per flow after a reload.
 - Canvases are now persisted in AWS Aurora (PostgreSQL) scoped to the dashboard owner, so saved canvases survive logout, browser resets, and device switches. Saved canvases autosave (debounced) while editing; unsaved drafts keep a localStorage crash buffer until the first save.
-- Running a chain now saves the canvas automatically and links the run to the canvas; opening the canvas from the Library resumes live run tracking and restores finished outputs. When clicked, the Run button triggers an automatic save and displays a toast notification to confirm the canvas was persisted; the manual Save button was removed. The browser URL never changes — the run keeps streaming into the page you are on.
+- Running a chain now saves the canvas automatically and links the run to the canvas; opening the canvas from the Library resumes live run tracking and restores finished outputs. When clicked, the Run button triggers an automatic save and displays a toast notification to confirm the canvas was persisted; the manual Save button was removed. The browser URL never changes; the run keeps streaming into the page you are on.
 - Library cards now show every succeeded step output of the latest run (up to 4, in chain order) in a fixed two-row results grid, with a truncated 50-character title, a single Canvas ID/Nodes/Updated meta block, and fixed-height horizontal provider/model badge rows so all cards align.
 - The Library now lists canvases from Aurora and supports deleting a canvas (with confirmation).
 - New `babychain_private.canvas` table (owner-scoped, jsonb node graph, touch trigger, recency index) with per-owner limits: 200 canvases, 24 nodes, and 64 KB of node JSON per canvas.
@@ -129,10 +142,10 @@ All notable changes will be documented here. The format follows [Keep a Changelo
 
 ### Changed
 
-- Saved canvases are structure-locked: refine/modify cards cannot be removed and steps cannot be added on a canvas page — values stay editable and re-runnable; structure changes happen in the workspace lab. Removing flows in the lab never touches published canvases (snapshot semantics).
+- Saved canvases are structure-locked: refine/modify cards cannot be removed and steps cannot be added on a canvas page, but values stay editable and re-runnable; structure changes happen in the workspace lab. Removing flows in the lab never touches published canvases (snapshot semantics).
 - All page errors now surface as toasts (sonner) instead of inline header text; the Toaster is mounted once for the whole dashboard.
-- The templates page no longer ships the precomputed combination matrix (≈79k entries, ≈98 MB of props) — the selected combination is synthesized client-side, fixing missing curl/schema rendering for refine/modify selections and making the page load instantly. The modify dropdown is filtered per selected video model.
-- The Library is ordered by creation time (stable — renames and autosaves never reorder cards), shows a Created date, and canvas cards can be renamed inline (pencil, 50-character limit).
+- The templates page no longer ships the precomputed combination matrix (≈79k entries, ≈98 MB of props); the selected combination is synthesized client-side, fixing missing curl/schema rendering for refine/modify selections and making the page load instantly. The modify dropdown is filtered per selected video model.
+- The Library is ordered by creation time (stable, since renames and autosaves never reorder cards), shows a Created date, and canvas cards can be renamed inline (pencil, 50-character limit).
 - Node-card accent colors use a pastel palette (`#67e8f9` image, `#f9a8d4` refine, `#fdba74` video, `#c4b5fd` modify); destructive actions (Reset canvas, Remove this flow) use a proper destructive button variant.
 - Canvas persistence moved from localStorage to Aurora; the canvas page loads saved canvases on the server and unknown canvas ids redirect back to a fresh canvas. Canvases saved before this change are not migrated.
 - Removed the unused `app/dashboard/studio` canvas duplicate.
@@ -143,7 +156,7 @@ All notable changes will be documented here. The format follows [Keep a Changelo
 
 ### Fixed
 
-- Workspace autosave is now loss-proof: edits mark the canvas dirty and a steady 1.5-second flush persists them to Aurora, with a `sendBeacon` final flush on tab close, reload, navigation, and tab-hide (new owner-authenticated `POST /api/workspace` route). The previous debounce-based autosave silently dropped the last burst of edits — added flows and prompts typed just before a refresh were lost. Hydration also now runs exactly once per mount so router refreshes can never reset live canvas state.
+- Workspace autosave is now loss-proof: edits mark the canvas dirty and a steady 1.5-second flush persists them to Aurora, with a `sendBeacon` final flush on tab close, reload, navigation, and tab-hide (new owner-authenticated `POST /api/workspace` route). The previous debounce-based autosave silently dropped the last burst of edits: added flows and prompts typed just before a refresh were lost. Hydration also now runs exactly once per mount so router refreshes can never reset live canvas state.
 - Removed placeholder sample prompts from new canvas flows and template run examples; prompts start empty.
 - Canvas node cards are now generated from each model's Semantic Lady schema (exact fields, enum options, numeric ranges, and defaults) instead of a shared generic field list, so the UI can no longer offer fields a model does not support (for example `generation_resolution` on `runway/gen-4-turbo`) or out-of-range values (for example 1s durations). Stale values from previously saved canvases are pruned against the active model's schema on load.
 - Provider adapters now submit explicit Semantic Lady fields directly instead of synthesizing provider sizes or ratios inside BabyChain.

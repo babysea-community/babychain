@@ -169,7 +169,7 @@ export async function estimateChain(
       });
       estimates.push(estimate);
     } else {
-      // BYOK providers bill the caller's account — surface a zero cost.
+      // BYOK providers bill the caller's account, so surface a zero cost.
       estimates.push({
         model_identifier: modelIdentifier,
         model_type: step.kind,
@@ -534,7 +534,7 @@ export async function applyBabySeaWebhook(
 
   const currentRecord = await mustGetRun(store, step.runId);
 
-  // Webhooks only originate from BabySea — ignore if the step has been routed
+  // Webhooks only originate from BabySea, so ignore if the step has been routed
   // to a BYOK provider (defence-in-depth against generation-id collisions).
   if (
     resolveProvider(step.modelIdentifier, {
@@ -987,7 +987,7 @@ async function prepareAgentCheckpoint(args: {
       runId: record.run.id,
     });
 
-    if (execution.mode === 'review') {
+    if (execution.mode === 'copilot') {
       await store.updateActiveRun(record.run.id, {
         currentStepKey: readyStep.stepKey,
         status: 'awaiting_agent',
@@ -1490,7 +1490,7 @@ async function failRun(
   });
 
   // Downstream queued steps can never start once the run has failed (their
-  // input will never arrive) — mark them skipped immediately instead of
+  // input will never arrive), so mark them skipped immediately instead of
   // leaving them queued forever.
   for (const step of record.steps) {
     if (step.status === 'queued') {

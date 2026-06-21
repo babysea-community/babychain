@@ -4,7 +4,7 @@
 
 # BabyChain
 
-Canvas studio and durable chain API for image and video model workflows with one final callback.
+Canvas studio, agentic planner, and durable chain API for image and video model workflows with one final callback.
 
 ### Every output becomes the next input.
 
@@ -253,13 +253,13 @@ Open <http://localhost:3011>. The owner dashboard lives at `/dashboard/canvas`; 
 
 ### API
 
-| Action                               | Method and path                        |
-| :----------------------------------- | :------------------------------------- |
-| List chains                          | `GET /api/v1/chains`                   |
-| Create chain                         | `POST /api/v1/chains/runs`             |
-| Get run                              | `GET /api/v1/chains/get/{runId}`       |
-| Continue Agentic Workflow Review run | `POST /api/v1/chains/continue/{runId}` |
-| Cancel run                           | `POST /api/v1/chains/cancel/{runId}`   |
+| Action                                | Method and path                        |
+| :------------------------------------ | :------------------------------------- |
+| List chains                           | `GET /api/v1/chains`                   |
+| Create chain                          | `POST /api/v1/chains/runs`             |
+| Get run                               | `GET /api/v1/chains/get/{runId}`       |
+| Continue Agentic Workflow Copilot run | `POST /api/v1/chains/continue/{runId}` |
+| Cancel run                            | `POST /api/v1/chains/cancel/{runId}`   |
 
 All requests require `Authorization: Bearer <API key>`. Keys are bootstrapped from [`.env.example`](.env.example) or provisioned in the `babychain_private.api_key` table.
 
@@ -277,7 +277,7 @@ curl --request GET \
 
 > Create chain
 
-`refine_model`/`modify_model` and their `*_model_input` objects are optional — include them only for the longer variants in the [Chain template](#chain-template) table. `execution` defaults to `{ "type": "self_control" }`; set `type` to `chain_agent` with `mode` of `review` or `autopilot` to use the Agentic Workflow. `webhook_url` is optional and receives the one final signed callback. The `Idempotency-Key` header is optional but recommended so retries do not create duplicate runs.
+`refine_model`/`modify_model` and their `*_model_input` objects are optional; include them only for the longer variants in the [Chain template](#chain-template) table. `execution` defaults to `{ "type": "self_control" }`; set `type` to `chain_agent` with `mode` of `copilot` or `autopilot` to use the Agentic Workflow. `webhook_url` is optional and receives the one final signed callback. The `Idempotency-Key` header is optional but recommended so retries do not create duplicate runs.
 
 ```bash
 curl --request POST \
@@ -311,9 +311,9 @@ curl --request GET \
   --header "Authorization: Bearer $BABYCHAIN_API_KEY"
 ```
 
-> Continue Agentic Workflow Review run
+> Continue Agentic Workflow Copilot run
 
-Only Agentic Workflow **Review** runs use this route (Autopilot advances automatically). Start the run with `"execution": { "type": "chain_agent", "mode": "review" }`, then poll `GET /api/v1/chains/get/{runId}` until the run `status` is `awaiting_agent`. Take the `agent_checkpoints[]` entry whose `status` is `suggested`, send its `id` as `checkpoint_id` to approve it, and edit `selected_prompt`/`selected_params` first if you want to override the planner's suggestion.
+Only Agentic Workflow **Copilot** runs use this route (Autopilot advances automatically). Start the run with `"execution": { "type": "chain_agent", "mode": "copilot" }`, then poll `GET /api/v1/chains/get/{runId}` until the run `status` is `awaiting_agent`. Take the `agent_checkpoints[]` entry whose `status` is `suggested`, send its `id` as `checkpoint_id` to approve it, and edit `selected_prompt`/`selected_params` first if you want to override the planner's suggestion.
 
 ```bash
 curl --request POST \
@@ -341,7 +341,7 @@ curl --request POST \
 **Response details:**
 
 - `timeline`: ordered array of step status, timing, provider, output count, and error details. Renders the full run history without reshaping the raw `steps` payload.
-- `agent_checkpoints`: Agentic Workflow suggestions, selected prompt data, and checkpoint status for Review/Autopilot runs.
+- `agent_checkpoints`: Agentic Workflow suggestions, selected prompt data, and checkpoint status for Copilot/Autopilot runs.
 - `guidance.what_to_try_next`: actionable list on error responses covering provider failures, invalid model fields, missing credentials, and chain incompatibilities.
 
 ### Runtime
@@ -650,7 +650,7 @@ BabyChain supports three `chain_runner` modes:
 | chain_runner                     | What it does                                                                                                                                        |
 | -------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Self Control**                 | Runs the current canvas prompts end-to-end using `execution.type = "self_control"`.                                                                 |
-| **Agentic Workflow · Review**    | Runs the first step from the user's seed prompt, then pauses at each downstream checkpoint so you can approve or edit the planner's next prompt.    |
+| **Agentic Workflow · Copilot**   | Runs the first step from the user's seed prompt, then pauses at each downstream checkpoint so you can approve or edit the planner's next prompt.    |
 | **Agentic Workflow · Autopilot** | Runs the first step from the user's seed prompt, then lets the planner write each downstream prompt and schema-valid required fields automatically. |
 
 The Agentic Workflow uses Amazon Nova through Amazon Bedrock as a prompt-planning layer. It does not add a fifth model role to `chain_models`; the media workflow remains `image_model`, optional `refine_model`, `video_model`, and optional `modify_model`. It stores checkpoint suggestions, selected prompts, validation outcomes, repair attempts, instruction version, schema version, model id, latency, and token usage in Aurora alongside the run timeline.
@@ -670,7 +670,7 @@ Until BabyChain Media Storage is enabled, the Agentic Workflow reads previous ou
 
 ### Model profile: Amazon Nova Pro
 
-The Agentic Workflow runs on **Amazon Nova Pro** through Amazon Bedrock — `BEDROCK_NOVA_AGENT_MODEL=us.amazon.nova-pro-v1:0` by default — and BabyChain calls it through the `Converse` API (see [`lib/agents/bedrock-nova.ts`](lib/agents/bedrock-nova.ts)). Nova Pro is Amazon's balanced multimodal model for text, image, and video understanding. Source: [Amazon Nova Pro model card](https://docs.aws.amazon.com/bedrock/latest/userguide/model-card-amazon-nova-pro.html).
+The Agentic Workflow runs on **Amazon Nova Pro** through Amazon Bedrock (`BEDROCK_NOVA_AGENT_MODEL=us.amazon.nova-pro-v1:0` by default) and BabyChain calls it through the `Converse` API (see [`lib/agents/bedrock-nova.ts`](lib/agents/bedrock-nova.ts)). Nova Pro is Amazon's balanced multimodal model for text, image, and video understanding. Source: [Amazon Nova Pro model card](https://docs.aws.amazon.com/bedrock/latest/userguide/model-card-amazon-nova-pro.html).
 
 ### Model details
 
@@ -693,7 +693,7 @@ The Agentic Workflow runs on **Amazon Nova Pro** through Amazon Bedrock — `BED
 | Video     |  ✅   |   ❌   |
 | Audio     |  ❌   |   ❌   |
 | Speech    |  ❌   |   ❌   |
-| Embedding |   —   |   ❌   |
+| Embedding |   -   |   ❌   |
 
 ### APIs and endpoints
 

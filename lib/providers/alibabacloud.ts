@@ -17,7 +17,7 @@ import type {
 } from './types';
 
 /**
- * Alibaba Cloud Model Studio/DashScope — direct BYOK adapter.
+ * Alibaba Cloud Model Studio/DashScope - direct BYOK adapter.
  *
  * BabyChain supports DashScope's direct HTTP APIs:
  * synchronous multimodal image calls and asynchronous image/video task calls.

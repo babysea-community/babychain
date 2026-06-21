@@ -17,7 +17,7 @@ const MAX_JSON_NODES = 1_000;
 export const CreateRunExecutionSchema = z
   .object({
     type: z.enum(['self_control', 'chain_agent']).default('self_control'),
-    mode: z.enum(['review', 'autopilot']).optional(),
+    mode: z.enum(['copilot', 'autopilot']).optional(),
     provider: z.literal('bedrock').optional(),
     model_identifier: z.preprocess(
       emptyStringToUndefined,

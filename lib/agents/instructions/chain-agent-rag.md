@@ -12,7 +12,7 @@ The Chain Agent is grounded by runtime context that BabyChain already owns:
 - The downstream step model identifier and BabyChain role.
 - The downstream Semantic Lady schema filtered for chain-safe fields.
 
-This is enough for Review and Autopilot prompt planning because the agent task is local to the active chain run, not broad knowledge retrieval.
+This is enough for Copilot and Autopilot prompt planning because the agent task is local to the active chain run, not broad knowledge retrieval.
 
 ## Future AWS Work
 

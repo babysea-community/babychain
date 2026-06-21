@@ -45,7 +45,7 @@ export type CreateChainRunInput = {
 
 export type CreateAgentCheckpointInput = {
   inputSnapshot: JsonObject;
-  mode: 'review' | 'autopilot';
+  mode: 'copilot' | 'autopilot';
   modelIdentifier: string;
   output: JsonObject;
   previousStepKey: string;

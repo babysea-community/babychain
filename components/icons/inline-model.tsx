@@ -552,7 +552,7 @@ export function InlineHappyHorse({
       xmlns="http://www.w3.org/2000/svg"
       width="21590"
       height="27940"
-      viewBox="2500 3300 13000 21600"
+      viewBox="1506 4554 18579 18579"
       className={cn(className)}
       {...props}
     >
@@ -579,7 +579,7 @@ export function InlineHappyHorseLight({
       xmlns="http://www.w3.org/2000/svg"
       width="21590"
       height="27940"
-      viewBox="2500 3300 13000 21600"
+      viewBox="1506 4554 18579 18579"
       className={cn(className)}
       {...props}
     >

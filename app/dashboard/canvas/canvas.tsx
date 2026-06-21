@@ -48,6 +48,7 @@ import {
   InlineOpenAILight as InlineInferenceOpenAILight,
   InlineRunwayLight as InlineInferenceRunwayLight,
 } from '@/components/icons/inline-inference';
+import { InlineAmazonNova } from '@/components/icons/inline-llm';
 import {
   InlineBlackForestLabsLight as InlineModelBlackForestLabsLight,
   InlineByteDance as InlineModelByteDance,
@@ -265,14 +266,17 @@ function ModelDropdown({
 
   useEffect(() => {
     if (!open) return;
-    const onDocClick = (event: MouseEvent) => {
+    const onDocPointerDown = (event: PointerEvent) => {
       const target = event.target as globalThis.Node | null;
       if (ref.current && target && !ref.current.contains(target)) {
         setOpen(false);
       }
     };
-    document.addEventListener('mousedown', onDocClick);
-    return () => document.removeEventListener('mousedown', onDocClick);
+    // Capture phase so an outside click still closes the dropdown even when
+    // React Flow's pane/nodes stop pointer-event propagation on the canvas.
+    document.addEventListener('pointerdown', onDocPointerDown, true);
+    return () =>
+      document.removeEventListener('pointerdown', onDocPointerDown, true);
   }, [open]);
 
   return (
@@ -376,14 +380,17 @@ function FieldSelectDropdown({
 
   useEffect(() => {
     if (!open) return;
-    const onDocClick = (event: MouseEvent) => {
+    const onDocPointerDown = (event: PointerEvent) => {
       const target = event.target as globalThis.Node | null;
       if (ref.current && target && !ref.current.contains(target)) {
         setOpen(false);
       }
     };
-    document.addEventListener('mousedown', onDocClick);
-    return () => document.removeEventListener('mousedown', onDocClick);
+    // Capture phase so an outside click still closes the dropdown even when
+    // React Flow's pane/nodes stop pointer-event propagation on the canvas.
+    document.addEventListener('pointerdown', onDocPointerDown, true);
+    return () =>
+      document.removeEventListener('pointerdown', onDocPointerDown, true);
   }, [open]);
 
   return (
@@ -450,14 +457,17 @@ function RunModeDropdown({
 
   useEffect(() => {
     if (!open) return;
-    const onDocClick = (event: MouseEvent) => {
+    const onDocPointerDown = (event: PointerEvent) => {
       const target = event.target as globalThis.Node | null;
       if (ref.current && target && !ref.current.contains(target)) {
         setOpen(false);
       }
     };
-    document.addEventListener('mousedown', onDocClick);
-    return () => document.removeEventListener('mousedown', onDocClick);
+    // Capture phase so an outside click still closes the dropdown even when
+    // React Flow's pane/nodes stop pointer-event propagation on the canvas.
+    document.addEventListener('pointerdown', onDocPointerDown, true);
+    return () =>
+      document.removeEventListener('pointerdown', onDocPointerDown, true);
   }, [open]);
 
   return (
@@ -559,7 +569,7 @@ type RunStep = {
   generation_output_file?: string[];
 };
 
-type RunMode = 'self_control' | 'agent_review' | 'agent_autopilot';
+type RunMode = 'self_control' | 'agent_copilot' | 'agent_autopilot';
 
 type AgentCheckpointSuggestion = {
   title?: string;
@@ -604,7 +614,7 @@ type RunJson = {
   error?: { message?: string | null } | null;
   execution?:
     | { type: 'self_control' }
-    | { mode?: 'autopilot' | 'review'; type: 'chain_agent' }
+    | { mode?: 'autopilot' | 'copilot'; type: 'chain_agent' }
     | null;
   id: string;
   status: string;
@@ -1076,6 +1086,22 @@ function FieldControl({
     'nodrag w-full border border-border bg-input px-2.5 text-xs text-foreground outline-none focus-visible:border-ring disabled:opacity-50';
 
   if (field.type === 'textarea') {
+    // When the field is locked (during a run or under autopilot), show the full
+    // prompt as an auto-height read-only block so long prompts are not cropped
+    // inside a fixed-height textarea, with extra padding for breathing room.
+    if (disabled) {
+      const text = String(value ?? '').trim();
+      return (
+        <div
+          className={cn(
+            base,
+            'min-h-20 whitespace-pre-wrap break-words py-2 leading-5',
+          )}
+        >
+          {text}
+        </div>
+      );
+    }
     return (
       <TextInputControl
         as="textarea"
@@ -1433,7 +1459,7 @@ function MediaPreview({ url, kind }: { url: string; kind: 'image' | 'video' }) {
           preload="metadata"
           onError={() => setFailed(true)}
           onLoadedMetadata={() => setLoaded(true)}
-          // nodrag: without it ReactFlow treats the player as a drag handle —
+          // nodrag: without it ReactFlow treats the player as a drag handle:
           // grab cursor over the whole video and clicks on the controls drag
           // the card instead of playing/scrubbing.
           className="nodrag aspect-video w-full cursor-auto bg-black object-contain"
@@ -1481,6 +1507,98 @@ function MediaUnavailable({
       <span className="px-2 text-center text-[0.65rem] leading-4">
         Removed by your inference. Set up storage to keep outputs longer.
       </span>
+    </div>
+  );
+}
+
+// Realtime elapsed timer shown while a step processes. Providers report
+// discrete run statuses (queued/running/succeeded), not a fractional percent,
+// so this counts the accurate elapsed time since the step entered "running"
+// instead of faking a progress percentage.
+function NodeProcessingIndicator() {
+  const [seconds, setSeconds] = useState(0);
+
+  useEffect(() => {
+    const start = Date.now();
+    const id = window.setInterval(() => {
+      setSeconds(Math.floor((Date.now() - start) / 1000));
+    }, 1000);
+    return () => window.clearInterval(id);
+  }, []);
+
+  const label = `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
+
+  return (
+    <>
+      <FontAwesomeIcon className="size-5 animate-spin" icon="spinner" />
+      <span className="text-[0.65rem] leading-4">Processing… {label}</span>
+    </>
+  );
+}
+
+// Always-visible results slot: shows outputs once ready, otherwise the live
+// queued/processing/failed state so a running model card is observable.
+function NodeResults({
+  kind,
+  outputs,
+  running,
+  status,
+}: {
+  kind: 'image' | 'video';
+  outputs?: string[];
+  running: boolean;
+  status?: string;
+}) {
+  if (outputs?.length) {
+    return (
+      <div className="grid gap-2 border border-border p-2">
+        {outputs.map((outputUrl) => (
+          <MediaPreview key={outputUrl} url={outputUrl} kind={kind} />
+        ))}
+      </div>
+    );
+  }
+
+  const effective = status ?? (running ? 'queued' : 'idle');
+
+  return (
+    <div className="border border-border p-2">
+      <div className="flex aspect-video w-full flex-col items-center justify-center gap-1.5 bg-black text-muted-foreground">
+        {effective === 'running' ? (
+          <NodeProcessingIndicator />
+        ) : effective === 'queued' ? (
+          <>
+            <FontAwesomeIcon className="size-4 animate-pulse" icon="clock" />
+            <span className="text-[0.65rem] leading-4">Queued</span>
+          </>
+        ) : effective === 'failed' ? (
+          <>
+            <FontAwesomeIcon
+              className="size-5 text-rose-300"
+              icon="triangle-exclamation"
+            />
+            <span className="text-[0.65rem] leading-4">Failed</span>
+          </>
+        ) : effective === 'skipped' || effective === 'canceled' ? (
+          <>
+            <FontAwesomeIcon
+              className="size-5"
+              icon={kind === 'video' ? 'video' : 'image'}
+            />
+            <span className="text-[0.65rem] capitalize leading-4">
+              {effective}
+            </span>
+          </>
+        ) : (
+          <>
+            <FontAwesomeIcon
+              className="size-5"
+              icon={kind === 'video' ? 'video' : 'image'}
+            />
+            <span className="text-[0.65rem] leading-4">No results yet</span>
+          </>
+        )}
+      </div>
     </div>
   );
 }
@@ -1573,7 +1691,7 @@ function ModelNodeComponent({ id, data }: NodeProps) {
   return (
     <div className="group relative w-[400px] border border-border bg-card shadow-lg">
       <div className="h-1.5 w-full" style={{ backgroundColor: color }} />
-      {/* Every model card receives a rope — image_model from the flow's
+      {/* Every model card receives a rope: image_model from the flow's
           canvas_flow card, later steps from the previous model card. */}
       <Handle
         type="target"
@@ -1581,8 +1699,8 @@ function ModelNodeComponent({ id, data }: NodeProps) {
         className="!size-3 !border-2 !border-background"
         style={{ backgroundColor: color }}
       />
-      {/* Every model card connects forward — to the next step or to the
-          flow's runner card — so all roles render a source handle. */}
+      {/* Every model card connects forward, to the next step or to the
+          flow's runner card, so all roles render a source handle. */}
       <Handle
         type="source"
         position={Position.Right}
@@ -1590,18 +1708,27 @@ function ModelNodeComponent({ id, data }: NodeProps) {
         style={{ backgroundColor: color }}
       />
 
-      {/* Touching the node line reveals the next optional step for this
-          flow: refine after image, modify after video. */}
+      {/* Large round add button to the right of image/video cards makes the
+          next optional step discoverable: refine after image, modify after
+          video. */}
       {addableRole && !running && !isSavedCanvas ? (
-        <button
-          type="button"
-          onClick={() => addNodeToFlow(flowId, addableRole)}
-          className="nodrag absolute right-0 top-1/2 z-10 flex -translate-y-1/2 translate-x-[calc(100%+14px)] items-center gap-1 border border-border bg-card px-2 py-1 text-[0.65rem] font-medium text-muted-foreground opacity-0 shadow-lg transition hover:border-ring hover:text-foreground group-hover:opacity-100"
-          style={{ borderLeftColor: ROLE_COLOR[addableRole] }}
-        >
-          <FontAwesomeIcon className="size-3" icon="plus" />
-          {addableRole}_model
-        </button>
+        <div className="group/add absolute right-0 top-1/2 z-10 -translate-y-1/2 translate-x-[calc(100%+20px)]">
+          <button
+            type="button"
+            aria-label={`Add ${addableRole}_model`}
+            onClick={() => addNodeToFlow(flowId, addableRole)}
+            className="nodrag flex size-12 items-center justify-center rounded-full border-2 bg-card shadow-lg transition hover:scale-110"
+            style={{
+              borderColor: ROLE_COLOR[addableRole],
+              color: ROLE_COLOR[addableRole],
+            }}
+          >
+            <FontAwesomeIcon className="size-5" icon="plus" />
+          </button>
+          <span className="pointer-events-none absolute left-1/2 top-full mt-1.5 hidden -translate-x-1/2 whitespace-nowrap border border-border bg-card px-2 py-0.5 text-[0.6rem] font-medium text-foreground shadow-xl group-hover/add:block">
+            {addableRole}_model
+          </span>
+        </div>
       ) : null}
 
       {/* Section 1: card name + status badge, vertically centered */}
@@ -1783,11 +1910,17 @@ function ModelNodeComponent({ id, data }: NodeProps) {
           </>
         )}
 
-        {nodeStatus?.outputs?.length ? (
-          <div className="grid gap-2 border border-border p-2">
-            {nodeStatus.outputs.map((outputUrl) => (
-              <MediaPreview key={outputUrl} url={outputUrl} kind={kind} />
-            ))}
+        {running || nodeStatus ? (
+          <div className="grid gap-1">
+            <span className="font-mono text-[0.7rem] text-muted-foreground">
+              results
+            </span>
+            <NodeResults
+              kind={kind}
+              running={running}
+              status={nodeStatus?.status}
+              outputs={nodeStatus?.outputs}
+            />
           </div>
         ) : null}
       </div>
@@ -1849,6 +1982,7 @@ function AgentCheckpointPanel({
     suggestions.length === 0 ? (checkpoint.selected_prompt ?? '') : '',
   );
   const [approving, setApproving] = useState(false);
+  const [approved, setApproved] = useState(false);
 
   const effectivePrompt = (
     promptChoice === 'custom'
@@ -1859,9 +1993,33 @@ function AgentCheckpointPanel({
     ? effectivePrompt
     : (checkpoint.selected_prompt ?? '').trim();
 
-  // Review approval is gated on the operator locking every proposed field; the
+  // Copilot approval is gated on the operator locking every proposed field; the
   // prompt is auto-locked the moment one is picked.
   const allParamsLocked = paramFields.every((field) => locked[field.name]);
+
+  // Drive the button + status line from the server checkpoint status so they
+  // stay correct once the step finishes (and survive a panel remount), instead
+  // of relying only on the local approving/approved flags.
+  const stepDone = !pending && checkpoint.status === 'applied';
+  const stepFailed = !pending && checkpoint.status === 'failed';
+  const stepProcessing =
+    approving || approved || (!pending && checkpoint.status === 'approved');
+  const stepApproved = stepProcessing || stepDone || stepFailed;
+  const stepHint = stepFailed
+    ? isAutopilot
+      ? 'Autopilot step failed.'
+      : 'Agent step failed.'
+    : stepDone
+      ? 'Step complete.'
+      : stepProcessing
+        ? isAutopilot
+          ? 'Autopilot is running this step…'
+          : 'Agent step sent, processing…'
+        : isAutopilot
+          ? 'Autopilot runs this step automatically.'
+          : allParamsLocked
+            ? 'Agent ready to continue.'
+            : 'Pick a prompt and lock every proposed field to enable Approve.';
 
   const chooseSuggestion = (index: number) => {
     setPromptChoice(index);
@@ -1882,7 +2040,7 @@ function AgentCheckpointPanel({
   };
 
   const approve = async () => {
-    if (approving) return;
+    if (stepApproved) return;
     if (!promptValue) {
       toast.error('Choose or write an Agentic Workflow prompt first.');
       return;
@@ -1900,165 +2058,162 @@ function AgentCheckpointPanel({
         modelValues.generation_prompt = promptValue;
       }
       await onApprove(promptValue, params, modelValues);
+      setApproved(true);
     } finally {
       setApproving(false);
     }
   };
 
   return (
-    <div className="border border-border bg-muted/20">
-      <div className="border-b border-border px-2.5 py-1.5 text-[0.68rem] font-medium uppercase tracking-wide text-muted-foreground">
-        {isAutopilot
-          ? 'Agentic Workflow · Autopilot'
-          : 'Agentic Workflow · Review'}
-      </div>
-      <div className="space-y-2 p-2.5">
-        {pending ? (
-          <p className="text-[0.65rem] leading-4 text-muted-foreground">
-            Waiting for the previous step output. The proposed fields appear
-            here before this step starts.
-          </p>
-        ) : null}
+    <div className="space-y-2 p-3">
+      {pending ? (
+        <p className="text-[0.65rem] leading-4 text-muted-foreground">
+          {isAutopilot
+            ? 'Waiting for the previous step output. The agent will write and run this step automatically.'
+            : 'Waiting for the previous step output. The agent will propose a prompt and fields here for you to review and approve.'}
+        </p>
+      ) : null}
 
-        {!pending && promptVisible ? (
-          <div className="grid gap-1.5">
-            <span className="text-[0.62rem] font-medium uppercase tracking-wide text-muted-foreground">
-              prompt
-            </span>
-            {suggestions.map((suggestion, index) => (
-              <button
-                type="button"
-                key={`${checkpoint.id}:${index}`}
-                disabled={disabled || approving}
-                onClick={() => chooseSuggestion(index)}
-                className={cn(
-                  'nodrag border px-2 py-1.5 text-left text-[0.65rem] leading-4 transition disabled:opacity-60',
-                  promptChoice === index
-                    ? 'border-ring bg-muted text-foreground'
-                    : 'border-border text-muted-foreground hover:border-ring hover:text-foreground',
-                )}
-              >
-                <span className="block font-medium text-foreground">
-                  {suggestion.title || `Option ${index + 1}`}
-                </span>
-                <span className="mt-1 block whitespace-pre-wrap break-words">
-                  {suggestion.prompt}
-                </span>
-              </button>
-            ))}
-            {!isAutopilot ? (
-              <button
-                type="button"
-                disabled={disabled || approving}
-                onClick={() => setPromptChoice('custom')}
-                className={cn(
-                  'nodrag border px-2 py-1.5 text-left text-[0.65rem] leading-4 transition disabled:opacity-60',
-                  promptChoice === 'custom'
-                    ? 'border-ring bg-muted text-foreground'
-                    : 'border-border text-muted-foreground hover:border-ring hover:text-foreground',
-                )}
-              >
-                <span className="block font-medium text-foreground">
-                  Your prompt
-                </span>
-                <span className="mt-1 block">
-                  Write a custom prompt for this step.
-                </span>
-              </button>
-            ) : null}
-            {!isAutopilot && promptChoice === 'custom' ? (
-              <TextInputControl
-                as="textarea"
-                className="nodrag min-h-20 w-full resize-y border border-border bg-input px-2.5 py-1.5 text-xs text-foreground outline-none focus-visible:border-ring disabled:opacity-50"
-                disabled={disabled || approving}
-                rows={3}
-                value={customPrompt}
-                onChange={(value) => setCustomPrompt(String(value ?? ''))}
-              />
-            ) : null}
-          </div>
-        ) : null}
+      {!pending && promptVisible ? (
+        <div className="grid gap-1.5">
+          <span className="text-[0.62rem] font-medium uppercase tracking-wide text-muted-foreground">
+            prompt
+          </span>
+          {suggestions.map((suggestion, index) => (
+            <button
+              type="button"
+              key={`${checkpoint.id}:${index}`}
+              disabled={disabled || approving}
+              onClick={() => chooseSuggestion(index)}
+              className={cn(
+                'nodrag border px-2 py-1.5 text-left text-[0.65rem] leading-4 transition disabled:opacity-60',
+                promptChoice === index
+                  ? 'border-ring bg-muted text-foreground'
+                  : 'border-border text-muted-foreground hover:border-ring hover:text-foreground',
+              )}
+            >
+              <span className="block font-medium text-foreground">
+                {suggestion.title || `Option ${index + 1}`}
+              </span>
+              <span className="mt-1 block whitespace-pre-wrap break-words">
+                {suggestion.prompt}
+              </span>
+            </button>
+          ))}
+          {!isAutopilot ? (
+            <button
+              type="button"
+              disabled={disabled || approving}
+              onClick={() => setPromptChoice('custom')}
+              className={cn(
+                'nodrag border px-2 py-1.5 text-left text-[0.65rem] leading-4 transition disabled:opacity-60',
+                promptChoice === 'custom'
+                  ? 'border-ring bg-muted text-foreground'
+                  : 'border-border text-muted-foreground hover:border-ring hover:text-foreground',
+              )}
+            >
+              <span className="block font-medium text-foreground">
+                Your prompt
+              </span>
+              <span className="mt-1 block">
+                Write a custom prompt for this step.
+              </span>
+            </button>
+          ) : null}
+          {!isAutopilot && promptChoice === 'custom' ? (
+            <TextInputControl
+              as="textarea"
+              className="nodrag min-h-20 w-full resize-y border border-border bg-input px-2.5 py-1.5 text-xs text-foreground outline-none focus-visible:border-ring disabled:opacity-50"
+              disabled={disabled || approving}
+              rows={3}
+              value={customPrompt}
+              onChange={(value) => setCustomPrompt(String(value ?? ''))}
+            />
+          ) : null}
+        </div>
+      ) : null}
 
-        {!pending && paramFields.length > 0 ? (
-          <div className="grid gap-2 border border-border p-2">
-            <span className="text-[0.62rem] font-medium uppercase tracking-wide text-muted-foreground">
-              proposed_fields
-            </span>
-            {paramFields.map((field) => {
-              const fieldLocked = Boolean(locked[field.name]);
+      {!pending && paramFields.length > 0 ? (
+        <div className="grid gap-2 border border-border p-2">
+          <span className="text-[0.62rem] font-medium uppercase tracking-wide text-muted-foreground">
+            proposed_fields
+          </span>
+          {paramFields.map((field) => {
+            const fieldLocked = Boolean(locked[field.name]);
 
-              return (
-                <div key={field.name} className="grid gap-1">
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="font-mono text-[0.7rem] text-muted-foreground">
-                      {field.name}
-                      {field.required ? (
-                        <span className="text-destructive"> *</span>
-                      ) : null}
-                    </span>
-                    {!isAutopilot ? (
-                      <label className="nodrag flex shrink-0 cursor-pointer items-center gap-1 text-[0.6rem] text-muted-foreground">
-                        <input
-                          type="checkbox"
-                          className="nodrag size-3 accent-primary"
-                          checked={fieldLocked}
-                          disabled={disabled || approving}
-                          onChange={(event) =>
-                            setLocked((current) => ({
-                              ...current,
-                              [field.name]: event.target.checked,
-                            }))
-                          }
-                        />
-                        lock
-                      </label>
+            return (
+              <div key={field.name} className="grid gap-1">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="font-mono text-[0.7rem] text-muted-foreground">
+                    {field.name}
+                    {field.required ? (
+                      <span className="text-destructive"> *</span>
                     ) : null}
-                  </div>
-                  <FieldControl
-                    field={field}
-                    value={values[field.name]}
-                    disabled={disabled || approving || fieldLocked}
-                    onChange={(next) =>
-                      setValues((current) => ({
-                        ...current,
-                        [field.name]: next,
-                      }))
-                    }
-                  />
+                  </span>
+                  {!isAutopilot ? (
+                    <label className="nodrag flex shrink-0 cursor-pointer items-center gap-1 text-[0.6rem] text-muted-foreground">
+                      <input
+                        type="checkbox"
+                        className="nodrag size-3 accent-primary"
+                        checked={fieldLocked}
+                        disabled={disabled || approving}
+                        onChange={(event) =>
+                          setLocked((current) => ({
+                            ...current,
+                            [field.name]: event.target.checked,
+                          }))
+                        }
+                      />
+                      lock
+                    </label>
+                  ) : null}
                 </div>
-              );
-            })}
-          </div>
-        ) : null}
+                <FieldControl
+                  field={field}
+                  value={values[field.name]}
+                  disabled={disabled || approving || fieldLocked}
+                  onChange={(next) =>
+                    setValues((current) => ({
+                      ...current,
+                      [field.name]: next,
+                    }))
+                  }
+                />
+              </div>
+            );
+          })}
+        </div>
+      ) : null}
 
-        {!isAutopilot ? (
-          <div className="grid gap-1">
+      {!pending ? (
+        <div className="grid gap-1">
+          {!isAutopilot ? (
             <Button
               className="nodrag w-full"
               size="sm"
               disabled={
-                disabled ||
-                pending ||
-                approving ||
-                !promptValue ||
-                !allParamsLocked
+                disabled || stepApproved || !promptValue || !allParamsLocked
               }
               onClick={approve}
             >
               <FontAwesomeIcon
-                className={approving ? 'animate-spin' : undefined}
-                icon={approving ? 'spinner' : 'check'}
+                className={stepProcessing ? 'animate-spin' : undefined}
+                icon={
+                  stepProcessing
+                    ? 'spinner'
+                    : stepFailed
+                      ? 'triangle-exclamation'
+                      : 'check'
+                }
               />
-              {approving ? 'Continuing...' : 'Approve & continue'}
+              {stepApproved ? 'Approved' : 'Approve & continue'}
             </Button>
-            <p className="px-0.5 text-[0.6rem] leading-4 text-muted-foreground">
-              {allParamsLocked
-                ? 'Picking a prompt locks it automatically.'
-                : 'Lock every proposed field to enable Approve. Picking a prompt locks it automatically.'}
-            </p>
-          </div>
-        ) : null}
-      </div>
+          ) : null}
+          <p className="px-0.5 text-[0.6rem] leading-4 text-muted-foreground">
+            {stepHint}
+          </p>
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -2197,6 +2352,7 @@ function CheckpointNodeComponent({ data }: NodeProps) {
   const runMode = runModeByFlow.get(flowId) ?? 'self_control';
   const state = agentCheckpointByNode[checkpointNodeId(flowId, role)];
   const running = runningFlowIds.has(flowId);
+  const agentStatus = state ? 'done' : running ? 'thinking' : 'waiting';
   const checkpoint =
     state?.checkpoint ?? createPendingCheckpointPlaceholder(role, runMode);
   const fieldGroup = fieldsByModel[modelSchemaCacheKey(role, node.modelId)];
@@ -2207,7 +2363,7 @@ function CheckpointNodeComponent({ data }: NodeProps) {
     : [];
 
   return (
-    <div className="w-[460px] border border-border bg-card shadow-lg">
+    <div className="w-[400px] border border-border bg-card shadow-lg">
       <div className="h-1.5 w-full" style={{ backgroundColor: RUNNER_COLOR }} />
       <Handle
         type="target"
@@ -2229,32 +2385,46 @@ function CheckpointNodeComponent({ data }: NodeProps) {
         >
           checkpoint_{role}
         </div>
-        <span className="border border-border px-1.5 py-0.5 text-[0.6rem] font-medium uppercase tracking-wide text-muted-foreground">
-          {runMode === 'agent_autopilot' ? 'Autopilot' : 'Review'}
+        <span
+          className={cn(
+            'border px-1.5 py-0.5 text-[0.6rem] font-medium uppercase tracking-wide',
+            agentStatus === 'thinking' &&
+              'animate-pulse border-primary text-primary',
+            agentStatus === 'done' && 'border-emerald-300 text-emerald-300',
+            agentStatus === 'waiting' && 'border-border text-muted-foreground',
+          )}
+        >
+          {agentStatus}
         </span>
       </div>
 
-      <div className="p-3">
-        <AgentCheckpointPanel
-          key={checkpoint.id}
-          checkpoint={checkpoint}
-          mode={runMode}
-          disabled={!running || runMode !== 'agent_review' || !state}
-          fields={fields}
-          pending={!state}
-          onApprove={async (prompt, params, modelValues) => {
-            if (!state) return;
-            await continueAgentCheckpoint(
-              flowId,
-              role,
-              state.checkpoint.id,
-              prompt,
-              params,
-              modelValues,
-            );
-          }}
-        />
+      <div className="flex items-center gap-1.5 border-b border-border px-3 py-2 text-[0.65rem] text-muted-foreground">
+        <InlineAmazonNova className="size-3.5" aria-hidden="true" />
+        Amazon Nova
+        <span className="border border-border px-1.5 py-0.5 text-[0.6rem] font-medium uppercase tracking-wide text-muted-foreground">
+          {runMode === 'agent_autopilot' ? 'Autopilot' : 'Copilot'}
+        </span>
       </div>
+
+      <AgentCheckpointPanel
+        key={checkpoint.id}
+        checkpoint={checkpoint}
+        mode={runMode}
+        disabled={!running || runMode !== 'agent_copilot' || !state}
+        fields={fields}
+        pending={!state}
+        onApprove={async (prompt, params, modelValues) => {
+          if (!state) return;
+          await continueAgentCheckpoint(
+            flowId,
+            role,
+            state.checkpoint.id,
+            prompt,
+            params,
+            modelValues,
+          );
+        }}
+      />
     </div>
   );
 }
@@ -2475,20 +2645,9 @@ function RunnerNodeComponent({ data }: NodeProps) {
 
       <div className="space-y-2 p-3">
         <p className="text-[0.65rem] leading-4 text-muted-foreground">
-          {isSavedCanvas ? (
-            <>
-              <RunnerActionLabel>Run only</RunnerActionLabel> tests this flow
-              without saving. <RunnerActionLabel>RUN + SAVE</RunnerActionLabel>{' '}
-              publishes it as a new Library card.
-            </>
-          ) : (
-            <>
-              <RunnerActionLabel>Run only</RunnerActionLabel> keeps results
-              here. <RunnerActionLabel>RUN + SAVE</RunnerActionLabel> publishes
-              this flow as a new Library card each time — rename cards in the
-              Library.
-            </>
-          )}
+          <RunnerActionLabel>Run only</RunnerActionLabel> keeps results here.{' '}
+          <RunnerActionLabel>RUN + SAVE</RunnerActionLabel> publishes this flow
+          as a new Canvas card in Library page each time.
         </p>
         <span className="group relative block">
           <Button
@@ -2528,7 +2687,7 @@ function RunnerNodeComponent({ data }: NodeProps) {
             className="nodrag w-full"
             size="sm"
             variant="outline"
-            disabled={running || isSavedCanvas}
+            disabled={isSavedCanvas}
             onClick={() => duplicateFlow(flowId)}
           >
             <FontAwesomeIcon icon="copy" />
@@ -2584,14 +2743,14 @@ const RUN_MODE_OPTIONS: Array<{
     value: 'self_control',
   },
   {
-    label: 'Agentic · Review',
-    description:
-      'An Amazon Nova planner proposes each next step; you approve or edit it.',
-    value: 'agent_review',
+    label: 'Agentic · Copilot',
+    description: 'The agent proposes each next step; you approve or edit it.',
+    value: 'agent_copilot',
   },
   {
     label: 'Agentic · Autopilot',
-    description: 'An Amazon Nova planner writes and runs every next step.',
+    description:
+      'The agent writes and runs every next step. Pick the model on each card, the agent runs the model you display.',
     value: 'agent_autopilot',
   },
 ];
@@ -2792,8 +2951,8 @@ function InfoNodeComponent({ id, data }: NodeProps) {
             )}
           </div>
           <CanvasModeBadge mode={providerMode} byokProviders={byokProviders} />
-          <div className="grid gap-1.5 border border-border p-2">
-            <span className="text-[0.65rem] font-medium tracking-wide text-muted-foreground">
+          <div className="grid gap-1">
+            <span className="font-mono text-[0.7rem] text-muted-foreground">
               chain_runner
             </span>
             <RunModeDropdown
@@ -2867,7 +3026,7 @@ function compact(values: Record<string, FieldValue>): Record<string, unknown> {
       if (trimmed) output[key] = trimmed;
     } else if (typeof value === 'boolean') {
       // Booleans pass through as-is (true AND false) so a model's documented
-      // default — e.g. moderation flags — reaches the provider unchanged.
+      // default (e.g. moderation flags) reaches the provider unchanged.
       output[key] = value;
     } else {
       output[key] = value;
@@ -3071,7 +3230,7 @@ function runModeExecution(mode: RunMode) {
 
   return {
     type: 'chain_agent',
-    mode: mode === 'agent_review' ? 'review' : 'autopilot',
+    mode: mode === 'agent_copilot' ? 'copilot' : 'autopilot',
     provider: 'bedrock',
   };
 }
@@ -3140,7 +3299,7 @@ function CanvasInner(props: CanvasProps) {
     renameCanvasAction,
   } = props;
   const saveToastIdRef = useRef<string | number | null>(null);
-  const { fitView } = useReactFlow();
+  const { fitView, getInternalNode, setCenter, getZoom } = useReactFlow();
   const [confirm, confirmDialog] = useConfirm();
 
   const firstImage = firstAvailableModelForRole(models, 'image');
@@ -3199,22 +3358,47 @@ function CanvasInner(props: CanvasProps) {
     pendingFitFlowIdsRef.current = new Set(flowIds.filter(Boolean));
   }, []);
 
+  // Smoothly pan/zoom the viewport onto one or more flows. We wait (via rAF)
+  // until React Flow has measured the target nodes, otherwise the animation
+  // starts from 0x0 placeholder bounds and the view jumps around.
+  const animateFitToFlows = useCallback(
+    (flowIds: ReadonlySet<string>) => {
+      const startedAt = Date.now();
+      const step = () => {
+        const targetNodes = nodesRef.current.filter((node) =>
+          flowIds.has(node.data.flowId),
+        );
+        if (targetNodes.length === 0) return;
+
+        const measured = targetNodes.every((node) => {
+          const internal = getInternalNode(node.id);
+          return Boolean(internal?.measured.width && internal?.measured.height);
+        });
+        if (!measured && Date.now() - startedAt < 600) {
+          window.requestAnimationFrame(step);
+          return;
+        }
+
+        void fitView({
+          nodes: targetNodes,
+          padding: 0.24,
+          maxZoom: 0.95,
+          duration: 600,
+        });
+      };
+      window.requestAnimationFrame(step);
+    },
+    [fitView, getInternalNode],
+  );
+
   useEffect(() => {
     const flowIds = pendingFitFlowIdsRef.current;
     if (!hydrated || !flowIds || flowIds.size === 0) return;
-
-    const targetNodes = nodes.filter((node) => flowIds.has(node.data.flowId));
-    if (targetNodes.length === 0) return;
+    if (!nodes.some((node) => flowIds.has(node.data.flowId))) return;
 
     pendingFitFlowIdsRef.current = null;
-    window.requestAnimationFrame(() => {
-      void fitView({
-        maxZoom: 0.95,
-        nodes: targetNodes,
-        padding: 0.24,
-      });
-    });
-  }, [fitView, hydrated, nodes]);
+    animateFitToFlows(flowIds);
+  }, [animateFitToFlows, hydrated, nodes]);
 
   useEffect(() => {
     if (!saveToastIdRef.current) return;
@@ -3279,7 +3463,7 @@ function CanvasInner(props: CanvasProps) {
   }, [nodes, hydrated]);
 
   // Monotonic guard: bumped by Reset. A flush that started before the bump
-  // must not write its (stale) snapshot after the reset's save — the
+  // must not write its (stale) snapshot after the reset's save; the
   // interval otherwise races the direct reset save and resurrects old flows.
   const saveGenerationRef = useRef(0);
 
@@ -3331,7 +3515,7 @@ function CanvasInner(props: CanvasProps) {
     // Last-chance flush when the page is being hidden or closed. Server
     // actions cannot run during unload, so this posts the snapshot to the
     // owner-authenticated workspace route via sendBeacon (fire-and-forget,
-    // survives the page teardown). Only the base workspace needs it — saved
+    // survives the page teardown). Only the base workspace needs it; saved
     // canvas pages keep the interval + action path.
     const flushOnExit = () => {
       if (!dirtyRef.current) return;
@@ -3472,7 +3656,7 @@ function CanvasInner(props: CanvasProps) {
   // Normalize EVERY node against its model's schema whenever nodes or loaded
   // schemas change: drop values the schema does not know, and fill every
   // missing field with the model's documented default. This runs for nodes
-  // added after the schema was cached too — previously those never received
+  // added after the schema was cached too; previously those never received
   // defaults, which produced empty fields (and broken payloads) for fields
   // whose schema default is required behavior.
   useEffect(() => {
@@ -3626,10 +3810,10 @@ function CanvasInner(props: CanvasProps) {
 
   // Aux cards must be REAL state nodes: ReactFlow v12 delivers measured
   // node dimensions through onNodesChange, and nodes absent from the managed
-  // state never receive them — they can stay hidden in production builds.
+  // state never receive them, so they can stay hidden in production builds.
   // Reconcile one API and one runner per flow into the state. They are normal,
   // draggable cards (ReactFlow disables pointer-events on fully
-  // non-interactive nodes, which made the run buttons unclickable) — they
+  // non-interactive nodes, which made the run buttons unclickable), so they
   // just cannot be deleted, so every flow always ends with API + runner. New
   // aux cards spawn separated in the final utility column; existing ones keep
   // whatever position the user dragged them to.
@@ -3915,69 +4099,67 @@ function CanvasInner(props: CanvasProps) {
     (flowId: string) => {
       if (canvasId) return;
 
-      setNodes((current) => {
-        const sourceModels = current
-          .filter(
-            (node) => node.type === 'model' && node.data.flowId === flowId,
-          )
-          .sort((a, b) => ROLE_RANK[a.data.role] - ROLE_RANK[b.data.role]);
+      // Compute the copy OUTSIDE the updater so the generated flow id stays
+      // stable under React Strict Mode's double-invoked updaters and the queued
+      // fit reliably targets the flow that actually gets committed.
+      const current = nodesRef.current;
+      const sourceModels = current
+        .filter((node) => node.type === 'model' && node.data.flowId === flowId)
+        .sort((a, b) => ROLE_RANK[a.data.role] - ROLE_RANK[b.data.role]);
 
-        if (sourceModels.length === 0) {
-          return current;
-        }
+      if (sourceModels.length === 0) return;
 
-        const sourceInfo = current.find(
-          (node) => node.type === 'info' && node.data.flowId === flowId,
-        );
-        const newFlowId = genFlowId();
-        const rowY = nextFlowY(current);
-        const infoValues: Record<string, FieldValue> = {
-          ...(sourceInfo?.data.values ?? {}),
-          name: duplicateFlowName(flowName(current, flowId)),
-        };
+      const sourceInfo = current.find(
+        (node) => node.type === 'info' && node.data.flowId === flowId,
+      );
+      const newFlowId = genFlowId();
+      const rowY = nextFlowY(current);
+      const infoValues: Record<string, FieldValue> = {
+        ...(sourceInfo?.data.values ?? {}),
+        name: duplicateFlowName(flowName(current, flowId)),
+      };
 
-        const copiedNodes: FlowNode[] = [
-          {
-            id: `info_${newFlowId}`,
-            type: 'info',
-            position: { x: FLOW_X, y: rowY },
-            data: {
-              role: 'image',
-              modelId: '',
-              flowId: newFlowId,
-              values: infoValues,
-            },
+      const copiedNodes: FlowNode[] = [
+        {
+          id: `info_${newFlowId}`,
+          type: 'info',
+          position: { x: FLOW_X, y: rowY },
+          data: {
+            role: 'image',
+            modelId: '',
+            flowId: newFlowId,
+            values: infoValues,
           },
-          ...sourceModels.map((node, index) => ({
-            id: genId(node.data.role),
-            type: 'model' as const,
-            position: {
-              x: FLOW_X + INFO_COL_W + index * FLOW_COL_W,
-              y: rowY,
-            },
-            data: {
-              ...node.data,
-              flowId: newFlowId,
-              values: { ...node.data.values },
-            },
-          })),
-        ];
+        },
+        ...sourceModels.map((node, index) => ({
+          id: genId(node.data.role),
+          type: 'model' as const,
+          position: {
+            x: FLOW_X + INFO_COL_W + index * FLOW_COL_W,
+            y: rowY,
+          },
+          data: {
+            ...node.data,
+            flowId: newFlowId,
+            values: { ...node.data.values },
+          },
+        })),
+      ];
 
-        queueFitViewForFlows([newFlowId]);
-
-        return [...current, ...copiedNodes];
-      });
+      setNodes((prev) => [...prev, ...copiedNodes]);
+      queueFitViewForFlows([newFlowId]);
     },
     [canvasId, setNodes, queueFitViewForFlows],
   );
 
   const addFlow = useCallback(() => {
-    setNodes((current) => {
-      const nextFlow = buildDefaultFlow(nextFlowY(current));
-      const flowId = nextFlow[0]?.data.flowId;
-      if (flowId) queueFitViewForFlows([flowId]);
-      return [...current, ...nextFlow];
-    });
+    // Build the new flow OUTSIDE the updater: React Strict Mode double-invokes
+    // setState updaters in dev, so generating a flow id inside would mint two
+    // different ids and the queued fit could target the discarded one.
+    const nextFlow = buildDefaultFlow(nextFlowY(nodesRef.current));
+    const flowId = nextFlow[0]?.data.flowId;
+    setNodes((current) => [...current, ...nextFlow]);
+    if (flowId) queueFitViewForFlows([flowId]);
   }, [setNodes, buildDefaultFlow, queueFitViewForFlows]);
 
   const resetCanvas = useCallback(async () => {
@@ -4175,7 +4357,7 @@ function CanvasInner(props: CanvasProps) {
 
     return run.execution.mode === 'autopilot'
       ? 'agent_autopilot'
-      : 'agent_review';
+      : 'agent_copilot';
   }
 
   const finishFlow = useCallback((flowId: string) => {
@@ -4208,7 +4390,7 @@ function CanvasInner(props: CanvasProps) {
         if (failures >= 8) {
           finishFlow(flowId);
           toast.error(
-            'Lost connection while tracking the run. Reload to resume — the run keeps processing in the background.',
+            'Lost connection while tracking the run. Reload to resume. The run keeps processing in the background.',
           );
           return;
         }
@@ -4405,7 +4587,7 @@ function CanvasInner(props: CanvasProps) {
 
       // "RUN + SAVE": only create the Library card after a run id exists, so
       // navigating away cannot leave a saved canvas that says "not run yet".
-      // Every publish — from the workspace or from a saved canvas page —
+      // Every publish (from the workspace or from a saved canvas page)
       // mints a fresh Library card (new canvas id + run id); existing cards are
       // never overwritten. The flow name rides along as-is, so owners rename
       // cards directly in the Library.
@@ -4492,14 +4674,14 @@ function CanvasInner(props: CanvasProps) {
       void cancelRunAction(runId)
         .then((run) => {
           if (run) {
-            // Paint the canceled/skipped statuses — unless the user already
+            // Paint the canceled/skipped statuses, unless the user already
             // started a NEW run for this flow while the cancel was in flight.
             if (!flowRunIdRef.current.has(flowId)) {
               applyRunToFlow(flowId, run as RunJson);
             }
           } else {
             toast.error(
-              'Stopping the run failed — it may finish in the background.',
+              'Stopping the run failed. It may finish in the background.',
             );
           }
         })
@@ -4705,17 +4887,26 @@ function CanvasInner(props: CanvasProps) {
               size={1}
               color="#2a313d"
             />
-            <Controls showInteractive={false} />
+            <Controls
+              showInteractive={false}
+              fitViewOptions={{ padding: 0.24, maxZoom: 0.95, duration: 400 }}
+            />
             <MiniMap
               pannable
+              zoomable
+              onClick={(_event, position) => {
+                void setCenter(position.x, position.y, {
+                  zoom: getZoom(),
+                  duration: 400,
+                });
+              }}
               nodeColor={(node) =>
-                node.type === 'runner'
+                node.type === 'runner' || node.type === 'info'
                   ? RUNNER_COLOR
-                  : node.type === 'info'
-                    ? INFO_COLOR
-                    : ROLE_COLOR[(node.data as NodeData).role]
+                  : (ROLE_COLOR[(node.data as NodeData).role] ?? '#94a3b8')
               }
-              maskColor="rgba(10, 12, 16, 0.7)"
+              nodeStrokeColor="#0a0c10"
+              maskColor="rgba(10, 12, 16, 0.6)"
               style={{
                 backgroundColor: '#0a0c10',
                 border: '1px solid #29303d',

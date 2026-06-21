@@ -126,7 +126,7 @@ export function InlineVercelBlob({
       <path
         d="M32.3 18.3c0 1.3-3.3 2.4-7.3 2.4s-7.3-1.1-7.3-2.4M32.3 18.3c0-1.3-3.3-2.4-7.3-2.4s-7.3 1.1-7.3 2.4M32.3 18.3v11.3c0 1.3-3.2 2.4-7.3 2.4s-7.3-1.1-7.3-2.4V18.3M32.3 24c0 1.3-3.2 2.4-7.3 2.4s-7.3-1.1-7.3-2.4"
         fill="none"
-        stroke="#E46000"
+        stroke="#000000"
         strokeWidth="1.25"
         strokeLinecap="round"
         strokeLinejoin="round"

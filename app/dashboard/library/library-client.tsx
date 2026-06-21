@@ -41,10 +41,7 @@ import {
 } from '@/lib/canvas/names';
 import { formatPublicModelName } from '@/lib/models/display';
 import { cn } from '@/lib/utils';
-import type {
-  CanvasLibraryItem,
-  CanvasResultPreview,
-} from '@/lib/canvas/canvas-store';
+import type { CanvasLibraryItem } from '@/lib/canvas/canvas-store';
 
 type IconComponent = ComponentType<SVGProps<SVGSVGElement>>;
 
@@ -217,6 +214,11 @@ function CanvasCard({
     () => inferenceBadgeInfo(canvas.modelIds),
     [canvas.modelIds],
   );
+  const previewByRole = useMemo(
+    () =>
+      new Map(canvas.resultPreviews.map((preview) => [preview.role, preview])),
+    [canvas.resultPreviews],
+  );
   const [deleting, startDelete] = useTransition();
   const [renaming, startRename] = useTransition();
   const [editing, setEditing] = useState(false);
@@ -280,7 +282,7 @@ function CanvasCard({
   return (
     <Card>
       <CardContent className="space-y-3 p-3">
-        {/* 1. Title — truncated to 40 characters, pencil to rename */}
+        {/* 1. Title: truncated to 40 characters, pencil to rename */}
         {editing ? (
           <input
             autoFocus
@@ -338,7 +340,7 @@ function CanvasCard({
           </MetaRow>
         </div>
 
-        {/* 3. Inference — fixed two-line height so cards align */}
+        {/* 3. Inference: fixed two-line height so cards align */}
         <div className="space-y-1.5">
           <p className="text-[0.6rem] font-medium uppercase tracking-[0.12em] text-muted-foreground">
             Inference
@@ -357,7 +359,7 @@ function CanvasCard({
           </div>
         </div>
 
-        {/* 4. Models — fixed two-line height so cards align */}
+        {/* 4. Models: fixed two-line height so cards align */}
         <div className="space-y-1.5">
           <p className="text-[0.6rem] font-medium uppercase tracking-[0.12em] text-muted-foreground">
             Models
@@ -376,29 +378,46 @@ function CanvasCard({
           </div>
         </div>
 
-        {/* 5. Results — fixed two-row grid; spans depend on result count */}
+        {/* 5. Results: always a 2x2 square grid, one slot per role (image,
+            refine, video, modify). Slots fill from the run's succeeded steps;
+            unused roles stay as placeholders so every card lines up. */}
         <div className="space-y-1.5">
           <p className="text-[0.6rem] font-medium uppercase tracking-[0.12em] text-muted-foreground">
             Results
           </p>
-          <div className="grid h-56 grid-cols-2 grid-rows-2 gap-1.5">
-            {canvas.resultPreviews.length === 0 ? (
-              <div className="col-span-2 row-span-2 flex items-center justify-center border border-dashed border-border text-xs text-muted-foreground">
-                No results yet
-              </div>
-            ) : (
-              canvas.resultPreviews.map((preview, index) => (
-                <ResultPreview
-                  className={resultCellClass(
-                    canvas.resultPreviews.length,
-                    index,
+          <div className="grid grid-cols-2 gap-1.5">
+            {RESULT_SLOT_ROLES.map((role) => {
+              const preview = previewByRole.get(role);
+              return (
+                <div key={role} className="aspect-square">
+                  {preview && preview.status === 'succeeded' && preview.url ? (
+                    <ResultPreview
+                      url={preview.url}
+                      kind={preview.kind}
+                      role={role}
+                      title={canvas.title}
+                    />
+                  ) : preview && preview.status === 'failed' ? (
+                    <ResultSlotMessage
+                      role={role}
+                      icon="eye-slash"
+                      tone="error"
+                      message={preview.error ?? 'Step failed.'}
+                    />
+                  ) : (
+                    <ResultSlotMessage
+                      role={role}
+                      icon={
+                        role === 'video' || role === 'modify'
+                          ? 'video'
+                          : 'image'
+                      }
+                      message="Not used"
+                    />
                   )}
-                  key={`${preview.url}-${index}`}
-                  preview={preview}
-                  title={canvas.title}
-                />
-              ))
-            )}
+                </div>
+              );
+            })}
           </div>
         </div>
 
@@ -452,32 +471,57 @@ function MetaRow({
   );
 }
 
-// Two-row results grid. Cell spans by result count:
-//   1 result : full-width, both rows
-//   2 results: one per row (full width each)
-//   3 results: first two side by side, third full-width on row 2
-//   4 results: 2×2
-function resultCellClass(count: number, index: number) {
-  if (count === 1) return 'col-span-2 row-span-2';
-  if (count === 2) return 'col-span-2';
-  if (count === 3 && index === 2) return 'col-span-2';
-  return '';
+// The Library card always renders a fixed 2x2 result grid, one square slot per
+// role, so cards line up no matter how many steps a run produced.
+const RESULT_SLOT_ROLES = ['image', 'refine', 'video', 'modify'] as const;
+
+function ResultSlotMessage({
+  role,
+  icon,
+  message,
+  tone = 'muted',
+}: {
+  role: string;
+  icon: string;
+  message: string;
+  tone?: 'muted' | 'error';
+}) {
+  return (
+    <div
+      className={cn(
+        'flex h-full w-full flex-col items-center justify-center gap-1 border px-2 text-center',
+        tone === 'error'
+          ? 'border-rose-300/40 bg-black text-rose-300'
+          : 'border-dashed border-border text-muted-foreground',
+      )}
+    >
+      <FontAwesomeIcon className="size-4" icon={icon} />
+      <span className="text-[0.55rem] font-medium uppercase tracking-wide">
+        {role}
+      </span>
+      <span className="line-clamp-3 text-[0.55rem] leading-3 [overflow-wrap:anywhere]">
+        {message}
+      </span>
+    </div>
+  );
 }
 
 function ResultPreview({
-  preview,
+  url,
+  kind,
+  role,
   title,
-  className,
 }: {
-  preview: CanvasResultPreview;
+  url: string;
+  kind: 'image' | 'video';
+  role: string;
   title: string;
-  className?: string;
 }) {
   const [failed, setFailed] = useState(false);
   const [loaded, setLoaded] = useState(false);
 
   // The Library is server-rendered, so a cached image/video can finish loading
-  // before React hydrates and attaches onLoad/onLoadedMetadata — the event is
+  // before React hydrates and attaches onLoad/onLoadedMetadata, so the event is
   // missed and the overlay would spin forever. This callback ref re-checks
   // readiness when the element mounts and clears the overlay when the browser
   // already has the media.
@@ -495,31 +539,26 @@ function ResultPreview({
     [],
   );
 
+  // Provider delivery URLs expire, so a once-succeeded output can fail to load
+  // now. Surface the role with an eye-off and the storage hint.
   if (failed) {
-    const icon = preview.kind === 'video' ? 'video' : 'image';
     return (
-      <div
-        className={cn(
-          'flex h-full w-full flex-col items-center justify-center gap-1.5 border border-border bg-black text-muted-foreground',
-          className,
-        )}
-      >
-        <FontAwesomeIcon className="size-5" icon={icon} />
-        <span className="px-2 text-center text-[0.65rem] leading-4">
-          Removed by your inference. Set up storage to keep outputs longer.
-        </span>
-      </div>
+      <ResultSlotMessage
+        role={role}
+        icon="eye-slash"
+        message="Removed by your inference. Set up storage to keep outputs longer."
+      />
     );
   }
 
   // object-contain (not cover): portrait results (9:16) letterbox inside the
   // landscape cell instead of being cropped to a landscape crop.
   return (
-    <div className={cn('relative h-full w-full', className)}>
-      {preview.kind === 'video' ? (
+    <div className="relative h-full w-full">
+      {kind === 'video' ? (
         <video
           ref={markLoadedIfReady}
-          src={preview.url}
+          src={url}
           controls
           muted
           playsInline
@@ -531,8 +570,8 @@ function ResultPreview({
       ) : (
         <img
           ref={markLoadedIfReady}
-          src={preview.url}
-          alt={`${title} — image result`}
+          src={url}
+          alt={`${title} - ${role} result`}
           loading="lazy"
           decoding="async"
           onError={() => setFailed(true)}

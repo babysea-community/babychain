@@ -29,7 +29,7 @@ export function completeChainAgentSelectedParams(
 
   // Some downstream schemas (for example video-to-video modify models) do not
   // declare generation_prompt. BabyChain force-injects it for prompt-driven
-  // steps, so drop it here when the schema does not accept it — otherwise the
+  // steps, so drop it here when the schema does not accept it; otherwise the
   // run fails with "generation_prompt is not supported by the downstream schema".
   if (
     !('generation_prompt' in properties) &&

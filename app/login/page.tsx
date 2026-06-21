@@ -7,9 +7,10 @@ import {
   getSession,
   verifyOwnerCredentials,
 } from '@/lib/auth/owner';
-import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { GooBackground } from '@/lib/utils/goo/background';
+
+import { LoginSubmitButton } from './submit-button';
 
 export const dynamic = 'force-dynamic';
 
@@ -67,7 +68,7 @@ export default async function LoginPage({
         <GooBackground />
       </div>
 
-      <Card className="relative z-10 w-full max-w-md bg-card/95 p-8 shadow-2xl ring-1 ring-border">
+      <Card className="relative z-10 w-full max-w-md bg-card p-8 shadow-2xl ring-1 ring-border">
         <div className="mb-8 text-center">
           <p className="text-lg font-semibold uppercase tracking-[0.4em] text-primary">
             BabyChain
@@ -131,12 +132,7 @@ export default async function LoginPage({
             </p>
           ) : null}
 
-          <Button
-            type="submit"
-            className="h-auto w-full px-4 py-3 text-sm font-semibold"
-          >
-            Enter studio
-          </Button>
+          <LoginSubmitButton />
         </form>
       </Card>
     </main>

@@ -11,7 +11,7 @@ docker pull babyseaoss/babychain:latest
 Available tags:
 
 - `latest`
-- `0.1.1`
+- `0.2.0`
 
 ## Quick start
 

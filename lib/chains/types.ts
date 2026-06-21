@@ -146,7 +146,7 @@ export type ChainExecutionConfig =
     }
   | {
       type: 'chain_agent';
-      mode: 'review' | 'autopilot';
+      mode: 'copilot' | 'autopilot';
       provider: 'bedrock';
       modelIdentifier: string;
     };
@@ -156,7 +156,7 @@ export type ChainAgentCheckpointRecord = {
   runId: string;
   stepKey: string;
   previousStepKey: string;
-  mode: 'review' | 'autopilot';
+  mode: 'copilot' | 'autopilot';
   provider: 'bedrock';
   modelIdentifier: string;
   status: ChainAgentCheckpointStatus;

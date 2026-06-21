@@ -15,7 +15,7 @@ export type ConfirmOptions = {
 };
 
 /**
- * Promise-based confirmation built on the project's shadcn primitives — a drop
+ * Promise-based confirmation built on the project's shadcn primitives, a drop
  * in replacement for `window.confirm` that matches the app's styling and is
  * keyboard accessible (Escape cancels, focus is restored to the trigger).
  *
