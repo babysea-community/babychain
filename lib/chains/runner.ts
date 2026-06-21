@@ -73,6 +73,12 @@ const TERMINAL_RUN_STATUSES = new Set(['succeeded', 'failed', 'canceled']);
 const CALLBACK_TIMEOUT_MS = 10_000;
 const CALLBACK_RESPONSE_TEXT_LIMIT = 2_000;
 const STARTING_STEP_STALE_MS = BABYCHAIN_SDK_REQUEST_TIMEOUT_MS + 60_000;
+// Once a step has a provider/generation id it polls until the provider returns
+// a terminal state. This wall-clock watchdog fails a step that never reaches a
+// terminal state so a lost provider job cannot keep a run polling forever. It
+// is deliberately ~4x the worst-case single-step SLA budget so it never trips a
+// legitimately slow generation.
+const RUNNING_STEP_STALE_MS = BABYCHAIN_SDK_REQUEST_TIMEOUT_MS * 4;
 const TRANSIENT_PROVIDER_ERROR_CODES = new Set([
   'provider_network_error',
   'provider_rate_limited',
@@ -268,6 +274,30 @@ export async function processRun(
         }
 
         return record;
+      }
+
+      if (isRunningStepStale(runningStep)) {
+        const errorMessage =
+          'The generation did not reach a terminal state before the running deadline.';
+
+        const failedStep = await store.updateRunningStep(runningStep.id, {
+          completedAt: new Date().toISOString(),
+          errorCode: 'step_running_timed_out',
+          errorMessage,
+          status: 'failed',
+        });
+
+        if (!failedStep) {
+          return mustGetRun(store, record.run.id);
+        }
+
+        record = await failRun(
+          record,
+          store,
+          'step_running_timed_out',
+          errorMessage,
+        );
+        continue;
       }
 
       await refreshStepFromProvider(
@@ -1867,6 +1897,22 @@ function isStartingStepStale(step: ChainStepRecord) {
   }
 
   return Date.now() - startedAtMs > STARTING_STEP_STALE_MS;
+}
+
+function isRunningStepStale(step: ChainStepRecord) {
+  if (!step.startedAt) {
+    // Without a start timestamp we cannot measure elapsed time, and the step
+    // already holds a provider id, so do not watchdog-fail on an unknown clock.
+    return false;
+  }
+
+  const startedAtMs = Date.parse(step.startedAt);
+
+  if (!Number.isFinite(startedAtMs)) {
+    return false;
+  }
+
+  return Date.now() - startedAtMs > RUNNING_STEP_STALE_MS;
 }
 
 function toStepContext(steps: ChainStepRecord[]) {

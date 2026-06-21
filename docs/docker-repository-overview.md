@@ -63,13 +63,13 @@ docker build \
 The image exposes port `3000` and includes a container health check against:
 
 ```text
-/api/v1/models
+/api/health
 ```
 
 You can verify manually:
 
 ```bash
-curl -fsS http://localhost:3000/api/v1/models
+curl -fsS http://localhost:3000/api/health
 ```
 
 ## Runtime requirements

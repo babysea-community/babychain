@@ -19,7 +19,7 @@ Coolify can deploy BabyChain from the production `Dockerfile` or from the includ
 4. Set the compose file path to `docker-compose.yml`.
 5. Set the public domain to your final `NEXT_PUBLIC_SITE_URL`.
 
-The compose service exposes port `3000`, maps it through `BABYCHAIN_HOST_PORT`, and includes a healthcheck for `/api/v1/models`.
+The compose service exposes port `3000`, maps it through `BABYCHAIN_HOST_PORT`, and includes a healthcheck for `/api/health`.
 
 ### 2. Set build and runtime variables
 
@@ -47,6 +47,19 @@ BABYSEA_API_KEY=YOUR_BABYSEA_API_KEY_OR_PLACEHOLDER
 BABYSEA_REGION=us
 BABYSEA_API_BASE_URL=https://api.us.babysea.ai
 BABYSEA_WEBHOOK_SECRET=YOUR_BABYSEA_WEBHOOK_SECRET_OR_PLACEHOLDER
+# Agentic Workflow (optional)
+AWS_BEARER_TOKEN_BEDROCK=
+BEDROCK_REGION=us-east-1
+BEDROCK_NOVA_AGENT_MODEL=us.amazon.nova-pro-v1:0
+BEDROCK_NOVA_AGENT_EXEMPLAR=off
+# Storage (optional)
+BABYCHAIN_STORAGE_PROVIDER=none
+AWS_S3_REGION=
+AWS_S3_ACCESS_KEY_ID=
+AWS_S3_SECRET_ACCESS_KEY=
+AWS_S3_BUCKET_NAME=
+AWS_S3_ENDPOINT_URL=
+BLOB_READ_WRITE_TOKEN=
 NEXT_PUBLIC_SENTRY_DSN=https://example@sentry.io/123
 NEXT_PUBLIC_SENTRY_ENVIRONMENT=production
 SENTRY_ORG=YOUR_SENTRY_ORG
@@ -94,7 +107,7 @@ Then verify the API:
 ```bash
 curl -fsS \
   -H "Authorization: Bearer YOUR_BABYCHAIN_API_KEY" \
-  http://localhost:3000/api/v1/models
+  http://localhost:3000/api/health
 ```
 
 ## Troubleshooting

@@ -6,17 +6,27 @@ All notable changes will be documented here. The format follows [Keep a Changelo
 
 ## [0.3.0] - 2026-06-21
 
+### Added
+
+- Added a database-aware `GET /api/health` readiness probe (200 when Aurora responds, 503 otherwise); the Docker image, `docker-compose.yml`, and the CloudFormation ALB health check now target it instead of `/api/v1/models`, so a node that loses its database is detected and replaced.
+
 ### Changed
 
 - Updated the BYOK schema source to `semantic-lady@0.5.0`, refreshing every published `generation_*` field (model ids, defaults, enums, and required flags) across the image and video model catalog used by the run API, canvas node cards, and templates page.
 - **Breaking (BYOK request contract):** `wan/2.2-animate-mix` and `wan/2.2-animate-move` (and their BabyChain `-image`/`-video` chain variants) now require an explicit `generation_mode` of `wan-std` or `wan-pro` on every request; Semantic Lady 0.5.0 removed the implicit `wan-std` default, so callers, saved canvases, and the Agentic Workflow must set the mode before these steps can run.
 - Runway Aleph-2 now publishes standard aspect-ratio values for `generation_aspect_ratio` (`16:9`, `4:3`, `3:2`, `1:1`, `2:3`, `3:4`, `9:16`, `21:9`) and treats `generation_prompt` as optional, matching the corrected upstream schema.
 - `generation_seed` is now an unbounded optional integer for every BFL FLUX model; the previously published `42` default and `-1`-`4294967295` bounds were dropped upstream, so request builders, cURL templates, and JSON Schema views no longer prefill or constrain a seed for these models.
+- Hardened the Aurora connection pool with server-side `statement_timeout` (30s) and `idle_in_transaction_session_timeout` (60s) defaults (env-overridable via `DATABASE_STATEMENT_TIMEOUT_MS`/`DATABASE_IDLE_TX_TIMEOUT_MS`) so one stuck query or idle transaction cannot pin a connection in the small pool.
+- The recovery cron now leases each active run with an atomic `FOR UPDATE SKIP LOCKED` claim (released after processing, with a stale-lease fallback) so overlapping cron passes no longer double-poll the same run, and it batch-loads claimed runs in three queries instead of one-plus-N-per-run.
+- Terminal-run callback delivery now stops after a bounded number of attempts (`BABYCHAIN_CALLBACK_MAX_ATTEMPTS`, default 8) instead of being retried on every cron pass indefinitely.
+- Added a running-step watchdog that fails a step still running long past the worst-case step budget, so a silently lost provider job can no longer keep a run polling forever.
+- The recovery cron now prunes `audit_event`, `callback_delivery`, and `babysea_webhook_delivery` rows past a retention window (`BABYCHAIN_AUDIT_RETENTION_DAYS`, default 30) in bounded batches, backed by new `created_at` indexes.
 
 ### Fixed
 
 - Provider output persistence on the run-poll and BabySea webhook paths now honors the storage provider injected into the runner instead of always re-resolving it from the environment, so a custom or disabled storage provider passed to `processRun` is respected when finalizing step outputs.
 - The Agentic Workflow now re-checks for an existing checkpoint immediately before calling Amazon Nova, so when two processors handle the same run concurrently (a cron poll alongside a webhook or API call) the one that arrives second reuses the persisted checkpoint instead of issuing a redundant Bedrock planning call; the `ON CONFLICT DO NOTHING` insert remains the authoritative guard.
+- `auroraTransaction` now guards its `ROLLBACK` and releases the client with the error so a broken connection is evicted from the pool instead of being returned to it, and the original error is never masked by a rollback failure.
 
 ## [0.2.0] - 2026-06-21
 
@@ -77,7 +87,7 @@ All notable changes will be documented here. The format follows [Keep a Changelo
 - Runway Act-Two and Wan Animate variant selections now stay attached through provider submission, so Runway receives the correct image or video character media and Alibaba Cloud receives the correct chained media plus caller companion file.
 - The production Docker image now uses `node:24-alpine` for build, dependency, and runtime stages instead of the Debian slim base, reducing the published image size and removing the inherited high/critical Debian OS findings reported against `node:24-bookworm-slim`.
 - Docker host docs and templates now keep `SENTRY_AUTH_TOKEN` out of runtime container secrets; it is documented as a CI/build-time-only value for optional source map uploads.
-- CloudFormation, Fly.io, Coolify, and Compose Docker host paths now use the same `/api/v1/models` health endpoint, and CloudFormation placeholder/helper Node images use Alpine instead of Debian slim.
+- CloudFormation, Fly.io, Coolify, and Compose Docker host paths now use the same `/api/health` health endpoint, and CloudFormation placeholder/helper Node images use Alpine instead of Debian slim.
 - The Agentic Workflow planner now keeps one consistent aspect ratio across the whole chain, matching the first image step and falling back to the nearest available ratio (or width/height) when no exact enum match exists, and always picks the longest valid duration to maximize results.
 - Agentic checkpoint Approve buttons and status text now follow the server checkpoint status (suggested, approved, applied, failed), so "Approved" persists after a step finishes and Copilot and Autopilot each show accurate processing, complete, and failed states; the waiting message and the Autopilot run-mode hint now read correctly for each mode.
 - Locked prompt fields (during a run or under Autopilot) now show the full prompt in an auto-height read-only block instead of cropping it inside a fixed-height textarea.

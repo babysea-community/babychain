@@ -32,6 +32,22 @@ type Row = Record<string, unknown>;
 
 const SCHEMA = 'babychain_private';
 const STALE_MS = 2 * 60 * 1000;
+// A terminal-run callback is retried until it succeeds or this many attempts
+// have been made, after which it stays 'failed' and is no longer reselected.
+const CALLBACK_MAX_ATTEMPTS =
+  Number(process.env.BABYCHAIN_CALLBACK_MAX_ATTEMPTS) || 8;
+// A cron pass leases an active run while it advances it so overlapping passes
+// do not both poll the same run. The lease is cleared after processing; a
+// crashed pass's lease expires after this window so the run can be reclaimed.
+const PROCESSING_CLAIM_STALE_MS = 10 * 60 * 1000;
+// Audit/delivery rows older than this are pruned, in bounded batches per pass.
+const AUDIT_RETENTION_MS =
+  (Number(process.env.BABYCHAIN_AUDIT_RETENTION_DAYS) || 30) *
+  24 *
+  60 *
+  60 *
+  1000;
+const AUDIT_PRUNE_BATCH = 500;
 
 /**
  * AWS Aurora (PostgreSQL) implementation of the BabyChain chain store.
@@ -181,81 +197,24 @@ export class AuroraChainStore implements ApiKeyLookupStore {
     return result.rows.map(toAgentCheckpointRecord);
   }
 
-  async findRunsToProcess(limit: number): Promise<ChainRunWithSteps[]> {
-    const runs: ChainRunWithSteps[] = [];
-
-    const active = await auroraQuery<Row>(
-      `select id from ${SCHEMA}.chain_run
-        where status in ('queued','running')
-        order by created_at asc
-        limit $1`,
-      [limit],
-    );
-
-    for (const row of active.rows) {
-      const withSteps = await this.getRunWithSteps(row.id as string);
-      if (withSteps) {
-        runs.push(withSteps);
-      }
-    }
-
-    if (runs.length >= limit) {
-      return runs;
-    }
-
-    await this.appendCallbackRuns(runs, limit);
-    return runs;
-  }
-
-  private async appendCallbackRuns(runs: ChainRunWithSteps[], limit: number) {
+  async claimCallbackDelivery(runId: string): Promise<boolean> {
     const staleBefore = new Date(Date.now() - STALE_MS).toISOString();
-    const seen = new Set(runs.map((entry) => entry.run.id));
-
-    const append = async (rows: Row[]) => {
-      for (const row of rows) {
-        if (runs.length >= limit) {
-          return;
-        }
-        const id = row.id as string;
-        if (seen.has(id)) {
-          continue;
-        }
-        const withSteps = await this.getRunWithSteps(id);
-        if (withSteps) {
-          seen.add(id);
-          runs.push(withSteps);
-        }
-      }
-    };
-
-    const callbackQuery = (extra: string, params: unknown[]) =>
-      auroraQuery<Row>(
-        `select id from ${SCHEMA}.chain_run
-          where status in ('succeeded','failed','canceled')
-            and callback_url is not null
-            and ${extra}
-          order by updated_at asc
-          limit $${params.length + 1}`,
-        [...params, limit - runs.length],
-      );
-
-    if (runs.length < limit) {
-      const unclaimed = await callbackQuery('callback_status is null', []);
-      await append(unclaimed.rows);
-    }
-
-    if (runs.length < limit) {
-      const failed = await callbackQuery("callback_status = 'failed'", []);
-      await append(failed.rows);
-    }
-
-    if (runs.length < limit) {
-      const stale = await callbackQuery(
-        "callback_status = 'delivering' and callback_claimed_at < $1",
-        [staleBefore],
-      );
-      await append(stale.rows);
-    }
+    const result = await auroraQuery(
+      `update ${SCHEMA}.chain_run
+          set callback_status = 'delivering',
+              callback_claimed_at = now(),
+              callback_attempts = callback_attempts + 1
+        where id = $1
+          and callback_attempts < $3
+          and (
+            callback_status is null
+            or callback_status = 'failed'
+            or (callback_status = 'delivering'
+                and (callback_claimed_at is null or callback_claimed_at < $2))
+          )`,
+      [runId, staleBefore, CALLBACK_MAX_ATTEMPTS],
+    );
+    return (result.rowCount ?? 0) > 0;
   }
 
   async findStepByBabySeaGenerationId(
@@ -395,21 +354,208 @@ export class AuroraChainStore implements ApiKeyLookupStore {
     return row ? this.getRunWithSteps(row.id as string) : null;
   }
 
-  async claimCallbackDelivery(runId: string): Promise<boolean> {
-    const staleBefore = new Date(Date.now() - STALE_MS).toISOString();
-    const result = await auroraQuery(
-      `update ${SCHEMA}.chain_run
-          set callback_status = 'delivering', callback_claimed_at = now()
-        where id = $1
-          and (
-            callback_status is null
-            or callback_status = 'failed'
-            or (callback_status = 'delivering'
-                and (callback_claimed_at is null or callback_claimed_at < $2))
-          )`,
-      [runId, staleBefore],
+  async findRunsToProcess(limit: number): Promise<ChainRunWithSteps[]> {
+    if (limit <= 0) {
+      return [];
+    }
+
+    const ids: string[] = [];
+    const seen = new Set<string>();
+    const pushId = (id: string) => {
+      if (!seen.has(id)) {
+        seen.add(id);
+        ids.push(id);
+      }
+    };
+
+    // Atomically lease active runs so two overlapping cron passes never both
+    // poll the same run. `for update skip locked` makes concurrent claimers
+    // take disjoint rows; the persisted lease excludes the run from later
+    // passes until releaseRunClaim clears it (or the stale window elapses).
+    const claimStaleBefore = new Date(
+      Date.now() - PROCESSING_CLAIM_STALE_MS,
+    ).toISOString();
+    const claimed = await auroraQuery<Row>(
+      `update ${SCHEMA}.chain_run as r
+          set processing_claimed_at = now()
+        where r.id in (
+          select id from ${SCHEMA}.chain_run
+            where status in ('queued','running')
+              and (processing_claimed_at is null or processing_claimed_at < $1)
+            order by created_at asc
+            for update skip locked
+            limit $2
+        )
+        returning r.id`,
+      [claimStaleBefore, limit],
     );
-    return (result.rowCount ?? 0) > 0;
+
+    for (const row of claimed.rows) {
+      pushId(row.id as string);
+    }
+
+    if (ids.length < limit) {
+      await this.appendCallbackRunIds(pushId, seen, limit - ids.length);
+    }
+
+    return this.getRunsWithSteps(ids);
+  }
+
+  private async appendCallbackRunIds(
+    pushId: (id: string) => void,
+    seen: Set<string>,
+    remaining: number,
+  ) {
+    let left = remaining;
+    if (left <= 0) {
+      return;
+    }
+
+    const staleBefore = new Date(Date.now() - STALE_MS).toISOString();
+
+    const selectCallbackRuns = (extra: string, params: unknown[]) =>
+      auroraQuery<Row>(
+        `select id from ${SCHEMA}.chain_run
+          where status in ('succeeded','failed','canceled')
+            and callback_url is not null
+            and callback_attempts < $${params.length + 1}
+            and ${extra}
+          order by updated_at asc
+          limit $${params.length + 2}`,
+        [...params, CALLBACK_MAX_ATTEMPTS, left],
+      );
+
+    const take = (rows: Row[]) => {
+      for (const row of rows) {
+        if (left <= 0) {
+          return;
+        }
+        const id = row.id as string;
+        if (seen.has(id)) {
+          continue;
+        }
+        pushId(id);
+        left -= 1;
+      }
+    };
+
+    take((await selectCallbackRuns('callback_status is null', [])).rows);
+
+    if (left > 0) {
+      take((await selectCallbackRuns("callback_status = 'failed'", [])).rows);
+    }
+
+    if (left > 0) {
+      take(
+        (
+          await selectCallbackRuns(
+            "callback_status = 'delivering' and callback_claimed_at < $1",
+            [staleBefore],
+          )
+        ).rows,
+      );
+    }
+  }
+
+  /**
+   * Batch-load runs + their steps + agent checkpoints in three queries instead
+   * of one-plus-N-per-run, preserving the order of `ids`.
+   */
+  private async getRunsWithSteps(ids: string[]): Promise<ChainRunWithSteps[]> {
+    if (ids.length === 0) {
+      return [];
+    }
+
+    const [runResult, stepResult, checkpointResult] = await Promise.all([
+      auroraQuery<Row>(
+        `select * from ${SCHEMA}.chain_run where id = any($1::uuid[])`,
+        [ids],
+      ),
+      auroraQuery<Row>(
+        `select * from ${SCHEMA}.chain_step
+          where run_id = any($1::uuid[])
+          order by step_index asc`,
+        [ids],
+      ),
+      auroraQuery<Row>(
+        `select * from ${SCHEMA}.chain_agent_checkpoint
+          where run_id = any($1::uuid[])
+          order by created_at asc`,
+        [ids],
+      ),
+    ]);
+
+    const stepsByRun = new Map<string, ChainStepRecord[]>();
+    for (const row of stepResult.rows) {
+      const step = toStepRecord(row);
+      const list = stepsByRun.get(step.runId);
+      if (list) {
+        list.push(step);
+      } else {
+        stepsByRun.set(step.runId, [step]);
+      }
+    }
+
+    const checkpointsByRun = new Map<string, ChainAgentCheckpointRecord[]>();
+    for (const row of checkpointResult.rows) {
+      const checkpoint = toAgentCheckpointRecord(row);
+      const list = checkpointsByRun.get(checkpoint.runId);
+      if (list) {
+        list.push(checkpoint);
+      } else {
+        checkpointsByRun.set(checkpoint.runId, [checkpoint]);
+      }
+    }
+
+    const runsById = new Map<string, ChainRunWithSteps>();
+    for (const row of runResult.rows) {
+      const run = toRunRecord(row);
+      runsById.set(run.id, {
+        run,
+        steps: stepsByRun.get(run.id) ?? [],
+        agentCheckpoints: checkpointsByRun.get(run.id) ?? [],
+      });
+    }
+
+    const ordered: ChainRunWithSteps[] = [];
+    for (const id of ids) {
+      const record = runsById.get(id);
+      if (record) {
+        ordered.push(record);
+      }
+    }
+    return ordered;
+  }
+
+  /** Clear an active run's processing lease so the next pass can advance it. */
+  async releaseRunClaim(runId: string): Promise<void> {
+    await auroraQuery(
+      `update ${SCHEMA}.chain_run set processing_claimed_at = null
+        where id = $1 and processing_claimed_at is not null`,
+      [runId],
+    );
+  }
+
+  /** Best-effort, bounded retention pruning of audit/delivery history. */
+  async pruneExpiredRecords(): Promise<void> {
+    const cutoff = new Date(Date.now() - AUDIT_RETENTION_MS).toISOString();
+
+    const pruneTable = (
+      table: 'audit_event' | 'callback_delivery' | 'babysea_webhook_delivery',
+    ) =>
+      auroraQuery(
+        `delete from ${SCHEMA}.${table}
+          where ctid in (
+            select ctid from ${SCHEMA}.${table}
+              where created_at < $1
+              limit $2
+          )`,
+        [cutoff, AUDIT_PRUNE_BATCH],
+      );
+
+    await pruneTable('audit_event');
+    await pruneTable('callback_delivery');
+    await pruneTable('babysea_webhook_delivery');
   }
 
   async recordWebhookDelivery(input: {

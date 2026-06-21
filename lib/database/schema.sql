@@ -40,6 +40,8 @@ create table if not exists babychain_private.chain_run (
   callback_url text,
   callback_status text check (callback_status is null or callback_status in ('delivering','delivered','failed')),
   callback_claimed_at timestamptz,
+  callback_attempts integer not null default 0,
+  processing_claimed_at timestamptz,
   client_request_id text,
   idempotency_key_hash text,
   estimate jsonb,
@@ -162,6 +164,9 @@ create index if not exists idx_bc_agent_checkpoint_run_step on babychain_private
 create index if not exists idx_bc_agent_checkpoint_status on babychain_private.chain_agent_checkpoint (status, created_at);
 create index if not exists idx_bc_callback_run on babychain_private.callback_delivery (run_id, created_at desc);
 create index if not exists idx_bc_audit_run on babychain_private.audit_event (run_id, created_at desc);
+create index if not exists idx_bc_audit_created on babychain_private.audit_event (created_at);
+create index if not exists idx_bc_callback_created on babychain_private.callback_delivery (created_at);
+create index if not exists idx_bc_webhook_created on babychain_private.babysea_webhook_delivery (created_at);
 create index if not exists idx_bc_canvas_owner_updated on babychain_private.canvas (owner_email, updated_at desc);
 create index if not exists idx_bc_canvas_owner_created on babychain_private.canvas (owner_email, created_at desc);
 

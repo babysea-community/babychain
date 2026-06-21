@@ -32,6 +32,22 @@ function resolveSsl(
 }
 
 /**
+ * Parse a non-negative millisecond timeout from the environment. Returns the
+ * fallback when unset/blank/invalid, and allows an explicit `0` to disable the
+ * timeout.
+ */
+function envTimeoutMs(name: string, fallback: number): number {
+  const raw = process.env[name];
+
+  if (raw === undefined || raw.trim() === '') {
+    return fallback;
+  }
+
+  const parsed = Number(raw);
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : fallback;
+}
+
+/**
  * Remove ssl-related query params so pg uses our explicit `ssl` option rather
  * than strict cert verification (Aurora presents an RDS CA not in the system
  * trust store).
@@ -61,6 +77,18 @@ export function getAuroraPool(): Pool {
     );
   }
 
+  // Server-side guards so a single stuck query or an idle-in-transaction client
+  // cannot pin one of the few (max 5) pooled connections indefinitely. Set the
+  // env vars to 0 to disable.
+  const statementTimeoutMs = envTimeoutMs(
+    'DATABASE_STATEMENT_TIMEOUT_MS',
+    30_000,
+  );
+  const idleInTransactionTimeoutMs = envTimeoutMs(
+    'DATABASE_IDLE_TX_TIMEOUT_MS',
+    60_000,
+  );
+
   const pool = new Pool({
     connectionString: stripSslParams(connectionString),
     ssl: resolveSsl(connectionString),
@@ -71,6 +99,12 @@ export function getAuroraPool(): Pool {
     // does not fail with an "Internal server error".
     connectionTimeoutMillis: 30_000,
     keepAlive: true,
+    ...(statementTimeoutMs > 0
+      ? { statement_timeout: statementTimeoutMs }
+      : {}),
+    ...(idleInTransactionTimeoutMs > 0
+      ? { idle_in_transaction_session_timeout: idleInTransactionTimeoutMs }
+      : {}),
   });
 
   pool.on('error', (error) => {
@@ -92,6 +126,7 @@ export async function auroraTransaction<T>(
   handler: (client: PoolClient) => Promise<T>,
 ): Promise<T> {
   const client = await getAuroraPool().connect();
+  let released = false;
 
   try {
     await client.query('BEGIN');
@@ -99,10 +134,25 @@ export async function auroraTransaction<T>(
     await client.query('COMMIT');
     return result;
   } catch (error) {
-    await client.query('ROLLBACK');
+    try {
+      await client.query('ROLLBACK');
+    } catch (rollbackError) {
+      // The connection is likely broken: destroy it (release with an error)
+      // instead of returning it to the pool, and never let the rollback
+      // failure mask the original error.
+      console.error('[aurora] transaction rollback failed', rollbackError);
+      client.release(
+        rollbackError instanceof Error
+          ? rollbackError
+          : new Error(String(rollbackError)),
+      );
+      released = true;
+    }
     throw error;
   } finally {
-    client.release();
+    if (!released) {
+      client.release();
+    }
   }
 }
 

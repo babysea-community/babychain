@@ -67,8 +67,15 @@ async function handleCron(request: NextRequest, rawInput: unknown) {
           status: run.run.status,
           error: toErrorMessage(error).slice(0, 500),
         });
+      } finally {
+        // Release the processing lease so the next pass can advance the run
+        // immediately; a crashed pass's lease expires on its own.
+        await store.releaseRunClaim(run.run.id).catch(() => {});
       }
     }
+
+    // Best-effort retention pruning; never let it block run processing.
+    await store.pruneExpiredRecords().catch(() => {});
 
     return jsonEnvelopeOk(
       { processed, processed_count: processed.length },

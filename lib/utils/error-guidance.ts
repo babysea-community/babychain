@@ -147,6 +147,16 @@ export function getErrorGuidance({
     );
   }
 
+  if (code === 'step_running_timed_out') {
+    return guidance(
+      'The generation did not reach a terminal state before the running deadline.',
+      [
+        'Retry the run; the upstream provider job may have stalled after starting.',
+        'Check provider status and BabyChain server logs if this repeats.',
+      ],
+    );
+  }
+
   if (code === 'invalid_chain_input') {
     return guidance('The run input does not match the chain template schema.', [
       'Compare the request body with GET /api/v1/chains.',

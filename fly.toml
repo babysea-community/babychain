@@ -13,6 +13,13 @@ kill_timeout = "30s"
   BABYCHAIN_PROVIDER_MODE = "byok"
   BFL_REGION = "global"
   BFL_API_BASE_URL = "https://api.bfl.ai/v1"
+  # Storage + Agentic Workflow non-secret defaults (both optional). Set the
+  # matching secrets via `fly secrets set`; keep the provider at "none" to run
+  # without media storage.
+  BABYCHAIN_STORAGE_PROVIDER = "none"
+  BEDROCK_REGION = "us-east-1"
+  BEDROCK_NOVA_AGENT_MODEL = "us.amazon.nova-pro-v1:0"
+  BEDROCK_NOVA_AGENT_EXEMPLAR = "off"
   NEXT_PUBLIC_SENTRY_ENVIRONMENT = "production"
 
 [http_service]
@@ -28,7 +35,7 @@ kill_timeout = "30s"
   timeout = "5s"
   grace_period = "30s"
   method = "GET"
-  path = "/api/v1/models"
+  path = "/api/health"
 
 [[vm]]
   cpu_kind = "shared"

@@ -138,6 +138,19 @@ put_parameter BABYSEA_API_KEY replace-with-babysea-api-key-or-placeholder
 put_parameter BABYSEA_REGION us
 put_parameter BABYSEA_API_BASE_URL https://api.us.babysea.ai
 put_parameter BABYSEA_WEBHOOK_SECRET replace-with-babysea-webhook-secret-or-placeholder
+# Agentic Workflow (optional) - fill AWS_BEARER_TOKEN_BEDROCK only to enable the Amazon Nova planner
+put_parameter BEDROCK_REGION us-east-1
+put_parameter BEDROCK_NOVA_AGENT_MODEL us.amazon.nova-pro-v1:0
+put_parameter BEDROCK_NOVA_AGENT_EXEMPLAR off
+put_parameter AWS_BEARER_TOKEN_BEDROCK replace-with-bedrock-bearer-token-or-skip
+# Storage (optional) - keep BABYCHAIN_STORAGE_PROVIDER=none to run without media storage
+put_parameter BABYCHAIN_STORAGE_PROVIDER none
+put_parameter AWS_S3_REGION replace-with-s3-region-or-skip
+put_parameter AWS_S3_ACCESS_KEY_ID replace-with-s3-access-key-or-skip
+put_parameter AWS_S3_SECRET_ACCESS_KEY replace-with-s3-secret-or-skip
+put_parameter AWS_S3_BUCKET_NAME replace-with-s3-bucket-or-skip
+put_parameter AWS_S3_ENDPOINT_URL replace-with-s3-endpoint-or-skip
+put_parameter BLOB_READ_WRITE_TOKEN replace-with-vercel-blob-token-or-skip
 put_parameter NEXT_PUBLIC_SENTRY_DSN ''
 put_parameter NEXT_PUBLIC_SENTRY_ENVIRONMENT production
 put_parameter SENTRY_ORG replace-with-sentry-org
@@ -287,7 +300,7 @@ Open `http://$ELASTIC_IP`.
 ### 7. Verify and inspect
 
 ```bash
-curl -fsS "${SITE_URL%/}/api/v1/models" >/dev/null
+curl -fsS "${SITE_URL%/}/api/health" >/dev/null
 ssh -i "$KEY_NAME.pem" "ec2-user@$ELASTIC_IP"
 ```
 

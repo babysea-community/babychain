@@ -51,6 +51,19 @@ BABYSEA_API_KEY=YOUR_BABYSEA_API_KEY_OR_PLACEHOLDER
 BABYSEA_REGION=us
 BABYSEA_API_BASE_URL=https://api.us.babysea.ai
 BABYSEA_WEBHOOK_SECRET=YOUR_BABYSEA_WEBHOOK_SECRET_OR_PLACEHOLDER
+# Agentic Workflow (optional)
+AWS_BEARER_TOKEN_BEDROCK=
+BEDROCK_REGION=us-east-1
+BEDROCK_NOVA_AGENT_MODEL=us.amazon.nova-pro-v1:0
+BEDROCK_NOVA_AGENT_EXEMPLAR=off
+# Storage (optional)
+BABYCHAIN_STORAGE_PROVIDER=none
+AWS_S3_REGION=
+AWS_S3_ACCESS_KEY_ID=
+AWS_S3_SECRET_ACCESS_KEY=
+AWS_S3_BUCKET_NAME=
+AWS_S3_ENDPOINT_URL=
+BLOB_READ_WRITE_TOKEN=
 NEXT_PUBLIC_SENTRY_DSN=
 NEXT_PUBLIC_SENTRY_ENVIRONMENT=production
 SENTRY_ORG=YOUR_SENTRY_ORG
@@ -212,7 +225,7 @@ If you publish to another registry, replace `babyseaoss/babychain:latest` with y
 ```bash
 docker ps --filter name=babychain
 docker logs --tail=100 babychain
-curl -fsS "$NEXT_PUBLIC_SITE_URL/api/v1/models" >/dev/null
+curl -fsS "$NEXT_PUBLIC_SITE_URL/api/health" >/dev/null
 ```
 
 For API checks, send caller requests with `Authorization: Bearer BABYCHAIN_API_KEY`.

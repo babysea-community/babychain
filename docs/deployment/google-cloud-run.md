@@ -65,6 +65,17 @@ For BabySea mode, replace `YOUR_BABYSEA_API_KEY_OR_PLACEHOLDER` with a real Baby
 
 If you are using direct `gcloud run deploy` flags instead of the YAML, you can omit the BabySea secrets while staying in BYOK mode.
 
+Media storage and the Agentic Workflow planner are optional. To enable them, create the matching secrets and append them to the deploy command:
+
+```bash
+printf '%s' 'YOUR_AWS_BEARER_TOKEN_BEDROCK' | gcloud secrets create babychain-bedrock-bearer-token --data-file=-
+printf '%s' 'YOUR_AWS_S3_ACCESS_KEY_ID' | gcloud secrets create babychain-s3-access-key-id --data-file=-
+printf '%s' 'YOUR_AWS_S3_SECRET_ACCESS_KEY' | gcloud secrets create babychain-s3-secret-access-key --data-file=-
+printf '%s' 'YOUR_BLOB_READ_WRITE_TOKEN' | gcloud secrets create babychain-blob-token --data-file=-
+```
+
+Then append the non-secret storage settings to `--set-env-vars` (set `BABYCHAIN_STORAGE_PROVIDER=aws-s3` or `vercel-blob`, plus `AWS_S3_REGION`, `AWS_S3_BUCKET_NAME`, `AWS_S3_ENDPOINT_URL`) and the secrets to `--set-secrets` (`AWS_BEARER_TOKEN_BEDROCK=babychain-bedrock-bearer-token:latest`, `AWS_S3_ACCESS_KEY_ID=babychain-s3-access-key-id:latest`, `AWS_S3_SECRET_ACCESS_KEY=babychain-s3-secret-access-key:latest`, `BLOB_READ_WRITE_TOKEN=babychain-blob-token:latest`). Mirror the same values in `.gcp/cloud-run-service.yaml` if you deploy from the YAML.
+
 ### 3. Build and push the image
 
 Next.js bakes public values into the build. Use the final public URL as a Docker build arg.
@@ -97,7 +108,7 @@ gcloud run deploy "$SERVICE_NAME" \
   --allow-unauthenticated \
   --min-instances 1 \
   --max-instances 10 \
-  --set-env-vars "PORT=3000,HOSTNAME=0.0.0.0,NEXT_TELEMETRY_DISABLED=1,NEXT_PUBLIC_SITE_URL=$SITE_URL,BABYCHAIN_PROVIDER_MODE=byok,BFL_REGION=global,BFL_API_BASE_URL=https://api.bfl.ai/v1,BABYSEA_REGION=us,BABYSEA_API_BASE_URL=https://api.us.babysea.ai,NEXT_PUBLIC_SENTRY_ENVIRONMENT=production" \
+  --set-env-vars "PORT=3000,HOSTNAME=0.0.0.0,NEXT_TELEMETRY_DISABLED=1,NEXT_PUBLIC_SITE_URL=$SITE_URL,BABYCHAIN_PROVIDER_MODE=byok,BFL_REGION=global,BFL_API_BASE_URL=https://api.bfl.ai/v1,BABYSEA_REGION=us,BABYSEA_API_BASE_URL=https://api.us.babysea.ai,BABYCHAIN_STORAGE_PROVIDER=none,BEDROCK_REGION=us-east-1,BEDROCK_NOVA_AGENT_MODEL=us.amazon.nova-pro-v1:0,BEDROCK_NOVA_AGENT_EXEMPLAR=off,NEXT_PUBLIC_SENTRY_ENVIRONMENT=production" \
   --set-secrets "OWNER_EMAIL=babychain-owner-email:latest,OWNER_PASSWORD=babychain-owner-password:latest,OWNER_SESSION_SECRET=babychain-owner-session-secret:latest,DATABASE_URL=babychain-database-url:latest,BABYCHAIN_API_KEY=babychain-api-key:latest,BABYCHAIN_CRON_SECRET=babychain-cron-secret:latest,BABYCHAIN_CALLBACK_SECRET=babychain-callback-secret:latest,DASHSCOPE_API_KEY=babychain-dashscope-api-key:latest,BFL_API_KEY=babychain-bfl-api-key:latest,ARK_API_KEY=babychain-ark-api-key:latest,GEMINI_API_KEY=babychain-gemini-api-key:latest,OPENAI_API_KEY=babychain-openai-api-key:latest,RUNWAYML_API_SECRET=babychain-runway-api-secret:latest"
 ```
 
@@ -133,7 +144,7 @@ gcloud run services describe "$SERVICE_NAME" --region "$REGION"
 curl -fsS "$SITE_URL/"
 curl -fsS \
   -H "Authorization: Bearer YOUR_BABYCHAIN_API_KEY" \
-  "$SITE_URL/api/v1/models"
+  "$SITE_URL/api/health"
 ```
 
 Run the starter doctor before shipping changes:

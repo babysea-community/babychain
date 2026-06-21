@@ -208,6 +208,72 @@ describe('runner step claiming', () => {
     expect(result.steps[0]!.errorCode).toBe('babysea_start_timed_out');
   });
 
+  it('fails a running step that exceeds the running watchdog deadline', async () => {
+    const record = createRunWithSteps({
+      run: {
+        currentStepKey: 'image',
+        status: 'running',
+      },
+      step: {
+        // Already started on the provider, but stuck running far past the
+        // wall-clock watchdog deadline (~52 min); 2h here is comfortably over.
+        babyseaGenerationId: 'gen-stuck-123',
+        startedAt: new Date(Date.now() - 120 * 60 * 1000).toISOString(),
+        status: 'running',
+      },
+    });
+    let updatedRecord = record;
+    const store = {
+      getRunWithSteps: async () => updatedRecord,
+      updateRunningStep: async (
+        _stepId: string,
+        patch: Record<string, unknown>,
+      ) => {
+        const step = updatedRecord.steps[0]!;
+
+        if (step.status !== 'running') {
+          return null;
+        }
+
+        updatedRecord = {
+          ...updatedRecord,
+          steps: [
+            {
+              ...step,
+              ...patch,
+            },
+          ],
+        };
+
+        return updatedRecord.steps[0]!;
+      },
+      updateActiveRun: async (
+        _runId: string,
+        patch: Record<string, unknown>,
+      ) => {
+        updatedRecord = {
+          ...updatedRecord,
+          run: {
+            ...updatedRecord.run,
+            ...patch,
+          },
+        };
+
+        return updatedRecord.run;
+      },
+    };
+
+    const result = await processRun(record, {
+      babysea: {} as never,
+      store: store as never,
+    });
+
+    expect(result.run.status).toBe('failed');
+    expect(result.run.errorCode).toBe('step_running_timed_out');
+    expect(result.steps[0]!.status).toBe('failed');
+    expect(result.steps[0]!.errorCode).toBe('step_running_timed_out');
+  });
+
   it('does not start BabySea generation when another processor claimed the queued step', async () => {
     const record = createRunWithSteps();
     let generateCalled = false;
