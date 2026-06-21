@@ -5,6 +5,16 @@ const ORIGINAL_ENV = { ...process.env };
 const SAMPLE_PROMPT =
   'A gentle handheld dolly follows her through the crosswalk as neon reflections slide across her hoodie, with small head turns and natural walking rhythm.';
 
+// Match on the exact host so a full URL such as https://evil.example/cdn.example.com
+// cannot satisfy the check the way an includes() substring match would.
+function hostnameOf(url: string): string | null {
+  try {
+    return new URL(url).hostname;
+  } catch {
+    return null;
+  }
+}
+
 describe('Bedrock Nova Chain Agent media download', () => {
   afterEach(() => {
     process.env = { ...ORIGINAL_ENV };
@@ -29,7 +39,7 @@ describe('Bedrock Nova Chain Agent media download', () => {
     }));
 
     const fetchImpl = vi.fn(async (url: string, _init?: RequestInit) => {
-      if (url.includes('cdn.example.com')) {
+      if (hostnameOf(url) === 'cdn.example.com') {
         return new Response(new Uint8Array([1, 2, 3, 4]), {
           headers: { 'content-type': 'image/png' },
         });
@@ -104,7 +114,8 @@ describe('Bedrock Nova Chain Agent media download', () => {
       .catch(() => undefined);
 
     const downloadCall = fetchImpl.mock.calls.find(
-      ([url]) => typeof url === 'string' && url.includes('cdn.example.com'),
+      ([url]) =>
+        typeof url === 'string' && hostnameOf(url) === 'cdn.example.com',
     );
 
     expect(downloadCall).toBeDefined();

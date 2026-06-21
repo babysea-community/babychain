@@ -567,6 +567,7 @@ type RunStep = {
   step_key: string;
   status: string;
   generation_output_file?: string[];
+  started_at?: string | null;
 };
 
 type RunMode = 'self_control' | 'agent_copilot' | 'agent_autopilot';
@@ -1009,7 +1010,7 @@ const INFO_COL_W = 400;
 
 type FlowNode = Node<NodeData>;
 
-type NodeStatus = { status: string; outputs?: string[] };
+type NodeStatus = { status: string; outputs?: string[]; startedAt?: number };
 
 type AgentCheckpointState = {
   checkpoint: AgentCheckpoint;
@@ -1513,19 +1514,22 @@ function MediaUnavailable({
 
 // Realtime elapsed timer shown while a step processes. Providers report
 // discrete run statuses (queued/running/succeeded), not a fractional percent,
-// so this counts the accurate elapsed time since the step entered "running"
-// instead of faking a progress percentage.
-function NodeProcessingIndicator() {
-  const [seconds, setSeconds] = useState(0);
+// so we derive the elapsed time from the server step start time (started_at).
+// Anchoring to the server timestamp (not mount time) keeps the counter precise
+// and resumes correctly after a remount or page switch instead of restarting
+// from zero.
+function NodeProcessingIndicator({ startedAt }: { startedAt?: number }) {
+  // Tick once a second purely to re-render; the displayed value is always
+  // recomputed from `now - startedAt`.
+  const [now, setNow] = useState(() => Date.now());
 
   useEffect(() => {
-    const start = Date.now();
-    const id = window.setInterval(() => {
-      setSeconds(Math.floor((Date.now() - start) / 1000));
-    }, 1000);
+    const id = window.setInterval(() => setNow(Date.now()), 1000);
     return () => window.clearInterval(id);
   }, []);
 
+  const base = startedAt ?? now;
+  const seconds = Math.max(0, Math.floor((now - base) / 1000));
   const label = `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
 
   return (
@@ -1543,11 +1547,13 @@ function NodeResults({
   outputs,
   running,
   status,
+  startedAt,
 }: {
   kind: 'image' | 'video';
   outputs?: string[];
   running: boolean;
   status?: string;
+  startedAt?: number;
 }) {
   if (outputs?.length) {
     return (
@@ -1565,7 +1571,7 @@ function NodeResults({
     <div className="border border-border p-2">
       <div className="flex aspect-video w-full flex-col items-center justify-center gap-1.5 bg-black text-muted-foreground">
         {effective === 'running' ? (
-          <NodeProcessingIndicator />
+          <NodeProcessingIndicator startedAt={startedAt} />
         ) : effective === 'queued' ? (
           <>
             <FontAwesomeIcon className="size-4 animate-pulse" icon="clock" />
@@ -1920,6 +1926,7 @@ function ModelNodeComponent({ id, data }: NodeProps) {
               running={running}
               status={nodeStatus?.status}
               outputs={nodeStatus?.outputs}
+              startedAt={nodeStatus?.startedAt}
             />
           </div>
         ) : null}
@@ -2002,8 +2009,13 @@ function AgentCheckpointPanel({
   // of relying only on the local approving/approved flags.
   const stepDone = !pending && checkpoint.status === 'applied';
   const stepFailed = !pending && checkpoint.status === 'failed';
+  // Terminal server states win over the local optimistic flags, so once the
+  // step is applied/failed the button stops spinning and shows a static icon
+  // instead of staying in the "processing" state because `approved` lingers.
   const stepProcessing =
-    approving || approved || (!pending && checkpoint.status === 'approved');
+    !stepDone &&
+    !stepFailed &&
+    (approving || approved || (!pending && checkpoint.status === 'approved'));
   const stepApproved = stepProcessing || stepDone || stepFailed;
   const stepHint = stepFailed
     ? isAutopilot
@@ -4251,9 +4263,13 @@ function CanvasInner(props: CanvasProps) {
           const outputs = (step.generation_output_file ?? []).filter(
             (outputFile) => outputFile.trim().length > 0,
           );
+          const startedAtMs = step.started_at
+            ? Date.parse(step.started_at)
+            : NaN;
           next[nodeId] = {
             status: step.status,
             outputs: outputs.length > 0 ? outputs : undefined,
+            startedAt: Number.isFinite(startedAtMs) ? startedAtMs : undefined,
           };
         }
       }
