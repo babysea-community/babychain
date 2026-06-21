@@ -36,15 +36,18 @@ Canvas studio, agentic planner, and durable chain API for image and video model 
 
 <strong>Built with</strong>
 
-[![Next.js](https://img.shields.io/badge/next_js-000000?style=for-the-badge&logo=nextdotjs&logoColor=white)](https://nextjs.org)
-[![React](https://img.shields.io/badge/react-53C1DE?style=for-the-badge&logo=react&logoColor=white)](https://react.dev)
+[![Next.js](https://custom-icon-badges.demolab.com/badge/next_js-000000?style=for-the-badge&logo=nextdotjs&logoColor=white)](https://nextjs.org)
+[![React](https://custom-icon-badges.demolab.com/badge/react-53C1DE?style=for-the-badge&logo=react&logoColor=white)](https://react.dev)
 [![React Flow](https://custom-icon-badges.demolab.com/badge/react_flow-FF0073?style=for-the-badge&logo=react-flow-1)](https://reactflow.dev)
 [![Semantic Lady](https://custom-icon-badges.demolab.com/badge/semantic_lady-EC4899?style=for-the-badge&logo=semantic-lady)](https://github.com/babysea-community/semantic-lady)
 [![BabySea](https://custom-icon-badges.demolab.com/badge/babysea-14B8A6?style=for-the-badge&logo=babysea&logoColor=white)](https://babysea.ai)
 [![AWS Aurora](https://custom-icon-badges.demolab.com/badge/aws_aurora-3B46CA?style=for-the-badge&logo=aws-aurora&logoColor=white)](https://aws.amazon.com/rds/aurora)
 [![Vercel](https://custom-icon-badges.demolab.com/badge/vercel-000000?style=for-the-badge&logo=vercel&logoColor=white)](https://vercel.com)
+[![Amazon Nova](https://custom-icon-badges.demolab.com/badge/amazon_nova-7B2FBE?style=for-the-badge&logo=amazon-nova&logoColor=white)](https://docs.aws.amazon.com/nova/latest/userguide/what-is-nova.html)
+[![AWS S3](https://custom-icon-badges.demolab.com/badge/aws_s3-3F8624?style=for-the-badge&logo=aws-s3-2&logoColor=white)](https://docs.aws.amazon.com/s3)
+[![Vercel Blob](https://custom-icon-badges.demolab.com/badge/vercel_blob-E46000?style=for-the-badge&logo=vercel-blob-3)](https://vercel.com/docs/vercel-blob)
 [![Inference Providers](https://custom-icon-badges.demolab.com/badge/inference_providers-0EA5E9?style=for-the-badge&logo=cpu&logoColor=white)](SUPPORTED_MODELS.md)
-[![Sentry](https://img.shields.io/badge/sentry-181225?style=for-the-badge&logo=sentry&logoColor=white)](https://sentry.io)
+[![Sentry](https://custom-icon-badges.demolab.com/badge/sentry-181225?style=for-the-badge&logo=sentry&logoColor=white)](https://sentry.io)
 
 <br/>
 
