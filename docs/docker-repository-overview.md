@@ -11,7 +11,9 @@ docker pull babyseaoss/babychain:latest
 Available tags:
 
 - `latest`
+- `0.3.0`
 - `0.2.0`
+- `0.1.1`
 
 ## Quick start
 
@@ -25,7 +27,10 @@ Create an environment file from the BabyChain `.env.example` and fill at least:
 - `BABYCHAIN_API_KEY`
 - `BABYCHAIN_CRON_SECRET`
 - `BABYCHAIN_CALLBACK_SECRET`
-- Provider keys for your selected mode
+- Inference provider keys if you use BYOK-mode (Alibaba Cloud, Black Forest Labs, BytePlus, Google, OpenAI, Runway)
+- BabySea keys if you use BabySea-mode
+- Amazon Bedrock keys if you use Agentic Workflow (Amazon Nova)
+- Storage provider keys if you use storage (AWS S3, Vercel Blob)
 
 <br/>
 

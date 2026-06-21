@@ -888,6 +888,87 @@ describe('Bedrock Nova Chain Agent', () => {
 
     expect(fetchImpl).toHaveBeenCalledTimes(1);
   });
+
+  it('parses a JSON object that Nova wraps in a fence and prose', async () => {
+    setMinimalEnv();
+    const agentJson = JSON.stringify({
+      observations: {},
+      suggestions: [
+        {
+          title: 'Dolly Drift',
+          prompt:
+            'A gentle dolly-in continues the product shot with soft studio reflections and a controlled focus pull.',
+        },
+      ],
+      selected_prompt:
+        'A gentle dolly-in continues the product shot with soft studio reflections and a controlled focus pull.',
+      selected_params: {
+        generation_duration: 4,
+        generation_prompt:
+          'A gentle dolly-in continues the product shot with soft studio reflections and a controlled focus pull.',
+      },
+    });
+    const fetchImpl = vi.fn(async () =>
+      Response.json({
+        output: {
+          message: {
+            content: [
+              {
+                text: `Sure, here is the plan:\n\n\`\`\`json\n${agentJson}\n\`\`\`\n\nLet me know if you want changes.`,
+              },
+            ],
+          },
+        },
+        usage: { inputTokens: 10, outputTokens: 20 },
+      }),
+    );
+
+    const { createBedrockNovaAgent } =
+      await import('@/lib/agents/bedrock-nova');
+    const agent = createBedrockNovaAgent({
+      apiKey: 'bedrock_test_key_12345678',
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+      modelIdentifier: 'us.amazon.nova-pro-v1:0',
+      region: 'us-east-1',
+    });
+
+    const result = await agent.suggestNextStep({
+      currentInput: {},
+      flow: {
+        currentStepKey: 'image',
+        mode: 'autopilot',
+        nextStepKey: 'video',
+      },
+      nextStep: {
+        modelIdentifier: 'google/veo-3.1-fast',
+        requestParams: null,
+        schema: {
+          type: 'object',
+          required: ['generation_prompt', 'generation_duration'],
+          properties: {
+            generation_prompt: { type: 'string' },
+            generation_duration: { type: 'number', minimum: 1, maximum: 8 },
+          },
+        },
+        stepKey: 'video',
+        stepKind: 'video',
+      },
+      previousStep: {
+        modelIdentifier: 'bfl/flux-1.1-pro',
+        outputFiles: [],
+        requestParams: { generation_prompt: 'A product render' },
+        stepKey: 'image',
+        stepKind: 'image',
+      },
+    });
+
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+    expect(result.selectedParams).toMatchObject({
+      generation_duration: 4,
+      generation_prompt:
+        'A gentle dolly-in continues the product shot with soft studio reflections and a controlled focus pull.',
+    });
+  });
 });
 
 function agentSystemText(requestBody: Record<string, unknown> | undefined) {

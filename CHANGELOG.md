@@ -4,6 +4,20 @@ All notable changes will be documented here. The format follows [Keep a Changelo
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-06-21
+
+### Changed
+
+- Updated the BYOK schema source to `semantic-lady@0.5.0`, refreshing every published `generation_*` field (model ids, defaults, enums, and required flags) across the image and video model catalog used by the run API, canvas node cards, and templates page.
+- **Breaking (BYOK request contract):** `wan/2.2-animate-mix` and `wan/2.2-animate-move` (and their BabyChain `-image`/`-video` chain variants) now require an explicit `generation_mode` of `wan-std` or `wan-pro` on every request; Semantic Lady 0.5.0 removed the implicit `wan-std` default, so callers, saved canvases, and the Agentic Workflow must set the mode before these steps can run.
+- Runway Aleph-2 now publishes standard aspect-ratio values for `generation_aspect_ratio` (`16:9`, `4:3`, `3:2`, `1:1`, `2:3`, `3:4`, `9:16`, `21:9`) and treats `generation_prompt` as optional, matching the corrected upstream schema.
+- `generation_seed` is now an unbounded optional integer for every BFL FLUX model; the previously published `42` default and `-1`-`4294967295` bounds were dropped upstream, so request builders, cURL templates, and JSON Schema views no longer prefill or constrain a seed for these models.
+
+### Fixed
+
+- Provider output persistence on the run-poll and BabySea webhook paths now honors the storage provider injected into the runner instead of always re-resolving it from the environment, so a custom or disabled storage provider passed to `processRun` is respected when finalizing step outputs.
+- The Agentic Workflow now re-checks for an existing checkpoint immediately before calling Amazon Nova, so when two processors handle the same run concurrently (a cron poll alongside a webhook or API call) the one that arrives second reuses the persisted checkpoint instead of issuing a redundant Bedrock planning call; the `ON CONFLICT DO NOTHING` insert remains the authoritative guard.
+
 ## [0.2.0] - 2026-06-21
 
 ### Added

@@ -275,6 +275,7 @@ export async function processRun(
         byokConfig,
         providerOverrides,
         store,
+        dependencies.storage,
       );
       record = await mustGetRun(store, record.run.id);
 
@@ -544,7 +545,9 @@ export async function applyBabySeaWebhook(
     return null;
   }
 
-  await applyGenerationStatus(step, generationFromWebhook(payload), store);
+  await applyGenerationStatus(step, generationFromWebhook(payload), store, {
+    storage: dependencies.storage,
+  });
 
   const record = await mustGetRun(store, step.runId);
   return processRun(record, { ...dependencies, store });
@@ -832,6 +835,43 @@ type AgentCheckpointOutcome =
   | { kind: 'paused' }
   | { kind: 'failed'; errorCode: string; errorMessage: string };
 
+async function resolveExistingAgentCheckpoint(
+  existing: ChainAgentCheckpointRecord,
+  args: {
+    readyStep: ChainStepRecord;
+    record: ChainRunWithSteps;
+    store: ChainStore;
+  },
+): Promise<AgentCheckpointOutcome> {
+  const { readyStep, record, store } = args;
+
+  if (existing.status === 'failed') {
+    return {
+      kind: 'failed',
+      errorCode: existing.errorCode ?? 'chain_agent_failed',
+      errorMessage: existing.errorMessage ?? 'Chain Agent checkpoint failed.',
+    };
+  }
+
+  if (existing.status === 'suggested') {
+    await store.updateActiveRun(record.run.id, {
+      currentStepKey: readyStep.stepKey,
+      status: 'awaiting_agent',
+    });
+    return { kind: 'paused' };
+  }
+
+  if (!existing.selectedParams || !existing.selectedPrompt) {
+    return {
+      kind: 'failed',
+      errorCode: 'chain_agent_invalid_checkpoint',
+      errorMessage: 'Agent checkpoint is missing selected prompt data.',
+    };
+  }
+
+  return { kind: 'ready', checkpoint: existing };
+}
+
 async function prepareAgentCheckpoint(args: {
   agent?: ChainAgent;
   readyStep: ChainStepRecord;
@@ -852,31 +892,11 @@ async function prepareAgentCheckpoint(args: {
     (await store.getAgentCheckpointForStep(record.run.id, readyStep.stepKey));
 
   if (existing) {
-    if (existing.status === 'failed') {
-      return {
-        kind: 'failed',
-        errorCode: existing.errorCode ?? 'chain_agent_failed',
-        errorMessage: existing.errorMessage ?? 'Chain Agent checkpoint failed.',
-      };
-    }
-
-    if (existing.status === 'suggested') {
-      await store.updateActiveRun(record.run.id, {
-        currentStepKey: readyStep.stepKey,
-        status: 'awaiting_agent',
-      });
-      return { kind: 'paused' };
-    }
-
-    if (!existing.selectedParams || !existing.selectedPrompt) {
-      return {
-        kind: 'failed',
-        errorCode: 'chain_agent_invalid_checkpoint',
-        errorMessage: 'Agent checkpoint is missing selected prompt data.',
-      };
-    }
-
-    return { kind: 'ready', checkpoint: existing };
+    return resolveExistingAgentCheckpoint(existing, {
+      readyStep,
+      record,
+      store,
+    });
   }
 
   const previousStepKey = readyStep.dependsOn[readyStep.dependsOn.length - 1];
@@ -915,6 +935,23 @@ async function prepareAgentCheckpoint(args: {
         schema: agentStepSchema(readyStep),
       },
     };
+    // A concurrent processor (an overlapping cron tick or the BabySea webhook
+    // for the previous step) may have produced this checkpoint while we were
+    // assembling the agent context. Re-check immediately before the expensive
+    // model call so we don't pay for a duplicate agent invocation; the
+    // ON CONFLICT insert below stays the authoritative correctness guard.
+    const concurrent = await store.getAgentCheckpointForStep(
+      record.run.id,
+      readyStep.stepKey,
+    );
+    if (concurrent) {
+      return resolveExistingAgentCheckpoint(concurrent, {
+        readyStep,
+        record,
+        store,
+      });
+    }
+
     const result = await agent.suggestNextStep(agentContext);
     const nextStepSchema = agentStepSchema(readyStep);
     const selectedParams = normalizeAgentSelectedParams(
@@ -1286,6 +1323,7 @@ async function refreshStepFromProvider(
   byokConfig: ByokRunConfig | null,
   providerOverrides: { babysea?: BabySea },
   store: ChainStore,
+  storageProvider: StorageProvider | null | undefined = undefined,
 ) {
   if (!step.babyseaGenerationId) {
     return;
@@ -1318,7 +1356,9 @@ async function refreshStepFromProvider(
       modelIdentifier: resolution.modelIdentifier,
       providerMetadata: step.providerMetadata,
     });
-    await applyGenerationStatus(step, status, store);
+    await applyGenerationStatus(step, status, store, {
+      storage: storageProvider,
+    });
   } catch (error) {
     const errorMessage = toErrorMessage(error);
     const code =
@@ -1373,7 +1413,7 @@ async function applyGenerationStatus(
   step: ChainStepRecord,
   generation: Partial<Generation> & { provider_metadata?: JsonObject },
   store: ChainStore,
-  metadata: { requestId?: string } = {},
+  options: { requestId?: string; storage?: StorageProvider | null } = {},
 ) {
   const status = generation.generation_status;
   const providerOrder =
@@ -1386,7 +1426,7 @@ async function applyGenerationStatus(
     stripReservedProviderMetadata(generation.provider_metadata),
   );
   const requestId =
-    metadata.requestId ??
+    options.requestId ??
     requestIdFromProviderMetadata(generation.provider_metadata) ??
     step.babyseaRequestId;
   const predictionId =
@@ -1398,6 +1438,7 @@ async function applyGenerationStatus(
   if (status === 'succeeded') {
     const persistedOutputs = await persistOutputFiles({
       outputFiles,
+      ...(options.storage !== undefined ? { provider: options.storage } : {}),
       runId: step.runId,
       stepKey: step.stepKey,
     });

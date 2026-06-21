@@ -395,18 +395,77 @@ function mergeUsage(left: JsonObject, right: JsonObject) {
 
 function parseAgentJson(rawText: string) {
   const trimmed = rawText.trim();
-  const fenced = /^```(?:json)?\s*([\s\S]*?)\s*```$/i.exec(trimmed);
-  const jsonText = fenced?.[1] ?? trimmed;
+  // Nova usually returns a bare JSON object, but copilot temperatures and
+  // safety preambles can wrap it in a ``` fence and/or surrounding prose. Try
+  // the fenced body, the whole text, and finally the first balanced object so a
+  // stray sentence does not waste a repair round-trip or fail the run outright.
+  const fenced = /```(?:[a-z0-9]+)?\s*([\s\S]*?)\s*```/i.exec(trimmed)?.[1];
+  const candidates = [fenced?.trim(), trimmed, extractFirstJsonObject(trimmed)];
 
-  try {
-    return JSON.parse(jsonText) as Record<string, unknown>;
-  } catch (error) {
-    throw new BabyChainError(
-      'chain_agent_invalid_response',
-      `Chain Agent returned invalid JSON: ${toErrorMessage(error)}`,
-      502,
-    );
+  let lastError: unknown;
+
+  for (const candidate of candidates) {
+    if (!candidate) {
+      continue;
+    }
+
+    try {
+      return JSON.parse(candidate) as Record<string, unknown>;
+    } catch (error) {
+      lastError = error;
+    }
   }
+
+  throw new BabyChainError(
+    'chain_agent_invalid_response',
+    `Chain Agent returned invalid JSON: ${toErrorMessage(lastError)}`,
+    502,
+  );
+}
+
+// Scans for the first balanced top-level `{...}` object, ignoring braces that
+// appear inside JSON string literals. Used as a fallback when Nova wraps its
+// JSON object in explanatory prose without a fence.
+function extractFirstJsonObject(text: string): string | null {
+  const start = text.indexOf('{');
+
+  if (start < 0) {
+    return null;
+  }
+
+  let depth = 0;
+  let inString = false;
+  let escaped = false;
+
+  for (let index = start; index < text.length; index += 1) {
+    const char = text[index];
+
+    if (inString) {
+      if (escaped) {
+        escaped = false;
+      } else if (char === '\\') {
+        escaped = true;
+      } else if (char === '"') {
+        inString = false;
+      }
+
+      continue;
+    }
+
+    if (char === '"') {
+      inString = true;
+    } else if (char === '{') {
+      depth += 1;
+    } else if (char === '}') {
+      depth -= 1;
+
+      if (depth === 0) {
+        return text.slice(start, index + 1);
+      }
+    }
+  }
+
+  return null;
 }
 
 function normalizeSuggestions(value: unknown): ChainAgentSuggestion[] {

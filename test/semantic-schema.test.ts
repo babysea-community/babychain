@@ -85,12 +85,8 @@ describe('semantic-lady BYOK schema core', () => {
       Record<string, unknown>
     >;
 
-    expect(properties.generation_seed).toMatchObject({
-      default: 42,
-      maximum: 4294967295,
-      minimum: -1,
-      type: 'integer',
-    });
+    expect(properties.generation_seed).toMatchObject({ type: 'integer' });
+    expect(properties.generation_seed?.default).toBeUndefined();
     expect(properties.generation_prompt_extend).toMatchObject({
       default: false,
       type: 'boolean',

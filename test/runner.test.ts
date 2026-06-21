@@ -943,6 +943,76 @@ describe('runner step claiming', () => {
     ]);
   });
 
+  it('skips the agent model call when a concurrent processor already created the checkpoint', async () => {
+    // Two processors (e.g. an overlapping cron tick and the BabySea webhook for
+    // the previous step) can enter prepareAgentCheckpoint together. The first
+    // commits the checkpoint while the second is still assembling context; the
+    // second must not pay for a duplicate Bedrock call.
+    const record = chainAgentRecord('autopilot');
+    let updatedRecord = record;
+    const baseStore = createMutableAgentStore(updatedRecord, (next) => {
+      updatedRecord = next;
+    });
+
+    const now = new Date().toISOString();
+    const concurrentCheckpoint = {
+      id: '44444444-4444-4444-8444-444444444444',
+      appliedAt: null,
+      approvedAt: null,
+      createdAt: now,
+      errorCode: null,
+      errorMessage: null,
+      inputSnapshot: {},
+      mode: 'autopilot' as const,
+      modelIdentifier: 'us.amazon.nova-pro-v1:0',
+      output: {},
+      previousStepKey: 'image',
+      provider: 'bedrock' as const,
+      runId: record.run.id,
+      selectedParams: { generation_prompt: 'A concurrent pick.' },
+      selectedPrompt: 'A concurrent pick.',
+      status: 'suggested' as const,
+      stepKey: 'video',
+      updatedAt: now,
+    } satisfies ChainRunWithSteps['agentCheckpoints'][number];
+
+    let lookups = 0;
+    const store = {
+      ...baseStore,
+      getAgentCheckpointForStep: async () => {
+        lookups += 1;
+        // 1st call: the initial existing-checkpoint probe finds nothing.
+        // 2nd call: the pre-call re-check sees the concurrent commit.
+        return lookups >= 2 ? concurrentCheckpoint : null;
+      },
+    };
+
+    let agentCalls = 0;
+    const agent: ChainAgent = {
+      suggestNextStep: async () => {
+        agentCalls += 1;
+        return {
+          observations: {},
+          observability: {},
+          rawText: '{}',
+          selectedParams: { generation_prompt: 'Should never be used.' },
+          selectedPrompt: 'Should never be used.',
+          suggestions: [],
+        };
+      },
+    };
+
+    const result = await processRun(record, {
+      agent,
+      babysea: {} as never,
+      store: store as never,
+    });
+
+    expect(agentCalls).toBe(0);
+    expect(lookups).toBeGreaterThanOrEqual(2);
+    expect(result.run).toMatchObject({ status: 'awaiting_agent' });
+  });
+
   it('pauses a Chain Agent Copilot run at the next checkpoint', async () => {
     const record = chainAgentRecord('copilot');
     let updatedRecord = record;

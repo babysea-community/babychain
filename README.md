@@ -184,48 +184,154 @@ See [`SUPPORTED_MODELS.md`](SUPPORTED_MODELS.md) for supported model names and m
 
 ## 2. Architecture
 
+Solid edges are control/request flow; dotted edges are data/media flow. Everything inside the **Vercel trust boundary** runs with server-side credentials that API callers never receive. **Semantic Lady** is the schema brain for BYOK mode: it supplies `generation_*` fields, validation, defaults, and provider routing without ever executing a provider call, while `babysea` mode runs the same contract through the BabySea SDK.
+
+### System containers
+
 ```mermaid
 flowchart LR
-    subgraph Clients
-        OWNER["Owner browser<br/>(canvas + library)"]
-        APP["Product backends<br/>(API callers)"]
+    subgraph Legend["Legend"]
+        direction LR
+        Lc["client"] -->|control / request| Ls["service"]
+        Ls -.->|data / media| Lt["store"]
     end
 
-    subgraph Vercel["Vercel (Next.js App Router)"]
+    subgraph Clients["Clients · hold only a BabyChain API key"]
+        OWNER["Owner browser<br/>canvas + library"]
+        APP["Product backend<br/>API caller"]
+        SCHED["Scheduler<br/>Vercel Cron / external"]
+    end
+
+    subgraph TB["Vercel · server-side trust boundary · Next.js"]
         UI["/dashboard/*<br/>server components + actions"]
-        API["/api/v1/chains/*<br/>/api/v1/models/*"]
-        RUNNER["Chain runner<br/>(step orchestration,<br/>idempotency, callbacks)"]
-        CRON["/api/cron/process-runs"]
+        API["/api/v1/chains/*<br/>create / get / continue / cancel"]
+        MODELS["/api/v1/models/*"]
+        SL["Semantic Lady<br/>generation_* schema<br/>fields · validation · routing"]
+        RUNNER["Chain runner · processRun<br/>orchestration · idempotency<br/>storage · callbacks"]
+        AGENT["Agentic Workflow planner<br/>copilot / autopilot"]
+        CRONR["/api/cron/process-runs"]
+        HOOK["/api/webhooks/babysea"]
+        SECRETS[["Server secrets<br/>provider + BabySea keys<br/>Bedrock token · DB + storage creds"]]
     end
 
-    subgraph AWS["AWS Aurora PostgreSQL: babychain_private"]
-        RUNS[("chain_run/chain_step<br/>(durable run state)")]
-        CANVAS[("canvas<br/>(saved node graphs)")]
-        KEYS[("api_key/audit_event<br/>callback_delivery/babysea_webhook_delivery")]
+    subgraph AWS["AWS Aurora · babychain_private"]
+        DB[("chain_run · chain_step · canvas<br/>chain_agent_checkpoint · api_key<br/>audit_event · callback_delivery<br/>babysea_webhook_delivery")]
     end
 
-    subgraph Providers["Inference providers (server-side BYOK keys)"]
+    subgraph Bedrock["Amazon Bedrock"]
+        NOVA["Nova Pro · Converse API"]
+    end
+
+    subgraph Storage["Media storage · optional"]
+        S3["AWS S3 / CloudFront"]
+        BLOB["Vercel Blob"]
+    end
+
+    subgraph BYOK["Inference providers · BYOK mode"]
+        ALI["Alibaba Cloud"]
         BFL["Black Forest Labs"]
-        RW["Runway"]
-        ALI["Alibaba Cloud DashScope"]
-        GGL["Google Gemini API"]
+        BP["BytePlus"]
+        GGL["Google"]
         OAI["OpenAI"]
-        BP["BytePlus ARK"]
+        RW["Runway"]
     end
+
+    BS["BabySea API<br/>babysea mode + webhooks"]
+    SENTRY["Sentry<br/>errors + traces"]
 
     OWNER -->|owner session JWT| UI
     APP -->|Bearer API key| API
+    SCHED -->|cron secret| CRONR
+    BS -->|signed webhook| HOOK
     UI -->|server actions| API
-    UI <-->|save/load/delete| CANVAS
     API --> RUNNER
-    CRON --> RUNNER
-    RUNNER <-->|persist every step| RUNS
-    API <-->|auth + audit| KEYS
-    RUNNER -->|image/video generation| BFL & RW & ALI & GGL & OAI & BP
+    API -->|public field schema| MODELS
+    MODELS --> SL
+    CRONR -->|recover queued runs| RUNNER
+    HOOK -->|generation update| RUNNER
+    RUNNER -->|BYOK validate + route| SL
+    RUNNER -->|BYOK submit + poll| ALI & BFL & BP & GGL & OAI & RW
+    RUNNER -->|babysea SDK submit| BS
+    RUNNER -->|request next-step plan| AGENT
+    AGENT -->|schema-true fields| SL
+    AGENT -->|Converse + media| NOVA
     RUNNER -->|one signed callback| APP
+
+    RUNNER <-.->|persist run / steps / checkpoints / audit| DB
+    UI <-.->|save / load / delete canvas| DB
+    RUNNER -.->|copy succeeded outputs| S3 & BLOB
+    S3 & BLOB -.->|stored prior output| AGENT
+    SECRETS -.->|injected at runtime| RUNNER
+    RUNNER -.->|errors + traces| SENTRY
+    UI -.->|errors + traces| SENTRY
+
+    style TB fill:#eff6ff,stroke:#2563eb,stroke-width:2px
+    style SL fill:#fce7f3,stroke:#db2777,stroke-width:2px
+    style SECRETS fill:#fee2e2,stroke:#dc2626
+    style Storage fill:#fff7ed,stroke:#ea580c
+    style AWS fill:#eef2ff,stroke:#4f46e5
+    style Legend fill:#f8fafc,stroke:#cbd5e1
 ```
 
-Aurora is the system of record: every run, step, output URL, API key hash, audit event, callback delivery, inbound BabySea webhook delivery, and saved canvas lives in the `babychain_private` schema. Vercel hosts the stateless control plane; any function instance can pick up a run mid-chain because all state round-trips through Aurora. Polling `GET /api/v1/chains/get/{runId}` (or the cron route) advances in-flight runs, so long chains survive serverless function time limits.
+Aurora is the single system of record: every run, ordered step, output URL, API key hash, audit event, callback delivery, inbound BabySea webhook delivery, agent checkpoint, and saved canvas lives in the `babychain_private` schema. The Vercel runtime is stateless: the `processRun` engine advances one action per invocation (start a step, poll a running step, or finalize) and is driven from four entry points — creating a run, polling `GET /api/v1/chains/get/{runId}`, the recovery cron, and the inbound `/api/webhooks/babysea` signed webhook. Because all state round-trips through Aurora, any function instance can resume a run mid-chain, so long chains survive serverless time limits.
+
+Two provider modes share the same routes and run contract. **BYOK mode** resolves model fields, validation, and provider routing through **Semantic Lady**, then the runner calls the inference provider directly with server-side keys. **`babysea` mode** submits through the BabySea SDK and receives completion on the signed inbound webhook. For `chain_agent` runs the runner grounds **Amazon Nova Pro** on Bedrock with the same Semantic Lady downstream schema and records every suggestion in `chain_agent_checkpoint`. When media storage is enabled, each succeeded step's outputs are copied into your own AWS S3 (or CloudFront) or Vercel Blob store and the stored URL is preferred for API responses, downstream handoff, and Agentic Workflow checkpoints. Errors and traces from server and browser flow to Sentry. Provider, BabySea, Bedrock, database, and storage credentials never leave the trust boundary; callers only ever hold a BabyChain API key.
+
+### Runtime: Agentic Workflow Copilot run
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Caller as Product backend
+    participant API as BabyChain API
+    participant SL as Semantic Lady
+    participant Runner as Chain runner
+    participant Prov as Provider / BabySea
+    participant Store as Media storage
+    participant Nova as Bedrock Nova
+    participant DB as Aurora
+
+    Caller->>API: POST /chains/runs (chain_agent, copilot)
+    API->>SL: validate generation_* fields + route models
+    SL-->>API: validated chain + provider routing
+    API->>Runner: processRun
+    Runner->>Prov: submit step 1 (seed prompt)
+    Prov-->>Runner: generation id (running)
+    Runner->>DB: persist run + step (running)
+    API-->>Caller: run (status running)
+
+    loop poll until step succeeds
+        Caller->>API: GET /chains/get/{runId}
+        API->>Runner: processRun (advance one action)
+        Runner->>Prov: poll generation status
+        Prov-->>Runner: succeeded + output URL
+        Runner->>Store: copy output (when storage enabled)
+        Store-->>Runner: stored URL
+        Runner->>DB: step succeeded + stored URL
+    end
+    Note over Prov,Runner: babysea mode instead pushes completion via signed /api/webhooks/babysea
+
+    Note over Runner,Nova: next step is agent-planned
+    Runner->>SL: read downstream schema + defaults
+    SL-->>Runner: required fields + enums + ranges
+    Runner->>Nova: suggestNextStep (prior media + schema)
+    Nova-->>Runner: suggestion (prompt + schema-valid params)
+    Runner->>DB: create checkpoint (suggested) + run = awaiting_agent
+    API-->>Caller: run (awaiting_agent + agent_checkpoints)
+
+    Caller->>API: POST /chains/continue/{runId} (checkpoint_id + edits)
+    API->>SL: re-validate selected params
+    SL-->>API: ok
+    API->>Runner: continueAgentRun
+    Runner->>DB: approve checkpoint + run = queued
+    Runner->>Prov: submit next step (approved prompt)
+    Note over Runner,Caller: repeat poll + plan + approve per step — autopilot auto-approves
+
+    Runner->>DB: run = succeeded
+    Runner-->>Caller: one signed callback to webhook_url
+```
+
+In **Copilot**, the run pauses at each downstream step with `status = awaiting_agent` and a `suggested` checkpoint; the caller approves — optionally editing `selected_prompt`/`selected_params` — via `POST /api/v1/chains/continue/{runId}`, and BabyChain re-validates the edit against Semantic Lady before submitting. In **Autopilot**, the planner's schema-valid suggestion is auto-approved and the run continues without pausing. If a caller stops polling, the recovery cron advances or finalizes in-flight runs and the one final signed callback is still delivered.
 
 ## 3. Quickstart
 
@@ -556,6 +662,7 @@ audit_event
 babysea_webhook_delivery
 callback_delivery
 canvas
+chain_agent_checkpoint
 chain_run
 chain_step
 ```

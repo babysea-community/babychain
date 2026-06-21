@@ -170,7 +170,6 @@ describe('UI request shape builders', () => {
       generation_output_format: 'jpeg',
       generation_prompt: '',
       generation_prompt_extend: false,
-      generation_seed: 42,
       generation_width: 1024,
     });
   });
@@ -286,9 +285,7 @@ describe('UI request shape builders', () => {
         type: 'object',
         properties: {
           generation_seed: {
-            default: 42,
-            minimum: -1,
-            maximum: 4294967295,
+            type: 'integer',
           },
         },
       },

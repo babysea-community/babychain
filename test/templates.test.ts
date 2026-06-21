@@ -656,6 +656,7 @@ describe('chain templates', () => {
             generation_input_image_file: [
               'https://cdn.example.com/reference.png',
             ],
+            generation_mode: 'wan-std',
           },
         },
         { byokMode: true },
