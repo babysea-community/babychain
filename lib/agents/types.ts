@@ -32,6 +32,8 @@ export type ChainAgentPromptContext = {
     'modelIdentifier' | 'requestParams' | 'stepKey' | 'stepKind'
   > & { schema?: JsonObject | null };
   currentInput: JsonObject;
+  /** Optional free-form creative brief from the workflow owner (canvas model_context). */
+  modelContext?: string;
 };
 
 export type ChainAgentSuggestion = {

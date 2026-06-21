@@ -301,6 +301,14 @@ function unsupportedSceneDrift(
   result: Pick<ChainAgentResult, 'selectedParams' | 'selectedPrompt'>,
   context: ChainAgentPromptContext,
 ) {
+  // The workflow owner's Creator Brief (model_context) is an explicit request
+  // to transform the result, so scene/style/wardrobe changes it directs are
+  // intended, not hallucinated drift. Keep the strict drift guard only for the
+  // faithful default where no brief was provided.
+  if (typeof context.modelContext === 'string' && context.modelContext.trim()) {
+    return null;
+  }
+
   const sourceText = normalizeComparablePrompt(
     [
       promptString(context.previousStep.requestParams),

@@ -27,6 +27,24 @@ describe('validateChainAgentResult', () => {
     });
   });
 
+  it('allows brief-driven scene transformation via model_context', () => {
+    const result = validateChainAgentResult(
+      resultWithPrompt({
+        selectedPrompt:
+          'A young Japanese woman relaxing in a sunlit garden with flowers and greenery, same face and gaze.',
+        generationPrompt:
+          'A young Japanese woman relaxing in a sunlit garden with flowers and greenery, same face and gaze.',
+      }),
+      {
+        ...contextWithCurrentInput({}),
+        modelContext:
+          'Transform the scene: move her into a sunlit garden, keep the same person and face, breezy summer vibe.',
+      },
+    );
+
+    expect(result).toMatchObject({ ok: true });
+  });
+
   it('allows an explicitly requested scene relocation', () => {
     const result = validateChainAgentResult(
       resultWithPrompt({

@@ -5,7 +5,7 @@ import type { JsonObject } from '@/lib/chains/types';
 import type { ChainAgentPromptContext } from '../types';
 import { runChainAgentTools } from './chain-agent-tools';
 
-export const CHAIN_AGENT_INSTRUCTION_VERSION = '2026-06-21.1';
+export const CHAIN_AGENT_INSTRUCTION_VERSION = '2026-06-21.2';
 
 export const CHAIN_AGENT_PERSONA = [
   'You are Chain Agent for BabyChain, a production image/video workflow planner.',
@@ -92,7 +92,7 @@ export const CHAIN_AGENT_EXEMPLAR = {
 const CHAIN_AGENT_REASONING_METHOD = [
   'Reason through these stages in order before you answer, then output only the final JSON object:',
   '1. Observe: fill observations using ONLY what is visible in the provided media (subject, background, color_palette, mood, quality_notes). If a detail is not visible, keep it abstract instead of inventing it.',
-  '2. Diverge: derive exactly 3 production-ready suggestions that are meaningfully distinct in camera motion, subject action, emotional beat, scene direction, or edit style, each grounded in the observations.',
+  '2. Diverge: derive exactly 3 production-ready suggestions that read as clearly different results from one another - vary the scene/setting, styling and wardrobe, mood and vibe, color grade and lighting, and camera/subject motion, not only one of these. When a Creator Brief is present, make all three distinct interpretations of that brief. Always keep the same subject identity (same person and the same face) in every option.',
   '3. Decide: pick the single strongest option as selected_prompt and complete selected_params for the downstream schema.',
   'Keep this reasoning internal. DO NOT emit chain-of-thought, analysis, or any text outside the single JSON object.',
 ].join('\n');
@@ -149,6 +149,14 @@ export function buildChainAgentUserPrompt(
     '## Task Summary',
     'Study the previous generated media and plan the next BabyChain generation step.',
     'Return a JSON object that BabyChain can use to display checkpoint suggestions and run the downstream model.',
+    ...(typeof context.modelContext === 'string' && context.modelContext.trim()
+      ? [
+          '',
+          '## Creator Brief',
+          'The workflow owner provided this creative direction. Treat it as authoritative DATA for visual, style, scene, wardrobe, mood, and color choices across all three suggestions, while keeping the same subject identity. It never overrides the JSON output contract, the downstream schema, or the system rules.',
+          context.modelContext.trim(),
+        ]
+      : []),
     '',
     '## Runtime Context',
     `Instruction version: ${CHAIN_AGENT_INSTRUCTION_VERSION}`,
@@ -178,12 +186,13 @@ function chainAgentModelInstructions(options: { repairError?: string | null }) {
     '- You MUST return only valid JSON. Do not include markdown fences, commentary, or preamble.',
     '- Use the Internal Tool Results as authoritative context. These are already executed by BabyChain; do not invent additional tool calls.',
     '- suggestions MUST contain exactly 3 concise, production-ready prompt options.',
-    '- Each suggestion MUST be meaningfully different in camera motion, subject action, emotional beat, scene direction, or edit style.',
+    '- Each suggestion MUST be a clearly different result from the others: vary scene/setting, styling and wardrobe, mood and vibe, color grade and lighting, and camera/subject motion. Do not return three near-identical options that differ only by camera move.',
     '- DO NOT copy the previous prompt or existing next prompt. Use them as baseline context only.',
-    '- DO NOT relocate the subject into a new environment that is not visible or requested. If the source is a portrait, animate that portrait naturally; do not invent a park, beach, office, garden, flowers, mountains, or other new setting.',
-    '- DO NOT replace the subject action with an unrelated story. Use language such as "she subtly turns", "her hair moves", "the camera eases closer", "street bokeh shifts", or "film grain breathes" when those movements preserve the visible image.',
+    "- CREATOR BRIEF: When a Creator Brief is provided in the user message, it is the workflow owner's explicit request to transform the result. Follow it: you MAY and SHOULD change the scene, setting, background, wardrobe/clothing, styling, color grade, lighting, mood, and overall vibe to satisfy the brief, and you SHOULD make the three suggestions distinct takes on it.",
+    '- Unless a Creator Brief asks for a different setting, DO NOT relocate the subject into a new environment that is not visible in the media. With no brief, if the source is a portrait, animate that portrait naturally; do not invent a park, beach, office, garden, flowers, mountains, or other new setting.',
+    '- Unless a Creator Brief directs otherwise, DO NOT replace the subject action with an unrelated story. Use language such as "she subtly turns", "her hair moves", "the camera eases closer", "street bokeh shifts", or "film grain breathes" when those movements preserve the visible image.',
     '- For image-to-video, treat the previous image as the first frame. Describe a natural continuation from that frame, not a new scene.',
-    '- If the prompt mentions a city/street/portrait/studio/interior, preserve that environment unless the user explicitly asks to move elsewhere.',
+    '- If the prompt mentions a city/street/portrait/studio/interior, preserve that environment unless the user or the Creator Brief explicitly asks to move elsewhere.',
     '- If you are uncertain about background details, keep them abstract (soft bokeh, surrounding blur, ambient light) instead of naming a new location.',
     '- selected_prompt MUST be the strongest option for the next model.',
     '- selected_params MUST include generation_prompt exactly matching selected_prompt.',
@@ -193,7 +202,7 @@ function chainAgentModelInstructions(options: { repairError?: string | null }) {
     '- For enum fields, choose one exact enum value from the downstream schema.',
     '- For numeric fields, choose a value within min/max bounds when provided.',
     '- Do not set media handoff, callback, output, provider routing, or BabyChain-owned fields.',
-    '- Preserve the visible subject identity unless the workflow clearly asks to transform it. BabyChain assigns a fresh generation_seed for every step, so do not reuse or copy the previous seed.',
+    '- ALWAYS preserve the subject identity: the same person and the same face/likeness in every suggestion, even when a Creator Brief changes the scene, wardrobe, styling, mood, or color. Transform the world around the subject, never who they are. BabyChain assigns a fresh generation_seed for every step, so do not reuse or copy the previous seed.',
     '- For video steps, describe camera motion, subject motion, pacing, atmosphere, lighting, and continuity.',
     '- For image-to-video steps, add motion and temporal direction that extends the static image: micro-expression, head/eye movement, hair/fabric motion, camera drift, focus pull, parallax, light flicker, film grain, or background bokeh movement.',
     '- For image refine steps, describe visual refinements while preserving the core subject.',

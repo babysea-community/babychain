@@ -401,6 +401,7 @@ async function runChainAction(
   options?: {
     execution?: Record<string, unknown>;
     flowId?: string;
+    metadata?: Record<string, unknown>;
   },
 ): Promise<{ ok: true; run: unknown } | { ok: false; error: string }> {
   'use server';
@@ -413,7 +414,11 @@ async function runChainAction(
           authorization: `Bearer ${callerKey()}`,
           'content-type': 'application/json',
         },
-        body: JSON.stringify({ input, execution: options?.execution }),
+        body: JSON.stringify({
+          input,
+          execution: options?.execution,
+          ...(options?.metadata ? { metadata: options.metadata } : {}),
+        }),
         cache: 'no-store',
       }),
     );

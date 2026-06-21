@@ -74,12 +74,6 @@ Canvas studio, agentic planner, and durable chain API for image and video model 
 
 <br />
 
-<img src="public/proposed-fields.png" alt="BabyChain dashboard" />
-
-The agent writes and runs every next step.
-
-<br />
-
 <img src="public/agent-copilot.png" alt="BabyChain dashboard" />
 
 **Agentic · Copilot** proposes the prompt and fields for the next step; you lock the values and approve before it runs.

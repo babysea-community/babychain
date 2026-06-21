@@ -527,6 +527,11 @@ function validateAgentCheckpointApproval(
       }))
     : [];
 
+  const approveModelContext =
+    typeof record.run.metadata.model_context === 'string'
+      ? record.run.metadata.model_context.trim()
+      : '';
+
   return validateChainAgentResult(
     {
       selectedParams,
@@ -535,6 +540,7 @@ function validateAgentCheckpointApproval(
     },
     {
       currentInput: record.run.input as JsonObject,
+      ...(approveModelContext ? { modelContext: approveModelContext } : {}),
       flow: {
         currentStepKey: checkpoint.previousStepKey,
         mode: checkpoint.mode,
@@ -951,8 +957,14 @@ async function prepareAgentCheckpoint(args: {
         providerMetadata: previousStep.providerMetadata,
       }),
     };
+    const metadataModelContext = record.run.metadata.model_context;
+    const ownerModelContext =
+      typeof metadataModelContext === 'string'
+        ? metadataModelContext.trim()
+        : '';
     const agentContext = {
       currentInput: record.run.input as JsonObject,
+      ...(ownerModelContext ? { modelContext: ownerModelContext } : {}),
       flow: {
         currentStepKey: previousStepForAgent.stepKey,
         nextStepKey: readyStep.stepKey,

@@ -2796,6 +2796,8 @@ function InfoNodeComponent({ id, data }: NodeProps) {
   const running = runningFlowIds.has(flowId);
   const runMode = runModeByFlow.get(flowId) ?? 'self_control';
   const nameValue = typeof values.name === 'string' ? values.name : '';
+  const modelContextValue =
+    typeof values.model_context === 'string' ? values.model_context : '';
   const autoName = flowMeta[flowId]?.autoName ?? 'Untitled canvas';
 
   const [editing, setEditing] = useState(false);
@@ -2972,6 +2974,25 @@ function InfoNodeComponent({ id, data }: NodeProps) {
               value={runMode}
               onChange={(value) => setRunMode(flowId, value)}
             />
+          </div>
+          <div className="grid gap-1">
+            <span className="font-mono text-[0.7rem] text-muted-foreground">
+              model_context
+            </span>
+            <textarea
+              disabled={running}
+              rows={3}
+              maxLength={2000}
+              value={modelContextValue}
+              onChange={(event) =>
+                updateValue(id, 'model_context', event.target.value)
+              }
+              placeholder="Optional brief for the Agentic Workflow: style, purpose, mood, scene or wardrobe direction. Same subject, different vibes."
+              className="nodrag w-full resize-y border border-border bg-input px-2.5 py-1.5 text-xs leading-5 text-foreground outline-none focus-visible:border-ring disabled:opacity-40"
+            />
+            <span className="text-[0.65rem] leading-4 text-muted-foreground">
+              Sent to the agent runs to guide its prompts and field choices.
+            </span>
           </div>
         </div>
       </div>
@@ -4588,8 +4609,17 @@ function CanvasInner(props: CanvasProps) {
         }
       }
 
+      const infoNode = workingNodes.find(
+        (node) => node.id === `info_${flowId}`,
+      );
+      const modelContext =
+        typeof infoNode?.data.values.model_context === 'string'
+          ? infoNode.data.values.model_context.trim()
+          : '';
+
       const result = await runChainAction(input, {
         execution: runModeExecution(runMode),
+        ...(modelContext ? { metadata: { model_context: modelContext } } : {}),
         ...(!canvasId ? { flowId } : {}),
       }).catch(() => null);
       if (!result || !result.ok) {
@@ -4632,7 +4662,7 @@ function CanvasInner(props: CanvasProps) {
             );
           } else {
             saveToastIdRef.current = toast.info(
-              'Flow saved to your Library. Results attach to it automatically.',
+              'The canvas flow saved to your Library (results attach to it automatically)',
               { duration: 2400 },
             );
           }
