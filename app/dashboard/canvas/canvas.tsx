@@ -3451,20 +3451,32 @@ function CanvasInner(props: CanvasProps) {
         );
         if (targetNodes.length === 0) return;
 
-        const measured = targetNodes.every((node) => {
+        // Only ever fit nodes React Flow has actually measured. A brand-new
+        // card is registered with 0x0 bounds for a frame or two; including it
+        // poisons the bounding box and makes fitView zoom the whole canvas far
+        // out (the "slow zoom-out, new card not shown" bug). Wait until the new
+        // card is measured so it is part of the fit, but cap the wait so a
+        // stuck measurement can never hang the view.
+        const measuredNodes = targetNodes.filter((node) => {
           const internal = getInternalNode(node.id);
           return Boolean(internal?.measured.width && internal?.measured.height);
         });
-        if (!measured && Date.now() - startedAt < 600) {
+        if (
+          measuredNodes.length < targetNodes.length &&
+          Date.now() - startedAt < 1000
+        ) {
           window.requestAnimationFrame(step);
           return;
         }
 
+        const nodesToFit =
+          measuredNodes.length > 0 ? measuredNodes : targetNodes;
+
         void fitView({
-          nodes: targetNodes,
+          nodes: nodesToFit,
           padding: 0.24,
           maxZoom: 0.95,
-          duration: 600,
+          duration: 200,
         });
       };
       window.requestAnimationFrame(step);
