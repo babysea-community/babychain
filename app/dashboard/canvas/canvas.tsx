@@ -3736,6 +3736,15 @@ function CanvasInner(props: CanvasProps) {
   // defaults, which produced empty fields (and broken payloads) for fields
   // whose schema default is required behavior.
   useEffect(() => {
+    // Never replace a node object while a node is being dragged. If a card's
+    // schema finishes loading mid-drag, normalizing it here swaps the dragged
+    // node out from under React Flow's drag gesture, so it never receives the
+    // drag-end and the card "sticks" to the cursor. Defer until the drag ends,
+    // when this effect re-runs on the drag-end node change.
+    if (nodes.some((node) => node.dragging)) {
+      return;
+    }
+
     if (
       !nodes.some((node) =>
         nodeNeedsSchemaNormalization(
@@ -3894,6 +3903,10 @@ function CanvasInner(props: CanvasProps) {
   // aux cards spawn separated in the final utility column; existing ones keep
   // whatever position the user dragged them to.
   useEffect(() => {
+    // Same drag-safety guard as the schema-normalize effect: a relayout or node
+    // replacement mid-drag can strand the dragged card under the cursor.
+    if (nodes.some((node) => node.dragging)) return;
+
     if (!needsFlowAuxReconcile(nodes, runModeByFlow)) return;
 
     setNodes((current) => {
