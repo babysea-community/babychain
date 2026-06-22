@@ -160,7 +160,7 @@ describe('Bedrock Nova Chain Agent', () => {
     });
 
     const requestBody = requestBodies[0];
-    expect(requestBody?.inferenceConfig).toMatchObject({ maxTokens: 5000 });
+    expect(requestBody?.inferenceConfig).toMatchObject({ maxTokens: 10000 });
 
     const requestText = JSON.stringify(requestBody);
     expect(requestText.match(/Downstream schema JSON/g)).toHaveLength(1);
@@ -391,6 +391,111 @@ describe('Bedrock Nova Chain Agent', () => {
       repair_attempted: true,
       request_count: 2,
       token_usage: { inputTokens: 21, outputTokens: 41 },
+      validation: { ok: true },
+    });
+  });
+
+  it('repairs a malformed-JSON first pass via the greedy repair pass', async () => {
+    setMinimalEnv();
+    const responses = [
+      {
+        output: {
+          message: {
+            content: [
+              { text: 'Sorry, here is the plan but not valid JSON {[' },
+            ],
+          },
+        },
+        usage: { inputTokens: 9, outputTokens: 9 },
+      },
+      {
+        output: {
+          message: {
+            content: [
+              {
+                text: JSON.stringify({
+                  observations: {},
+                  suggestions: [
+                    {
+                      title: 'Dolly Drift',
+                      prompt:
+                        'A gentle handheld dolly follows her through the crosswalk as neon reflections slide across her hoodie, with small head turns and natural walking rhythm.',
+                      params: {},
+                    },
+                    {
+                      title: 'Street Pulse',
+                      prompt:
+                        'She moves past storefronts in a slow documentary tracking shot, background lights stretching into soft bokeh while her shoulders subtly shift with each step.',
+                      params: {},
+                    },
+                    {
+                      title: 'Quiet Turn',
+                      prompt:
+                        'The camera trails behind, then arcs slightly as she glances toward passing traffic, keeping the city alive with layered motion and shallow focus.',
+                      params: {},
+                    },
+                  ],
+                  selected_prompt:
+                    'A gentle handheld dolly follows her through the crosswalk as neon reflections slide across her hoodie, with small head turns and natural walking rhythm.',
+                  selected_params: {
+                    generation_duration: 4,
+                    generation_prompt:
+                      'A gentle handheld dolly follows her through the crosswalk as neon reflections slide across her hoodie, with small head turns and natural walking rhythm.',
+                  },
+                }),
+              },
+            ],
+          },
+        },
+        usage: { inputTokens: 12, outputTokens: 22 },
+      },
+    ];
+    const fetchImpl = vi.fn(async () => Response.json(responses.shift()));
+
+    const { createBedrockNovaAgent } =
+      await import('@/lib/agents/bedrock-nova');
+    const agent = createBedrockNovaAgent({
+      apiKey: 'bedrock_test_key_12345678',
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+      modelIdentifier: 'us.amazon.nova-2-lite-v1:0',
+      region: 'us-east-1',
+    });
+    const result = await agent.suggestNextStep({
+      currentInput: {},
+      flow: {
+        currentStepKey: 'image',
+        mode: 'autopilot',
+        nextStepKey: 'video',
+      },
+      nextStep: {
+        modelIdentifier: 'google/veo-3.1-lite',
+        requestParams: null,
+        schema: {
+          type: 'object',
+          required: ['generation_prompt', 'generation_duration'],
+          properties: {
+            generation_prompt: { type: 'string' },
+            generation_duration: { type: 'number', minimum: 1, maximum: 8 },
+          },
+        },
+        stepKey: 'video',
+        stepKind: 'video',
+      },
+      previousStep: {
+        modelIdentifier: 'bfl/flux-1.1-pro',
+        outputFiles: [],
+        requestParams: { generation_prompt: 'A product render' },
+        stepKey: 'image',
+        stepKind: 'image',
+      },
+    });
+
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
+    expect(result.selectedPrompt).toContain('handheld dolly');
+    expect(result.observability).toMatchObject({
+      repair_attempted: true,
+      request_count: 2,
+      token_usage: { inputTokens: 12, outputTokens: 22 },
       validation: { ok: true },
     });
   });

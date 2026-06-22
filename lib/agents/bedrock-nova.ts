@@ -30,7 +30,11 @@ import {
 
 const BEDROCK_DEFAULT_MODEL = 'us.amazon.nova-2-lite-v1:0';
 const BEDROCK_DEFAULT_REGION = 'us-east-1';
-const AGENT_MAX_OUTPUT_TOKENS = 5000;
+// Reasoning tokens are billed as output tokens and count against maxTokens, so
+// the budget must hold the private reasoning AND the final JSON answer. Nova 2
+// allows up to ~65k output tokens; the docs' reasoning examples use 10k. 5k was
+// exhausted by reasoning alone, leaving an empty (unparseable) answer.
+const AGENT_MAX_OUTPUT_TOKENS = 10000;
 const BEDROCK_TIMEOUT_MS = 120_000;
 const MEDIA_DOWNLOAD_TIMEOUT_MS = 60_000;
 const MAX_AGENT_MEDIA_BYTES = 24 * 1024 * 1024;
@@ -39,13 +43,14 @@ const MAX_AGENT_MEDIA_BYTES = 24 * 1024 * 1024;
 // even though browsers can load the same public URL. Always send one.
 const MEDIA_DOWNLOAD_USER_AGENT = 'BabyChain/0.1';
 // Amazon Nova 2 inference tuning. The first (creative) pass runs Nova 2 Lite in
-// extended-thinking REASONING mode - "medium" effort is documented as optimal
-// for agentic workflows - so the planner reasons through the whole shoot before
-// answering, with a high temperature/top-p that "induce more variations" so the
-// three suggestions genuinely diverge. The repair pass turns reasoning OFF and
-// uses greedy decoding for a fast, reliable structured fix. NOTE: reasoning
-// effort "high" forbids temperature/top-p/top-k, so the agent uses "medium".
-const AGENT_REASONING_EFFORT = 'medium';
+// extended-thinking REASONING mode. "low" effort fits this task: a single
+// structured-analysis pass that weighs the image, schema, and context to produce
+// three distinct directions (the docs scope "medium"/"high" to multi-step tool
+// coordination and STEM proofs). A high temperature/top-p "induce more
+// variations" so the three suggestions genuinely diverge. The repair pass turns
+// reasoning OFF and uses greedy decoding for a fast, reliable structured fix.
+// NOTE: reasoning effort "high" forbids temperature/top-p/top-k.
+const AGENT_REASONING_EFFORT = 'low';
 const AGENT_REASONING_TEMPERATURE = 1;
 const AGENT_REASONING_TOP_P = 0.9;
 
@@ -86,55 +91,101 @@ export function createBedrockNovaAgent(
       }
 
       const startedAt = Date.now();
-      const first = await invokeAgent({
-        apiKey,
-        context: input,
-        fetchImpl,
-        modelIdentifier,
-        region,
-      });
-      first.result = completeAgentResultParams(first.result, input);
-      const firstValidation = validateChainAgentResult(first.result, input);
 
-      if (firstValidation.ok) {
-        return withObservability(first.result, {
+      // The creative first pass occasionally emits malformed JSON at its high
+      // temperature. That is recoverable: capture it and let the greedy repair
+      // pass (reasoning off, temperature 0) return clean structured output,
+      // exactly as it does for a validation failure. Only intercept parse
+      // failures here; surface every other error.
+      let first: Awaited<ReturnType<typeof invokeAgent>> | null = null;
+      let repairContext: { error: string; previousJson: string | null } | null =
+        null;
+
+      try {
+        first = await invokeAgent({
+          apiKey,
+          context: input,
+          fetchImpl,
+          modelIdentifier,
+          region,
+        });
+      } catch (error) {
+        if (
+          error instanceof BabyChainError &&
+          error.code === 'chain_agent_invalid_response'
+        ) {
+          repairContext = {
+            error: error.message,
+            previousJson:
+              typeof error.details?.rawText === 'string'
+                ? error.details.rawText
+                : null,
+          };
+        } else {
+          throw error;
+        }
+      }
+
+      if (first) {
+        first.result = completeAgentResultParams(first.result, input);
+        const firstValidation = validateChainAgentResult(first.result, input);
+
+        if (firstValidation.ok) {
+          return withObservability(first.result, {
+            latencyMs: Date.now() - startedAt,
+            modelIdentifier,
+            repaired: false,
+            requestCount: 1,
+            usage: first.usage,
+            validation: firstValidation,
+          });
+        }
+
+        repairContext = {
+          error:
+            firstValidation.error ?? 'Chain Agent result failed validation.',
+          previousJson: first.result.rawText,
+        };
+      }
+
+      if (repairContext) {
+        const repair = await invokeAgent({
+          apiKey,
+          context: input,
+          fetchImpl,
+          modelIdentifier,
+          previousJson: repairContext.previousJson,
+          region,
+          repairError: repairContext.error,
+        });
+        repair.result = completeAgentResultParams(repair.result, input);
+        const repairValidation = validateChainAgentResult(repair.result, input);
+
+        if (!repairValidation.ok) {
+          throw new BabyChainError(
+            'chain_agent_invalid_response',
+            `Chain Agent repair failed validation: ${repairValidation.error}`,
+            502,
+          );
+        }
+
+        return withObservability(repair.result, {
           latencyMs: Date.now() - startedAt,
           modelIdentifier,
-          repaired: false,
-          requestCount: 1,
-          usage: first.usage,
-          validation: firstValidation,
+          repaired: true,
+          requestCount: 2,
+          usage: first ? mergeUsage(first.usage, repair.usage) : repair.usage,
+          validation: repairValidation,
         });
       }
 
-      const repair = await invokeAgent({
-        apiKey,
-        context: input,
-        fetchImpl,
-        modelIdentifier,
-        previousJson: first.result.rawText,
-        region,
-        repairError: firstValidation.error,
-      });
-      repair.result = completeAgentResultParams(repair.result, input);
-      const repairValidation = validateChainAgentResult(repair.result, input);
-
-      if (!repairValidation.ok) {
-        throw new BabyChainError(
-          'chain_agent_invalid_response',
-          `Chain Agent repair failed validation: ${repairValidation.error}`,
-          502,
-        );
-      }
-
-      return withObservability(repair.result, {
-        latencyMs: Date.now() - startedAt,
-        modelIdentifier,
-        repaired: true,
-        requestCount: 2,
-        usage: mergeUsage(first.usage, repair.usage),
-        validation: repairValidation,
-      });
+      // Unreachable: first is set and valid (returned above) or repairContext is
+      // set. Guards the type and an otherwise impossible state.
+      throw new BabyChainError(
+        'chain_agent_invalid_response',
+        'Chain Agent did not produce a result.',
+        502,
+      );
     },
   };
 }
@@ -457,6 +508,7 @@ function parseAgentJson(rawText: string) {
     'chain_agent_invalid_response',
     `Chain Agent returned invalid JSON: ${toErrorMessage(lastError)}`,
     502,
+    { rawText: trimmed },
   );
 }
 
