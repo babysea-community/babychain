@@ -22,4 +22,11 @@ export type StorageProvider = {
    * files while keeping the database history rows.
    */
   remove(keys: string[]): Promise<void>;
+  /**
+   * Permanently delete every stored object whose key/pathname starts with the
+   * given prefix (for example `runs/<runId>/` to reclaim all of a run's image,
+   * refine, video, and modify outputs). Best-effort; missing objects and a
+   * disabled/misconfigured provider are ignored.
+   */
+  removeByPrefix(prefix: string): Promise<void>;
 };

@@ -14,6 +14,7 @@ export type S3CompatibleConfig = {
 
 type S3ClientModule = {
   DeleteObjectsCommand: new (input: Record<string, unknown>) => unknown;
+  ListObjectsV2Command: new (input: Record<string, unknown>) => unknown;
   PutObjectCommand: new (input: Record<string, unknown>) => unknown;
   S3Client: new (config: Record<string, unknown>) => {
     send(command: unknown): Promise<unknown>;
@@ -82,6 +83,53 @@ export function createS3CompatibleStorageProvider({
         start += S3_DELETE_BATCH_SIZE
       ) {
         const batch = unique.slice(start, start + S3_DELETE_BATCH_SIZE);
+
+        await client.send(
+          new sdk.DeleteObjectsCommand({
+            Bucket: config.bucket,
+            Delete: {
+              Objects: batch.map((Key) => ({ Key })),
+              Quiet: true,
+            },
+          }),
+        );
+      }
+    },
+    async removeByPrefix(prefix) {
+      if (!prefix) {
+        return;
+      }
+
+      const { client, sdk } = await createClient();
+      const keys: string[] = [];
+      let continuationToken: string | undefined;
+
+      do {
+        const response = (await client.send(
+          new sdk.ListObjectsV2Command({
+            Bucket: config.bucket,
+            Prefix: prefix,
+            ContinuationToken: continuationToken,
+          }),
+        )) as {
+          Contents?: Array<{ Key?: string }>;
+          IsTruncated?: boolean;
+          NextContinuationToken?: string;
+        };
+
+        for (const object of response.Contents ?? []) {
+          if (typeof object.Key === 'string' && object.Key.length > 0) {
+            keys.push(object.Key);
+          }
+        }
+
+        continuationToken = response.IsTruncated
+          ? response.NextContinuationToken
+          : undefined;
+      } while (continuationToken);
+
+      for (let start = 0; start < keys.length; start += S3_DELETE_BATCH_SIZE) {
+        const batch = keys.slice(start, start + S3_DELETE_BATCH_SIZE);
 
         await client.send(
           new sdk.DeleteObjectsCommand({

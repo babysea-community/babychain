@@ -4,7 +4,7 @@ packages:
 minimumReleaseAge: 0
 
 catalog:
-  '@aws-sdk/client-s3': 3.1047.0
+  '@aws-sdk/client-s3': 3.1073.0
   '@eslint/js': 10.0.1
   '@next/eslint-plugin-next': 16.2.9
   '@radix-ui/react-slot': 1.2.4
@@ -14,8 +14,8 @@ catalog:
   '@types/pg': 8.15.6
   '@types/react': 19.2.14
   '@types/react-dom': 19.2.3
-  '@vercel/blob': 2.0.1
-  '@xyflow/react': 12.11.0
+  '@vercel/blob': 2.4.1
+  '@xyflow/react': 12.11.1
   babysea: 2.0.0
   babel-plugin-react-compiler: 1.0.0
   class-variance-authority: 0.7.1
@@ -27,15 +27,15 @@ catalog:
   next: 16.2.6
   pg: 8.21.0
   prettier: 3.8.3
-  react: 19.2.4
-  react-dom: 19.2.4
+  react: 19.2.7
+  react-dom: 19.2.7
   semantic-lady: 0.5.1
   server-only: 0.0.1
   sonner: 2.0.7
   tailwind-merge: 3.6.0
   tailwindcss: 4.3.0
   typescript: 6.0.3
-  typescript-eslint: 8.61.0
+  typescript-eslint: 8.62.0
   vitest: 4.0.7
   zod: 4.4.3
 

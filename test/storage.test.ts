@@ -99,6 +99,7 @@ describe('output storage', () => {
         };
       },
       remove: async () => undefined,
+      removeByPrefix: async () => undefined,
     };
 
     const result = await persistOutputFiles({
@@ -144,6 +145,7 @@ describe('output storage', () => {
         throw new Error('AccessDenied');
       },
       remove: async () => undefined,
+      removeByPrefix: async () => undefined,
     };
     const output = 'data:image/jpeg;base64,aW1hZ2U=';
 

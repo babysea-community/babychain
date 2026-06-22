@@ -173,6 +173,30 @@ export async function deleteStoredAssets(
   await provider.remove(keys);
 }
 
+/**
+ * Best-effort deletion of every stored output asset for a run - all of its
+ * `runs/<runId>/<stepKey>/...` image, refine, video, and modify files - from
+ * the configured storage provider, by object-key prefix. This does not depend
+ * on per-step metadata, so it reclaims every output the run wrote. Storage
+ * being disabled (`none`) or misconfigured is a no-op so callers never fail
+ * because of cleanup.
+ */
+export async function deleteRunStoredAssets(runId: string): Promise<void> {
+  let provider: StorageProvider | null;
+
+  try {
+    provider = resolveOutputStorageProvider();
+  } catch {
+    return;
+  }
+
+  if (!provider) {
+    return;
+  }
+
+  await provider.removeByPrefix(`runs/${runId}/`);
+}
+
 async function readOutputMedia(value: string) {
   const dataUrl = parseDataUrlOutputFile(value);
 

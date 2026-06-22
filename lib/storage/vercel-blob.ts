@@ -7,6 +7,16 @@ type VercelBlobModule = {
     urlOrPathname: string | string[],
     options: { token: string },
   ): Promise<void>;
+  list(options: {
+    cursor?: string;
+    limit?: number;
+    prefix?: string;
+    token: string;
+  }): Promise<{
+    blobs: Array<{ pathname: string; url: string }>;
+    cursor?: string;
+    hasMore: boolean;
+  }>;
   put(
     pathname: string,
     body: Uint8Array | Buffer | Blob,
@@ -54,6 +64,31 @@ export function createVercelBlobStorageProvider(): StorageProvider {
       const blob = await loadVercelBlob();
       // `del` accepts blob pathnames (our storagePath) as well as full URLs.
       await blob.del(unique, { token });
+    },
+    async removeByPrefix(prefix) {
+      if (!prefix) {
+        return;
+      }
+
+      const blob = await loadVercelBlob();
+      const urls: string[] = [];
+      let cursor: string | undefined;
+
+      do {
+        const page = await blob.list({ prefix, token, cursor });
+        for (const item of page.blobs) {
+          if (item.url) {
+            urls.push(item.url);
+          }
+        }
+        cursor = page.hasMore ? page.cursor : undefined;
+      } while (cursor);
+
+      if (urls.length === 0) {
+        return;
+      }
+
+      await blob.del(urls, { token });
     },
   };
 }

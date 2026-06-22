@@ -15,6 +15,7 @@ All notable changes will be documented here. The format follows [Keep a Changelo
 
 ### Fixed
 
+- Deleting a Library canvas card now reliably reclaims the run's stored image/video assets: it deletes every object under the run's `runs/<runId>/` storage prefix (covering the image, refine, video, and modify step folders) instead of relying on per-step `babychain_storage` metadata that could be missing, so older runs and any un-recorded step are cleaned up too. The `chain_run` / `chain_step` history rows are still kept. Storage providers gained a `removeByPrefix` operation (S3 list+delete, Vercel Blob list+del) to support this.
 - Every cancel path - the canvas Cancel button, the cancel API, and the auto-cancel watchdog - now issues a best-effort provider cancellation, so a canceled or timed-out run is also stopped at the provider instead of continuing to run (and bill) after BabyChain marks it terminal. Previously the auto-timeout only failed the run locally and left the provider job running.
 - The Library canvas card now shows "Processing" (with a spinner) for an in-flight step and "Canceled" for a canceled step, instead of mislabeling both as "Not used".
 - The canvas API card now surfaces the run id the moment the run is created, before the Library save completes, so the id is available immediately for debugging.

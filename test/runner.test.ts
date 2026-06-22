@@ -977,6 +977,7 @@ describe('runner step claiming', () => {
         };
       },
       remove: async () => undefined,
+      removeByPrefix: async () => undefined,
     };
 
     const result = await processRun(record, {
