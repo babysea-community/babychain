@@ -783,7 +783,6 @@ Configure the Agentic Workflow with:
 AWS_BEARER_TOKEN_BEDROCK=
 BEDROCK_REGION=us-east-1
 BEDROCK_NOVA_AGENT_MODEL=us.amazon.nova-pro-v1:0
-BEDROCK_NOVA_AGENT_EXEMPLAR=off
 ```
 
 Until BabyChain Media Storage is enabled, the Agentic Workflow reads previous outputs from the existing provider URL or inline data URL. Provider URLs can expire, redirect, or exceed the temporary 24MB checkpoint media limit, so storage should be added before relying on long-running or large-video Agentic Workflow runs in production.

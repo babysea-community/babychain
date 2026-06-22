@@ -19,7 +19,6 @@ kill_timeout = "30s"
   BABYCHAIN_STORAGE_PROVIDER = "none"
   BEDROCK_REGION = "us-east-1"
   BEDROCK_NOVA_AGENT_MODEL = "us.amazon.nova-pro-v1:0"
-  BEDROCK_NOVA_AGENT_EXEMPLAR = "off"
   NEXT_PUBLIC_SENTRY_ENVIRONMENT = "production"
 
 [http_service]

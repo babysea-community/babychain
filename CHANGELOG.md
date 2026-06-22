@@ -14,9 +14,13 @@ All notable changes will be documented here. The format follows [Keep a Changelo
 ### Changed
 
 - The Agentic Workflow now pins provider-native prompt enhancement OFF on every agent-planned step: any `generation_prompt_extend` is forced to `false` and `generation_prompt_extend_mode` is dropped before the step runs, so a model default (for example DashScope `prompt_extend`) can no longer silently rewrite the prompt the planner authored. The base image step and Self Control runs are unaffected.
-- Strengthened the Chain Agent RAG grounding to the Amazon Nova "provide supporting text" pattern: the runtime context, internal tool results, creator brief, and prior media are framed as the planner's trusted reference, with explicit instructions to use only the schema fields, enum values, and limits that appear in that reference. The few-shot exemplar was also refreshed to three genuinely diverse directions instead of three near-identical camera moves; instruction version bumped to `2026-06-21.4`.
+- Strengthened the Chain Agent RAG grounding to the Amazon Nova "provide supporting text" pattern: the runtime context, internal tool results, creator brief, and prior media are framed as the planner's trusted reference, with explicit instructions to use only the schema fields, enum values, and limits that appear in that reference. Instruction version bumped to `2026-06-21.4`.
 - Canvas: a model card's prompt textarea now stays fully expanded after a successful run instead of collapsing back to a fixed height, and the `model_context` creative brief is shown only for the agentic run modes and gained a description plus an example placeholder.
 - Bumped the published Docker image to `babyseaoss/babychain:0.4.0` (the Dockerfile `BABYCHAIN_VERSION` label and the Docker guide's tagged publish commands now track the 0.4.0 release).
+
+### Removed
+
+- Removed the `BEDROCK_NOVA_AGENT_EXEMPLAR` flag and the optional few-shot exemplar it toggled. The enhanced prompt (chain-of-thought, the explicit "three clearly distinct directions" rule, higher creative temperature, and RAG grounding) drives suggestion diversity on its own, so the exemplar is no longer needed and could only contradict the planned prompt; the flag is dropped from the env schema, `.env.example`, `docker-compose.yml`, the CloudFormation template, `fly.toml`, and every deployment guide.
 
 ### Fixed
 

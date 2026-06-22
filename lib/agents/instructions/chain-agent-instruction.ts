@@ -40,58 +40,6 @@ export const CHAIN_AGENT_OUTPUT_SCHEMA = {
   selected_params: {},
 } satisfies JsonObject;
 
-/**
- * Compact, illustrative image-to-video exemplar. It demonstrates the required
- * JSON shape and the Observe -> Diverge -> Decide reasoning. It is opt-in
- * (see BEDROCK_NOVA_AGENT_EXEMPLAR) and is explicitly framed as
- * "do not reuse its wording or scene" to avoid biasing real output.
- */
-export const CHAIN_AGENT_EXEMPLAR = {
-  observations: {
-    subject:
-      'A young woman in a knit sweater seated near a window, looking slightly off-camera',
-    background:
-      'Soft interior with blurred warm light and a hint of window frame',
-    color_palette: 'Warm amber highlights over muted neutral midtones',
-    mood: 'Calm, intimate, contemplative',
-    quality_notes:
-      'Shallow depth of field, gentle film grain, natural skin texture',
-  },
-  suggestions: [
-    {
-      title: 'Quiet Warmth',
-      prompt:
-        'The portrait breathes to life in its warm amber key: she inhales softly and blinks once as a few hair strands drift, the camera holding an almost-still frame with a feather-light focus pull. Intimate, tender, unhurried.',
-      rationale:
-        'Calm, faithful animation that leans into the existing warm, intimate mood.',
-      params: {},
-    },
-    {
-      title: 'Cool Turn',
-      prompt:
-        'The grade cools toward a soft blue-grey as she slowly turns her gaze to the lens and her shoulders settle; the window bokeh drifts and the light dims a touch, trading warmth for a pensive, cinematic stillness.',
-      rationale:
-        'Shifts the mood and color grade and adds a gaze beat while keeping the same person and room.',
-      params: {},
-    },
-    {
-      title: 'Restless Light',
-      prompt:
-        'Energy lifts: flickering window light dances across her cheek, fine film grain breathes, and a quicker handheld drift with a shallow rack-focus catches a small smile starting - the same portrait rendered lively and spontaneous.',
-      rationale:
-        'Higher-energy motion, lighting, and pacing for a markedly different feel within the same frame.',
-      params: {},
-    },
-  ],
-  selected_prompt:
-    'The portrait breathes to life in its warm amber key: she inhales softly and blinks once as a few hair strands drift, the camera holding an almost-still frame with a feather-light focus pull. Intimate, tender, unhurried.',
-  selected_params: {
-    generation_prompt:
-      'The portrait breathes to life in its warm amber key: she inhales softly and blinks once as a few hair strands drift, the camera holding an almost-still frame with a feather-light focus pull. Intimate, tender, unhurried.',
-    generation_duration: 5,
-  },
-} satisfies JsonObject;
-
 const CHAIN_AGENT_REASONING_METHOD = [
   'Think step by step before you answer. Do your reasoning privately inside a single <thinking></thinking> block, then return the final answer inside a single <output></output> block.',
   'Inside <thinking>, work through these stages in order and keep it concise:',
@@ -108,7 +56,7 @@ const CHAIN_AGENT_SCOPE_AND_TRUST = [
 ].join('\n');
 
 export function buildChainAgentSystemPrompt(
-  options: { repairError?: string | null; includeExample?: boolean } = {},
+  options: { repairError?: string | null } = {},
 ) {
   return [
     '## Persona',
@@ -127,21 +75,10 @@ export function buildChainAgentSystemPrompt(
     '- Do all private reasoning inside a single <thinking></thinking> block, then return the final answer inside a single <output></output> block.',
     '- Inside <output>, return one valid JSON object that matches the schema below. DO NOT include markdown fences, commentary, prose, or any keys beyond the schema inside <output>.',
     `Output JSON schema: ${JSON.stringify(CHAIN_AGENT_OUTPUT_SCHEMA)}`,
-    ...(options.includeExample ? chainAgentExemplarSection() : []),
     '',
     '## Scope And Trust Boundary',
     CHAIN_AGENT_SCOPE_AND_TRUST,
   ].join('\n');
-}
-
-function chainAgentExemplarSection() {
-  return [
-    '',
-    '## Example (Illustrative Only)',
-    'The example below shows the required JSON shape and the Observe -> Diverge -> Decide reasoning for an image-to-video step where the downstream schema requires generation_prompt and generation_duration.',
-    'Match this structure and quality. DO NOT reuse its wording, subject, scene, or duration; always ground your answer in the actual provided media and downstream schema.',
-    `Example output: ${JSON.stringify(CHAIN_AGENT_EXEMPLAR)}`,
-  ];
 }
 
 export function buildChainAgentUserPrompt(

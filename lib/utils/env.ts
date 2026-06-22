@@ -72,15 +72,6 @@ const EnvSchema = z.object({
   AWS_BEARER_TOKEN_BEDROCK: OptionalLongSecretSchema,
   BEDROCK_REGION: OptionalNonEmptyStringSchema,
   BEDROCK_NOVA_AGENT_MODEL: OptionalNonEmptyStringSchema,
-  /**
-   * Optional. When `on`, the Chain Agent system prompt includes a compact
-   * illustrative image-to-video few-shot exemplar. Off by default to keep
-   * prompts lean and avoid biasing output toward the example.
-   */
-  BEDROCK_NOVA_AGENT_EXEMPLAR: z.preprocess(
-    emptyStringToUndefined,
-    z.enum(['off', 'on']).default('off'),
-  ),
   BABYCHAIN_STORAGE_PROVIDER: z.preprocess(
     emptyStringToUndefined,
     z.enum(['none', 'vercel-blob', 'aws-s3']).default('none'),

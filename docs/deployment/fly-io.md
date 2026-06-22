@@ -70,7 +70,7 @@ fly secrets set \
 
 The BabySea and Sentry values can be placeholders when you stay in BYOK mode and do not upload source maps. Keep `SENTRY_AUTH_TOKEN` in CI or your build environment only when you intentionally upload source maps; it is not needed by the running container. For BabySea mode, change `BABYCHAIN_PROVIDER_MODE` to `babysea` and replace the BabySea placeholders with real values.
 
-Media storage (`AWS_S3_*`, `BLOB_READ_WRITE_TOKEN`) and the Agentic Workflow planner (`AWS_BEARER_TOKEN_BEDROCK`) are optional: leave those secrets blank to run without them. Their non-secret defaults (`BABYCHAIN_STORAGE_PROVIDER`, `BEDROCK_REGION`, `BEDROCK_NOVA_AGENT_MODEL`, `BEDROCK_NOVA_AGENT_EXEMPLAR`) live in `fly.toml` under `[env]`; set `BABYCHAIN_STORAGE_PROVIDER` to `aws-s3` or `vercel-blob` to enable storage.
+Media storage (`AWS_S3_*`, `BLOB_READ_WRITE_TOKEN`) and the Agentic Workflow planner (`AWS_BEARER_TOKEN_BEDROCK`) are optional: leave those secrets blank to run without them. Their non-secret defaults (`BABYCHAIN_STORAGE_PROVIDER`, `BEDROCK_REGION`, `BEDROCK_NOVA_AGENT_MODEL`) live in `fly.toml` under `[env]`; set `BABYCHAIN_STORAGE_PROVIDER` to `aws-s3` or `vercel-blob` to enable storage.
 
 ### 3. Deploy with build args
 

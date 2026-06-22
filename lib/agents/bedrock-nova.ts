@@ -50,7 +50,6 @@ const AGENT_CREATIVE_TOP_K = 50;
 type BedrockNovaConfig = {
   apiKey?: string;
   fetchImpl?: typeof fetch;
-  includeExemplar?: boolean;
   modelIdentifier?: string;
   region?: string;
 };
@@ -71,8 +70,6 @@ export function createBedrockNovaAgent(
     config.modelIdentifier ??
     env.BEDROCK_NOVA_AGENT_MODEL ??
     BEDROCK_DEFAULT_MODEL;
-  const includeExemplar =
-    config.includeExemplar ?? env.BEDROCK_NOVA_AGENT_EXEMPLAR === 'on';
 
   return {
     async suggestNextStep(
@@ -91,7 +88,6 @@ export function createBedrockNovaAgent(
         apiKey,
         context: input,
         fetchImpl,
-        includeExemplar,
         modelIdentifier,
         region,
       });
@@ -113,7 +109,6 @@ export function createBedrockNovaAgent(
         apiKey,
         context: input,
         fetchImpl,
-        includeExemplar,
         modelIdentifier,
         previousJson: first.result.rawText,
         region,
@@ -163,14 +158,12 @@ async function invokeAgent(args: {
   apiKey: string;
   context: ChainAgentPromptContext;
   fetchImpl: typeof fetch;
-  includeExemplar?: boolean;
   modelIdentifier: string;
   previousJson?: string | null;
   region: string;
   repairError?: string | null;
 }) {
   const body = await buildConverseBody(args.context, args.fetchImpl, {
-    includeExample: args.includeExemplar ?? false,
     previousJson: args.previousJson ?? null,
     repairError: args.repairError ?? null,
   });
@@ -193,7 +186,6 @@ async function buildConverseBody(
   context: ChainAgentPromptContext,
   fetchImpl: typeof fetch,
   options: {
-    includeExample?: boolean;
     repairError?: string | null;
     previousJson?: string | null;
   } = {},

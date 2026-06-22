@@ -106,7 +106,7 @@ With the default `ProviderMode=byok`, populate all BYOK inference keys in the or
 
 With `ProviderMode=babysea`, put `BABYSEA_API_KEY` in Secrets Manager and optionally put `BABYSEA_WEBHOOK_SECRET` there too. The CloudFormation stack maps the `BabySeaApiBaseUrl` and `BabySeaRegion` parameters to the runtime `BABYSEA_API_BASE_URL` and `BABYSEA_REGION` environment variables.
 
-Media storage and the Agentic Workflow planner are optional. Set `StorageProvider` to `aws-s3` or `vercel-blob` (with the `AwsS3Region`, `AwsS3BucketName`, `AwsS3EndpointUrl` parameters and the `AWS_S3_ACCESS_KEY_ID`/`AWS_S3_SECRET_ACCESS_KEY`/`BLOB_READ_WRITE_TOKEN` secrets) to enable storage, and populate the `AWS_BEARER_TOKEN_BEDROCK` secret (with the `BedrockRegion`, `BedrockNovaAgentModel`, `BedrockNovaAgentExemplar` parameters) to enable the Amazon Nova planner. The stack creates all of these secrets, so leave them as placeholders to run without either feature.
+Media storage and the Agentic Workflow planner are optional. Set `StorageProvider` to `aws-s3` or `vercel-blob` (with the `AwsS3Region`, `AwsS3BucketName`, `AwsS3EndpointUrl` parameters and the `AWS_S3_ACCESS_KEY_ID`/`AWS_S3_SECRET_ACCESS_KEY`/`BLOB_READ_WRITE_TOKEN` secrets) to enable storage, and populate the `AWS_BEARER_TOKEN_BEDROCK` secret (with the `BedrockRegion`, `BedrockNovaAgentModel` parameters) to enable the Amazon Nova planner. The stack creates all of these secrets, so leave them as placeholders to run without either feature.
 
 ```bash
 put_secret() {
