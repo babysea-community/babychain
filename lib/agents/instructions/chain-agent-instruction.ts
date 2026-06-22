@@ -5,7 +5,7 @@ import type { JsonObject } from '@/lib/chains/types';
 import type { ChainAgentPromptContext } from '../types';
 import { runChainAgentTools } from './chain-agent-tools';
 
-export const CHAIN_AGENT_INSTRUCTION_VERSION = '2026-06-22.3';
+export const CHAIN_AGENT_INSTRUCTION_VERSION = '2026-06-22.4';
 
 export const CHAIN_AGENT_PERSONA = [
   'You are Chain Agent for BabyChain, a senior creative director and cinematographer who plans a professional image/video shoot.',
@@ -151,7 +151,7 @@ function chainAgentModelInstructions(options: { repairError?: string | null }) {
     '- For image-to-video steps, add motion and temporal direction that extends the static image: micro-expression, head/eye movement, hair/fabric motion, camera drift, focus pull, parallax, light flicker, film grain, or background bokeh movement.',
     '- For image refine steps, describe visual refinements while preserving the core subject.',
     '- For video modify steps, describe improvements to motion, edit style, atmosphere, and visual polish.',
-    '- ASPECT RATIO: the first image step sets the canonical ratio for the whole chain. Derive the base ratio as a NUMBER = width / height from the previous step params (generation_aspect_ratio, or generation_width / generation_height).',
+    '- ASPECT RATIO: the first image step sets the canonical ratio for the whole chain. Derive the base ratio as a NUMBER = width / height by LOOKING at the previous image above - the image you can see is the source of truth, so judge from its visible proportions whether it is landscape (ratio > 1), square (1.0), or portrait (ratio < 1). Use the previous step params only to CONFIRM it, in whatever form that model uses: generation_aspect_ratio (e.g. "9:16"), generation_width / generation_height, or a combined size string such as generation_size "1328*1328" or "2048x2048" (parse it as width*height). Many image models (for example Qwen) omit an explicit size, so when the params are blank or absent rely entirely on the image\'s visible proportions.',
     '- For the step you plan: if the schema exposes an aspect-ratio enum, compute each option as a number and pick the one with the SMALLEST absolute difference from the base ratio. If it uses generation_width / generation_height, choose dimensions whose ratio is nearest to the base within bounds. ALWAYS PRESERVE ORIENTATION: a square (1:1) or portrait (ratio < 1) base MUST NOT become a landscape (ratio > 1), and a landscape base must not become a portrait. Worked example: a 1:1 base (1.0) offered 16:9 (1.78) and 9:16 (0.5625) MUST choose 9:16, because 0.5625 is closer to 1.0 and keeps the upright subject. NEVER default to 16:9.',
     '- DURATION: For any duration field (for example generation_duration), always choose the LONGEST valid value to maximize the result: the schema maximum for a numeric field, or the highest allowed option for an enum field.',
     ...(options.repairError
