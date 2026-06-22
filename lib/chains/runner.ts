@@ -67,6 +67,7 @@ import type {
   ChainStepTemplate,
   ChainTemplate,
   JsonObject,
+  JsonValue,
 } from './types';
 
 const TERMINAL_RUN_STATUSES = new Set(['succeeded', 'failed', 'canceled']);
@@ -720,7 +721,11 @@ async function startStep(
 
   try {
     params = stepTemplate.buildParams(context);
-    params = applyAgentParams(params, agentCheckpoint?.selectedParams ?? null);
+    params = applyAgentParams(
+      params,
+      agentCheckpoint?.selectedParams ?? null,
+      agentCheckpoint ? agentStepSchema(step) : null,
+    );
     params = prepareStepParamsForProvider({
       input: context.input,
       params,
@@ -1251,15 +1256,70 @@ function toChainSchemaStepRole(value: string): ChainSchemaStepRole | null {
 function applyAgentParams(
   params: GenerationParams,
   selectedParams: JsonObject | null,
+  schema: JsonObject | null,
 ): GenerationParams {
   if (!selectedParams) {
     return params;
   }
 
-  return {
+  const merged = {
     ...params,
     ...agentTunableParams(selectedParams),
   } as GenerationParams;
+
+  // Provider-native prompt enhancement would rewrite the prompt the Chain Agent
+  // authored, so force it off on every agent-planned step.
+  return disableAgentPromptEnhancement(merged, schema);
+}
+
+// Provider-native prompt enhancement (BFL prompt_upsampling, DashScope
+// prompt_extend, BytePlus optimize_prompt_options) silently rewrites the prompt
+// before generation. On agent-planned steps that fights the prompt the Chain
+// Agent (Amazon Nova) carefully authored, so BabyChain forces it off regardless
+// of the model default or what the checkpoint selected. The boolean toggle is
+// pinned to false; the enum mode has no "off" value, so it is dropped entirely
+// so the provider receives no enhancement request at all.
+function disableAgentPromptEnhancement(
+  params: GenerationParams,
+  schema: JsonObject | null,
+): GenerationParams {
+  const properties = agentSchemaProperties(schema);
+
+  if (!properties) {
+    return params;
+  }
+
+  const next = { ...params } as JsonObject;
+
+  if ('generation_prompt_extend' in properties) {
+    next.generation_prompt_extend = false;
+  }
+
+  if ('generation_prompt_extend_mode' in properties) {
+    delete next.generation_prompt_extend_mode;
+  }
+
+  return next as GenerationParams;
+}
+
+function agentSchemaProperties(
+  schema: JsonObject | null,
+): Record<string, JsonValue> | null {
+  if (!schema || typeof schema !== 'object' || Array.isArray(schema)) {
+    return null;
+  }
+
+  const properties = schema.properties;
+
+  if (
+    !properties ||
+    typeof properties !== 'object' ||
+    Array.isArray(properties)
+  ) {
+    return null;
+  }
+
+  return properties as Record<string, JsonValue>;
 }
 
 function normalizeAgentSelectedParams(

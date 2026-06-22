@@ -38,6 +38,14 @@ const MAX_AGENT_MEDIA_BYTES = 24 * 1024 * 1024;
 // CloudFront, or Vercel Blob) reject requests without a User-Agent with a 403,
 // even though browsers can load the same public URL. Always send one.
 const MEDIA_DOWNLOAD_USER_AGENT = 'BabyChain/0.1';
+// Amazon Nova inference tuning. The first (creative) pass leans on a higher
+// temperature with top-p/top-k sampling so the three suggestions genuinely
+// diverge across scene, mood, grade, and motion; the repair pass overrides
+// these with greedy decoding (temperature 0, topK 1) for reliable structured
+// output. See buildConverseBody.
+const AGENT_CREATIVE_TEMPERATURE = 0.8;
+const AGENT_CREATIVE_TOP_P = 0.9;
+const AGENT_CREATIVE_TOP_K = 50;
 
 type BedrockNovaConfig = {
   apiKey?: string;
@@ -226,6 +234,8 @@ async function buildConverseBody(
 
   content.push({ text: buildChainAgentUserPrompt(context, options) });
 
+  const isRepairPass = Boolean(options.repairError);
+
   return {
     system: [{ text: buildChainAgentSystemPrompt(options) }],
     messages: [
@@ -234,9 +244,22 @@ async function buildConverseBody(
         content,
       },
     ],
+    // Amazon Nova guidance: greedy decoding (temperature 0, topK 1) yields the
+    // most reliable structured output, which is exactly what the repair pass
+    // needs. The first creative pass instead raises temperature/top-p/top-k to
+    // "induce more variations" so the three suggestions diverge across scene,
+    // mood, grade, and motion instead of collapsing onto one safe answer.
     inferenceConfig: {
       maxTokens: BEDROCK_NOVA_PRO_MAX_OUTPUT_TOKENS,
-      temperature: context.flow.mode === 'autopilot' ? 0 : 0.35,
+      temperature: isRepairPass ? 0 : AGENT_CREATIVE_TEMPERATURE,
+      topP: isRepairPass ? 1 : AGENT_CREATIVE_TOP_P,
+    },
+    // topK is a Nova-specific knob and must travel via
+    // additionalModelRequestFields, not the standard inferenceConfig block.
+    additionalModelRequestFields: {
+      inferenceConfig: {
+        topK: isRepairPass ? 1 : AGENT_CREATIVE_TOP_K,
+      },
     },
   };
 }
@@ -395,12 +418,22 @@ function mergeUsage(left: JsonObject, right: JsonObject) {
 
 function parseAgentJson(rawText: string) {
   const trimmed = rawText.trim();
-  // Nova usually returns a bare JSON object, but copilot temperatures and
-  // safety preambles can wrap it in a ``` fence and/or surrounding prose. Try
-  // the fenced body, the whole text, and finally the first balanced object so a
-  // stray sentence does not waste a repair round-trip or fail the run outright.
+  // Amazon Nova reasons better when it can think first, so the prompt asks it to
+  // plan inside <thinking> and emit the final JSON inside <output>. Prefer that
+  // block (its braces are the answer, not the analysis). We still fall back to a
+  // ``` fence, the whole text, and the first balanced object so a bare JSON
+  // object or a safety preamble does not waste a repair round-trip.
+  const outputBlock = /<output>\s*([\s\S]*?)\s*<\/output>/i
+    .exec(trimmed)?.[1]
+    ?.trim();
   const fenced = /```(?:[a-z0-9]+)?\s*([\s\S]*?)\s*```/i.exec(trimmed)?.[1];
-  const candidates = [fenced?.trim(), trimmed, extractFirstJsonObject(trimmed)];
+  const candidates = [
+    outputBlock,
+    outputBlock ? extractFirstJsonObject(outputBlock) : null,
+    fenced?.trim(),
+    trimmed,
+    extractFirstJsonObject(trimmed),
+  ];
 
   let lastError: unknown;
 

@@ -192,10 +192,10 @@ Manual Docker Hub publish from a trusted local checkout uses the same image name
 ```bash
 docker build \
 	--build-arg NEXT_PUBLIC_SITE_URL="http://localhost:3000" \
-	-t babyseaoss/babychain:0.3.0 \
+	-t babyseaoss/babychain:0.4.0 \
 	-t babyseaoss/babychain:latest .
 
-docker push babyseaoss/babychain:0.3.0
+docker push babyseaoss/babychain:0.4.0
 docker push babyseaoss/babychain:latest
 ```
 

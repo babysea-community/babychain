@@ -400,6 +400,8 @@ type GoogleOperationResponse = {
   response?: {
     generateVideoResponse?: {
       generatedSamples?: GoogleGeneratedVideo[];
+      raiMediaFilteredCount?: number;
+      raiMediaFilteredReasons?: string[];
     };
     generatedVideos?: GoogleGeneratedVideo[];
     generated_videos?: GoogleGeneratedVideo[];
@@ -518,14 +520,21 @@ async function mapOperationResponseToStatus(args: {
   });
 
   if (outputs.length === 0) {
+    const filter = googleRaiFilter(args.payload);
+
     return {
       generation_id: args.generationId,
       generation_status: 'failed',
       generation_provider_used: 'google',
       generation_error:
+        filter?.message ??
         'Google video operation completed without output videos.',
-      generation_error_code: 'provider_unexpected_response',
-      provider_metadata: providerMetadata,
+      generation_error_code: filter
+        ? 'provider_content_filtered'
+        : 'provider_unexpected_response',
+      provider_metadata: filter
+        ? { ...providerMetadata, rai_media_filtered_reasons: filter.reasons }
+        : providerMetadata,
     };
   }
 
@@ -537,6 +546,40 @@ async function mapOperationResponseToStatus(args: {
     generation_completed_at: new Date().toISOString(),
     provider_metadata: providerMetadata,
   };
+}
+
+// Veo can complete an operation with zero output videos when its Responsible AI
+// filter blocks the result (for example a real-person likeness or a safety
+// policy). The reason lives in generateVideoResponse.raiMediaFilteredReasons /
+// raiMediaFilteredCount; surface it so the failure is actionable instead of a
+// generic "no output videos" message.
+function googleRaiFilter(
+  payload: GoogleOperationResponse,
+): { message: string; reasons: string[] } | null {
+  const response = payload.response?.generateVideoResponse;
+
+  const reasons = (response?.raiMediaFilteredReasons ?? [])
+    .map((entry) => (typeof entry === 'string' ? entry.trim() : ''))
+    .filter((entry) => entry.length > 0);
+
+  if (reasons.length > 0) {
+    return {
+      message: `Google Veo filtered the generated video: ${reasons.join(' ')}`,
+      reasons,
+    };
+  }
+
+  if (
+    typeof response?.raiMediaFilteredCount === 'number' &&
+    response.raiMediaFilteredCount > 0
+  ) {
+    return {
+      message: `Google Veo filtered ${response.raiMediaFilteredCount} generated video(s) for a content policy; no reason text was provided.`,
+      reasons: [],
+    };
+  }
+
+  return null;
 }
 
 async function collectVideoOutputs(args: {

@@ -182,7 +182,7 @@ export const agenticWorkflow = {
   eyebrow: 'Agentic Workflow',
   title: 'Design and chain your canvas with an agentic planner.',
   description:
-    'Lay out a chain on the canvas, then let an agentic planner reads the previous output, the chain context, and the model schema to propose the next step. Approve each checkpoint in Copilot, or hand it the wheel on Autopilot.',
+    'Lay out a chain on the canvas, then let an agentic planner read the previous output, the chain context, and the model schema to propose the next step. Approve each checkpoint in Copilot, or hand it the wheel on Autopilot.',
   modelLabel: 'Planner model',
   modelName: 'Amazon Nova',
   storageLabel: 'Storage providers',

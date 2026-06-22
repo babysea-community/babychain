@@ -4,6 +4,24 @@ All notable changes will be documented here. The format follows [Keep a Changelo
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-06-21
+
+### Added
+
+- Agentic Workflow planning now follows Amazon's published Amazon Nova prompting guidance: the planner reasons privately in a `<thinking>` block and returns the final plan in an `<output>` block (chain-of-thought), describes the provided media before planning ("describe then answer"), and uses a higher creative temperature/top-k on the first pass so the three suggestions are genuinely distinct, while the one-pass self-repair stays greedy for reliable structured output.
+- The canvas model card now shows a dedicated "Thinking…" state in its results slot while Amazon Nova is still reasoning about that step, mirroring the checkpoint badge so the UI never shows a misleading "Queued" before the step is actually processing.
+
+### Changed
+
+- The Agentic Workflow now pins provider-native prompt enhancement OFF on every agent-planned step: any `generation_prompt_extend` is forced to `false` and `generation_prompt_extend_mode` is dropped before the step runs, so a model default (for example DashScope `prompt_extend`) can no longer silently rewrite the prompt the planner authored. The base image step and Self Control runs are unaffected.
+- Strengthened the Chain Agent RAG grounding to the Amazon Nova "provide supporting text" pattern: the runtime context, internal tool results, creator brief, and prior media are framed as the planner's trusted reference, with explicit instructions to use only the schema fields, enum values, and limits that appear in that reference. The few-shot exemplar was also refreshed to three genuinely diverse directions instead of three near-identical camera moves; instruction version bumped to `2026-06-21.4`.
+- Canvas: a model card's prompt textarea now stays fully expanded after a successful run instead of collapsing back to a fixed height, and the `model_context` creative brief is shown only for the agentic run modes and gained a description plus an example placeholder.
+- Bumped the published Docker image to `babyseaoss/babychain:0.4.0` (the Dockerfile `BABYCHAIN_VERSION` label and the Docker guide's tagged publish commands now track the 0.4.0 release).
+
+### Fixed
+
+- Google Veo video failures now surface the Responsible AI filter reason (`raiMediaFilteredReasons`/`raiMediaFilteredCount`) with a `provider_content_filtered` error code and the reasons recorded in `provider_metadata`, instead of a generic "Google video operation completed without output videos." message.
+
 ## [0.3.0] - 2026-06-21
 
 ### Added

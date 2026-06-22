@@ -2536,6 +2536,50 @@ describe('provider adapters', () => {
     });
   });
 
+  it('surfaces Google Veo Responsible AI filter reasons when no video is returned', async () => {
+    const filterReason =
+      "Veo could not generate this video because it violates Google's Responsible AI policy on depicting real people.";
+    const fetchImpl = vi.fn(async (url: string | URL | Request) => {
+      if (String(url).includes('/operations/')) {
+        return new Response(
+          JSON.stringify({
+            done: true,
+            response: {
+              generateVideoResponse: {
+                raiMediaFilteredCount: 1,
+                raiMediaFilteredReasons: [filterReason],
+              },
+            },
+          }),
+          { status: 200 },
+        );
+      }
+
+      throw new Error(`Unexpected request: ${String(url)}`);
+    }) as typeof fetch;
+    const provider = createGoogleProvider({
+      apiKey: 'gemini_test_key',
+      fetchImpl,
+    });
+    const resolution = resolveProvider('google/veo-3.1', { byokMode: true });
+
+    const polled = await provider.poll({
+      generationId: 'operations/google_video_filtered',
+      modelIdentifier: resolution.modelIdentifier,
+      providerMetadata: null,
+    });
+
+    expect(polled).toMatchObject({
+      generation_status: 'failed',
+      generation_provider_used: 'google',
+      generation_error_code: 'provider_content_filtered',
+      generation_error: expect.stringContaining('Responsible AI policy'),
+      provider_metadata: {
+        rai_media_filtered_reasons: [filterReason],
+      },
+    });
+  });
+
   it('does not send unsupported negative prompts to Google Veo 3.1 models', async () => {
     const submittedBodies: Record<string, unknown>[] = [];
     const fetchImpl = vi.fn(async (_url: string | URL | Request, init) => {

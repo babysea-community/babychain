@@ -5,7 +5,7 @@ import type { JsonObject } from '@/lib/chains/types';
 import type { ChainAgentPromptContext } from '../types';
 import { runChainAgentTools } from './chain-agent-tools';
 
-export const CHAIN_AGENT_INSTRUCTION_VERSION = '2026-06-21.2';
+export const CHAIN_AGENT_INSTRUCTION_VERSION = '2026-06-21.4';
 
 export const CHAIN_AGENT_PERSONA = [
   'You are Chain Agent for BabyChain, a production image/video workflow planner.',
@@ -59,42 +59,46 @@ export const CHAIN_AGENT_EXEMPLAR = {
   },
   suggestions: [
     {
-      title: 'Window Breath',
+      title: 'Quiet Warmth',
       prompt:
-        'The portrait gently comes alive: she breathes softly and blinks once as warm window light flickers across her cheek, the camera holding a near-still frame with a faint focus pull.',
-      rationale: 'Minimal, faithful animation of the existing frame.',
+        'The portrait breathes to life in its warm amber key: she inhales softly and blinks once as a few hair strands drift, the camera holding an almost-still frame with a feather-light focus pull. Intimate, tender, unhurried.',
+      rationale:
+        'Calm, faithful animation that leans into the existing warm, intimate mood.',
       params: {},
     },
     {
-      title: 'Quiet Turn',
+      title: 'Cool Turn',
       prompt:
-        'She slowly turns her gaze toward the camera with a subtle shift of her shoulders while the background bokeh drifts and the ambient light breathes.',
-      rationale: 'Adds a small emotional beat without changing the scene.',
+        'The grade cools toward a soft blue-grey as she slowly turns her gaze to the lens and her shoulders settle; the window bokeh drifts and the light dims a touch, trading warmth for a pensive, cinematic stillness.',
+      rationale:
+        'Shifts the mood and color grade and adds a gaze beat while keeping the same person and room.',
       params: {},
     },
     {
-      title: 'Slow Push',
+      title: 'Restless Light',
       prompt:
-        'A restrained dolly-in eases toward her face as a few hair strands move in a soft draft, preserving the warm interior and shallow depth of field.',
-      rationale: 'Camera-led motion that keeps continuity.',
+        'Energy lifts: flickering window light dances across her cheek, fine film grain breathes, and a quicker handheld drift with a shallow rack-focus catches a small smile starting - the same portrait rendered lively and spontaneous.',
+      rationale:
+        'Higher-energy motion, lighting, and pacing for a markedly different feel within the same frame.',
       params: {},
     },
   ],
   selected_prompt:
-    'The portrait gently comes alive: she breathes softly and blinks once as warm window light flickers across her cheek, the camera holding a near-still frame with a faint focus pull.',
+    'The portrait breathes to life in its warm amber key: she inhales softly and blinks once as a few hair strands drift, the camera holding an almost-still frame with a feather-light focus pull. Intimate, tender, unhurried.',
   selected_params: {
     generation_prompt:
-      'The portrait gently comes alive: she breathes softly and blinks once as warm window light flickers across her cheek, the camera holding a near-still frame with a faint focus pull.',
+      'The portrait breathes to life in its warm amber key: she inhales softly and blinks once as a few hair strands drift, the camera holding an almost-still frame with a feather-light focus pull. Intimate, tender, unhurried.',
     generation_duration: 5,
   },
 } satisfies JsonObject;
 
 const CHAIN_AGENT_REASONING_METHOD = [
-  'Reason through these stages in order before you answer, then output only the final JSON object:',
-  '1. Observe: fill observations using ONLY what is visible in the provided media (subject, background, color_palette, mood, quality_notes). If a detail is not visible, keep it abstract instead of inventing it.',
-  '2. Diverge: derive exactly 3 production-ready suggestions that read as clearly different results from one another - vary the scene/setting, styling and wardrobe, mood and vibe, color grade and lighting, and camera/subject motion, not only one of these. When a Creator Brief is present, make all three distinct interpretations of that brief. Always keep the same subject identity (same person and the same face) in every option.',
-  '3. Decide: pick the single strongest option as selected_prompt and complete selected_params for the downstream schema.',
-  'Keep this reasoning internal. DO NOT emit chain-of-thought, analysis, or any text outside the single JSON object.',
+  'Think step by step before you answer. Do your reasoning privately inside a single <thinking></thinking> block, then return the final answer inside a single <output></output> block.',
+  'Inside <thinking>, work through these stages in order and keep it concise:',
+  '1. Observe: look at the provided media and describe what you actually see - the real subject and face, wardrobe, setting, lighting, color palette, mood, and quality cues. Describe before you plan. If a detail is not visible, keep it abstract instead of inventing it.',
+  '2. Diverge: brainstorm exactly 3 production-ready directions that read as clearly different results from one another - vary the scene/setting, styling and wardrobe, mood and vibe, color grade and lighting, and camera/subject motion together, not only one of these. When a Creator Brief is present, make all three distinct interpretations of that brief. Always keep the same subject identity (the same person and the same face) in every option.',
+  '3. Decide: pick the single strongest option and complete its downstream params.',
+  'Inside <output>, return ONLY the final JSON object described below. The <thinking> block is private and is never shown to the user.',
 ].join('\n');
 
 const CHAIN_AGENT_SCOPE_AND_TRUST = [
@@ -120,7 +124,8 @@ export function buildChainAgentSystemPrompt(
     ...chainAgentModelInstructions(options),
     '',
     '## Response Style And Format Requirements',
-    '- You MUST return a single valid JSON object only. DO NOT include markdown fences, commentary, or preamble.',
+    '- Do all private reasoning inside a single <thinking></thinking> block, then return the final answer inside a single <output></output> block.',
+    '- Inside <output>, return one valid JSON object that matches the schema below. DO NOT include markdown fences, commentary, prose, or any keys beyond the schema inside <output>.',
     `Output JSON schema: ${JSON.stringify(CHAIN_AGENT_OUTPUT_SCHEMA)}`,
     ...(options.includeExample ? chainAgentExemplarSection() : []),
     '',
@@ -147,8 +152,9 @@ export function buildChainAgentUserPrompt(
 
   return [
     '## Task Summary',
-    'Study the previous generated media and plan the next BabyChain generation step.',
-    'Return a JSON object that BabyChain can use to display checkpoint suggestions and run the downstream model.',
+    'The previous generated media is provided above, before this text. First look at it and describe the real subject and face, wardrobe, setting, lighting, and color palette you actually see; then plan the next BabyChain generation step grounded in those observations.',
+    'Propose exactly 3 suggestions that are clearly different results from one another - vary scene/setting, styling and wardrobe, mood, color grade and lighting, and motion together - while keeping the same subject identity. Do not return three near-identical options that differ only by a camera move.',
+    'Return the planning JSON that BabyChain uses to display checkpoint suggestions and run the downstream model.',
     ...(typeof context.modelContext === 'string' && context.modelContext.trim()
       ? [
           '',
@@ -159,6 +165,7 @@ export function buildChainAgentUserPrompt(
       : []),
     '',
     '## Runtime Context',
+    'Use the following as your authoritative reference for this run. Plan only from what appears here and in the media above; do not assume fields, enum values, or limits that are not present.',
     `Instruction version: ${CHAIN_AGENT_INSTRUCTION_VERSION}`,
     `Mode: ${context.flow.mode}`,
     `Previous step: ${context.previousStep.stepKey} (${context.previousStep.stepKind}) using ${context.previousStep.modelIdentifier}`,
@@ -183,8 +190,9 @@ export function buildChainAgentUserPrompt(
 
 function chainAgentModelInstructions(options: { repairError?: string | null }) {
   return [
-    '- You MUST return only valid JSON. Do not include markdown fences, commentary, or preamble.',
+    '- Return your final answer as one JSON object inside the <output></output> block; the <thinking></thinking> block is for private reasoning only.',
     '- Use the Internal Tool Results as authoritative context. These are already executed by BabyChain; do not invent additional tool calls.',
+    '- GROUNDING (RAG): The Runtime Context and Internal Tool Results are your trusted reference. Base every schema field, enum value, and numeric limit ONLY on that reference - DO NOT USE FIELDS, ENUM VALUES, OR LIMITS THAT ARE NOT IN THE PROVIDED SCHEMA. Ground your observations in the provided media and your creative direction in the Creator Brief when present; the wording of the creative prompt itself may still be original.',
     '- suggestions MUST contain exactly 3 concise, production-ready prompt options.',
     '- Each suggestion MUST be a clearly different result from the others: vary scene/setting, styling and wardrobe, mood and vibe, color grade and lighting, and camera/subject motion. Do not return three near-identical options that differ only by camera move.',
     '- DO NOT copy the previous prompt or existing next prompt. Use them as baseline context only.',

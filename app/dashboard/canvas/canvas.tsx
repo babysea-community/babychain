@@ -1076,21 +1076,24 @@ function FieldControl({
   field,
   value,
   disabled,
+  settled,
   onChange,
 }: {
   field: FieldSpec;
   value: FieldValue | undefined;
   disabled: boolean;
+  settled?: boolean;
   onChange: (value: FieldValue) => void;
 }) {
   const base =
     'nodrag w-full border border-border bg-input px-2.5 text-xs text-foreground outline-none focus-visible:border-ring disabled:opacity-50';
 
   if (field.type === 'textarea') {
-    // When the field is locked (during a run or under autopilot), show the full
-    // prompt as an auto-height read-only block so long prompts are not cropped
-    // inside a fixed-height textarea, with extra padding for breathing room.
-    if (disabled) {
+    // When the field is locked (during a run or under autopilot) or the step has
+    // already succeeded, show the full prompt as an auto-height read-only block
+    // so long prompts are not cropped inside a fixed-height textarea. This also
+    // means the operator never has to drag the box open again after a run.
+    if (disabled || settled) {
       const text = String(value ?? '').trim();
       return (
         <div
@@ -1234,11 +1237,13 @@ function FieldRow({
   field,
   value,
   disabled,
+  settled,
   onChange,
 }: {
   field: FieldSpec;
   value: FieldValue | undefined;
   disabled: boolean;
+  settled?: boolean;
   onChange: (value: FieldValue) => void;
 }) {
   return (
@@ -1251,6 +1256,7 @@ function FieldRow({
         field={field}
         value={value}
         disabled={disabled}
+        settled={settled}
         onChange={onChange}
       />
     </div>
@@ -1548,12 +1554,14 @@ function NodeResults({
   running,
   status,
   startedAt,
+  thinking,
 }: {
   kind: 'image' | 'video';
   outputs?: string[];
   running: boolean;
   status?: string;
   startedAt?: number;
+  thinking?: boolean;
 }) {
   if (outputs?.length) {
     return (
@@ -1565,12 +1573,25 @@ function NodeResults({
     );
   }
 
-  const effective = status ?? (running ? 'queued' : 'idle');
+  // While Amazon Nova is still reasoning about this step it has not started
+  // processing yet, so show the same "thinking" state as the checkpoint badge
+  // instead of a misleading "Queued".
+  const effective = thinking
+    ? 'thinking'
+    : (status ?? (running ? 'queued' : 'idle'));
 
   return (
     <div className="border border-border p-2">
       <div className="flex aspect-video w-full flex-col items-center justify-center gap-1.5 bg-black text-muted-foreground">
-        {effective === 'running' ? (
+        {effective === 'thinking' ? (
+          <>
+            <InlineAmazonNova
+              className="size-5 animate-pulse"
+              aria-hidden="true"
+            />
+            <span className="text-[0.65rem] leading-4">Thinking…</span>
+          </>
+        ) : effective === 'running' ? (
           <NodeProcessingIndicator startedAt={startedAt} />
         ) : effective === 'queued' ? (
           <>
@@ -1631,6 +1652,7 @@ function ModelNodeComponent({ id, data }: NodeProps) {
     statusByNode,
     runningFlowIds,
     runModeByFlow,
+    agentCheckpointByNode,
     flowMeta,
     isSavedCanvas,
     updateModel,
@@ -1654,6 +1676,19 @@ function ModelNodeComponent({ id, data }: NodeProps) {
   const runMode = runModeByFlow.get(flowId) ?? 'self_control';
   const lockedByAutopilot = runMode === 'agent_autopilot' && role !== 'image';
   const fieldControlsDisabled = running || lockedByAutopilot;
+  // Keep the prompt (and any textarea) fully expanded after a successful run so
+  // the operator never has to drag the box open again to read what was sent.
+  const nodeSucceeded = nodeStatus?.status === 'succeeded';
+  // Steps after the base image wait on an Amazon Nova checkpoint. While the flow
+  // runs and this role's checkpoint has not arrived yet, Nova is still reasoning
+  // ("thinking") and the step is not processing, so the results slot mirrors the
+  // checkpoint badge instead of showing a misleading "Queued".
+  const agentThinking =
+    running &&
+    runMode !== 'self_control' &&
+    role !== 'image' &&
+    !nodeStatus &&
+    !agentCheckpointByNode[checkpointNodeId(flowId, role)];
   const addableRole: StepRole | null =
     role === 'image' && !meta?.roles.has('refine')
       ? 'refine'
@@ -1830,6 +1865,7 @@ function ModelNodeComponent({ id, data }: NodeProps) {
                   field={field}
                   value={values[field.name]}
                   disabled={fieldControlsDisabled}
+                  settled={nodeSucceeded}
                   onChange={(value) => updateValue(id, field.name, value)}
                 />
               ))}
@@ -1860,6 +1896,7 @@ function ModelNodeComponent({ id, data }: NodeProps) {
                           field={field}
                           value={values[field.name]}
                           disabled={fieldControlsDisabled}
+                          settled={nodeSucceeded}
                           onChange={(value) =>
                             updateValue(id, field.name, value)
                           }
@@ -1927,6 +1964,7 @@ function ModelNodeComponent({ id, data }: NodeProps) {
               status={nodeStatus?.status}
               outputs={nodeStatus?.outputs}
               startedAt={nodeStatus?.startedAt}
+              thinking={agentThinking}
             />
           </div>
         ) : null}
@@ -2975,25 +3013,30 @@ function InfoNodeComponent({ id, data }: NodeProps) {
               onChange={(value) => setRunMode(flowId, value)}
             />
           </div>
-          <div className="grid gap-1">
-            <span className="font-mono text-[0.7rem] text-muted-foreground">
-              model_context
-            </span>
-            <textarea
-              disabled={running}
-              rows={3}
-              maxLength={2000}
-              value={modelContextValue}
-              onChange={(event) =>
-                updateValue(id, 'model_context', event.target.value)
-              }
-              placeholder="Optional brief for the Agentic Workflow: style, purpose, mood, scene or wardrobe direction. Same subject, different vibes."
-              className="nodrag w-full resize-y border border-border bg-input px-2.5 py-1.5 text-xs leading-5 text-foreground outline-none focus-visible:border-ring disabled:opacity-40"
-            />
-            <span className="text-[0.65rem] leading-4 text-muted-foreground">
-              Sent to the agent runs to guide its prompts and field choices.
-            </span>
-          </div>
+          {runMode !== 'self_control' ? (
+            <div className="grid gap-1">
+              <span className="font-mono text-[0.7rem] text-muted-foreground">
+                model_context
+              </span>
+              <p className="text-[0.62rem] leading-snug text-muted-foreground">
+                Optional creative brief for the Amazon Nova agent. Describe the
+                style, mood, scene, wardrobe, color grade, and camera direction
+                it should apply across every step; the agent reinterprets each
+                step around it while keeping your subject the same.
+              </p>
+              <textarea
+                disabled={running}
+                rows={3}
+                maxLength={2000}
+                value={modelContextValue}
+                onChange={(event) =>
+                  updateValue(id, 'model_context', event.target.value)
+                }
+                placeholder="e.g. Moody neon-noir night scene, cinematic lighting, shallow depth of field, slow push-in."
+                className="nodrag min-h-20 w-full resize-y border border-border bg-input px-2.5 py-1.5 text-xs leading-5 text-foreground outline-none focus-visible:border-ring disabled:opacity-40"
+              />
+            </div>
+          ) : null}
         </div>
       </div>
     </div>
