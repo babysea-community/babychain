@@ -75,11 +75,19 @@ const CALLBACK_TIMEOUT_MS = 10_000;
 const CALLBACK_RESPONSE_TEXT_LIMIT = 2_000;
 const STARTING_STEP_STALE_MS = BABYCHAIN_SDK_REQUEST_TIMEOUT_MS + 60_000;
 // Once a step has a provider/generation id it polls until the provider returns
-// a terminal state. This wall-clock watchdog fails a step that never reaches a
-// terminal state so a lost provider job cannot keep a run polling forever. It
-// is deliberately ~4x the worst-case single-step SLA budget so it never trips a
-// legitimately slow generation.
-const RUNNING_STEP_STALE_MS = BABYCHAIN_SDK_REQUEST_TIMEOUT_MS * 4;
+// a terminal state. This wall-clock watchdog auto-cancels a step that never
+// reaches a terminal state so a lost or hung provider job cannot keep a run
+// polling - and billing on the provider - forever. BabyChain follows BabySea's
+// per-step SLA for both BYOK and BabySea mode: an image step is cancelled after
+// 60s and a video step after 250s.
+const IMAGE_STEP_TIMEOUT_MS = 60_000;
+const VIDEO_STEP_TIMEOUT_MS = 250_000;
+
+function runningStepTimeoutMs(step: ChainStepRecord) {
+  return step.stepKind === 'video'
+    ? VIDEO_STEP_TIMEOUT_MS
+    : IMAGE_STEP_TIMEOUT_MS;
+}
 const TRANSIENT_PROVIDER_ERROR_CODES = new Set([
   'provider_network_error',
   'provider_rate_limited',
@@ -278,6 +286,23 @@ export async function processRun(
       }
 
       if (isRunningStepStale(runningStep)) {
+        // Cancel the stuck job at the provider too (best-effort), not just
+        // locally, so a lost or hung generation cannot keep running and
+        // billing after BabyChain gives up on it.
+        if (runningStep.babyseaGenerationId) {
+          await cancelGenerationsAtProvider(
+            [
+              {
+                generationId: runningStep.babyseaGenerationId,
+                modelIdentifier: runningStep.modelIdentifier,
+                providerMetadata: runningStep.providerMetadata,
+              },
+            ],
+            byokConfig,
+            providerOverrides,
+          );
+        }
+
         const errorMessage =
           'The generation did not reach a terminal state before the running deadline.';
 
@@ -590,6 +615,35 @@ export async function applyBabySeaWebhook(
   return processRun(record, { ...dependencies, store });
 }
 
+// Best-effort provider cancellation shared by every cancel path (client cancel
+// button, API cancel, and the auto-timeout watchdog) so a canceled run never
+// keeps running - and billing - on the provider side.
+async function cancelGenerationsAtProvider(
+  cancellations: Array<{
+    generationId: string;
+    modelIdentifier: string;
+    providerMetadata: JsonObject | null;
+  }>,
+  byokConfig: Parameters<typeof getProvider>[1],
+  providerOverrides: Parameters<typeof getProvider>[2],
+) {
+  for (const cancellation of cancellations) {
+    try {
+      const resolution = resolveProvider(cancellation.modelIdentifier, {
+        byokMode: byokConfig !== null,
+      });
+      const provider = getProvider(resolution, byokConfig, providerOverrides);
+      await provider.cancel({
+        generationId: cancellation.generationId,
+        modelIdentifier: resolution.modelIdentifier,
+        providerMetadata: cancellation.providerMetadata,
+      });
+    } catch {
+      // Local cancellation/failure already recorded; provider cancel is best-effort.
+    }
+  }
+}
+
 export async function cancelRun(
   runId: string,
   dependencies: RunnerDependencies = {},
@@ -645,21 +699,11 @@ export async function cancelRun(
     }
   }
 
-  for (const cancellation of cancellations) {
-    try {
-      const resolution = resolveProvider(cancellation.modelIdentifier, {
-        byokMode: byokConfig !== null,
-      });
-      const provider = getProvider(resolution, byokConfig, providerOverrides);
-      await provider.cancel({
-        generationId: cancellation.generationId,
-        modelIdentifier: resolution.modelIdentifier,
-        providerMetadata: cancellation.providerMetadata,
-      });
-    } catch {
-      // The local run already moved to canceled; provider cancel is best-effort.
-    }
-  }
+  await cancelGenerationsAtProvider(
+    cancellations,
+    byokConfig,
+    providerOverrides,
+  );
 
   const updated = await mustGetRun(store, runId);
   await deliverTerminalCallback(updated, store);
@@ -1984,7 +2028,7 @@ function isRunningStepStale(step: ChainStepRecord) {
     return false;
   }
 
-  return Date.now() - startedAtMs > RUNNING_STEP_STALE_MS;
+  return Date.now() - startedAtMs > runningStepTimeoutMs(step);
 }
 
 function toStepContext(steps: ChainStepRecord[]) {

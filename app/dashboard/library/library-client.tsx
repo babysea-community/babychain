@@ -404,6 +404,21 @@ function CanvasCard({
                       tone="error"
                       message={preview.error ?? 'Step failed.'}
                     />
+                  ) : preview &&
+                    (preview.status === 'queued' ||
+                      preview.status === 'running') ? (
+                    <ResultSlotMessage
+                      role={role}
+                      icon="spinner"
+                      spin
+                      message="Processing"
+                    />
+                  ) : preview && preview.status === 'canceled' ? (
+                    <ResultSlotMessage
+                      role={role}
+                      icon="ban"
+                      message="Canceled"
+                    />
                   ) : (
                     <ResultSlotMessage
                       role={role}
@@ -480,11 +495,13 @@ function ResultSlotMessage({
   icon,
   message,
   tone = 'muted',
+  spin = false,
 }: {
   role: string;
   icon: string;
   message: string;
   tone?: 'muted' | 'error';
+  spin?: boolean;
 }) {
   return (
     <div
@@ -495,7 +512,10 @@ function ResultSlotMessage({
           : 'border-dashed border-border text-muted-foreground',
       )}
     >
-      <FontAwesomeIcon className="size-4" icon={icon} />
+      <FontAwesomeIcon
+        className={cn('size-4', spin && 'animate-spin')}
+        icon={icon}
+      />
       <span className="text-[0.55rem] font-medium uppercase tracking-wide">
         {role}
       </span>

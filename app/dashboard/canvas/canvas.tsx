@@ -1055,7 +1055,7 @@ type CanvasContextValue = {
   ) => Promise<void>;
   runFlow: (flowId: string, save: boolean) => void;
   setRunMode: (flowId: string, mode: RunMode) => void;
-  stopFlow: (flowId: string) => void;
+  cancelFlow: (flowId: string) => void;
 };
 
 const CanvasContext = createContext<CanvasContextValue | null>(null);
@@ -2652,7 +2652,7 @@ function RunnerNodeComponent({ data }: NodeProps) {
   const {
     runningFlowIds,
     runFlow,
-    stopFlow,
+    cancelFlow,
     removeFlow,
     duplicateFlow,
     flowCount,
@@ -2759,10 +2759,10 @@ function RunnerNodeComponent({ data }: NodeProps) {
             className="nodrag w-full"
             size="sm"
             variant="destructive"
-            onClick={() => stopFlow(flowId)}
+            onClick={() => cancelFlow(flowId)}
           >
             <FontAwesomeIcon icon="square" />
-            Stop
+            Cancel
           </Button>
         ) : null}
         <span className="group relative block">
@@ -4692,6 +4692,12 @@ function CanvasInner(props: CanvasProps) {
       }
       const run = result.run as RunJson;
 
+      // Surface the run id immediately - before the awaited Library save below -
+      // so the API card and resume pointer are realtime and the user can debug a
+      // run the moment it exists.
+      flowRunIdRef.current.set(flowId, run.id);
+      setRunIdsByFlow((prev) => new Map(prev).set(flowId, run.id));
+
       // "RUN + SAVE": only create the Library card after a run id exists, so
       // navigating away cannot leave a saved canvas that says "not run yet".
       // Every publish (from the workspace or from a saved canvas page)
@@ -4731,7 +4737,6 @@ function CanvasInner(props: CanvasProps) {
       }
 
       flowRunIdRef.current.set(flowId, run.id);
-      setRunIdsByFlow((prev) => new Map(prev).set(flowId, run.id));
       // Record the run on the workspace so a reload resumes tracking it.
       if (!canvasId) {
         const recorded = await recordFlowRunAction(flowId, run.id).catch(
@@ -4770,11 +4775,11 @@ function CanvasInner(props: CanvasProps) {
     ],
   );
 
-  const stopFlow = useCallback(
+  const cancelFlow = useCallback(
     (flowId: string) => {
       // Cancel the run server-side FIRST: without this the chain keeps
       // processing in Aurora (spending provider credits) and a reload would
-      // resume tracking the "stopped" run.
+      // resume tracking the "canceled" run.
       const runId = flowRunIdRef.current.get(flowId);
       finishFlow(flowId);
       if (!runId) return;
@@ -4909,7 +4914,7 @@ function CanvasInner(props: CanvasProps) {
       continueAgentCheckpoint,
       runFlow: (flowId: string, save: boolean) => void runFlow(flowId, save),
       setRunMode,
-      stopFlow,
+      cancelFlow,
     }),
     [
       byokProviders,
@@ -4936,7 +4941,7 @@ function CanvasInner(props: CanvasProps) {
       continueAgentCheckpoint,
       runFlow,
       setRunMode,
-      stopFlow,
+      cancelFlow,
     ],
   );
 
