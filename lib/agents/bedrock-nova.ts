@@ -28,9 +28,9 @@ import {
   type ChainAgentValidationResult,
 } from './validation';
 
-const BEDROCK_DEFAULT_MODEL = 'us.amazon.nova-pro-v1:0';
+const BEDROCK_DEFAULT_MODEL = 'us.amazon.nova-2-lite-v1:0';
 const BEDROCK_DEFAULT_REGION = 'us-east-1';
-const BEDROCK_NOVA_PRO_MAX_OUTPUT_TOKENS = 5000;
+const AGENT_MAX_OUTPUT_TOKENS = 5000;
 const BEDROCK_TIMEOUT_MS = 120_000;
 const MEDIA_DOWNLOAD_TIMEOUT_MS = 60_000;
 const MAX_AGENT_MEDIA_BYTES = 24 * 1024 * 1024;
@@ -38,14 +38,16 @@ const MAX_AGENT_MEDIA_BYTES = 24 * 1024 * 1024;
 // CloudFront, or Vercel Blob) reject requests without a User-Agent with a 403,
 // even though browsers can load the same public URL. Always send one.
 const MEDIA_DOWNLOAD_USER_AGENT = 'BabyChain/0.1';
-// Amazon Nova inference tuning. The first (creative) pass leans on a higher
-// temperature with top-p/top-k sampling so the three suggestions genuinely
-// diverge across scene, mood, grade, and motion; the repair pass overrides
-// these with greedy decoding (temperature 0, topK 1) for reliable structured
-// output. See buildConverseBody.
-const AGENT_CREATIVE_TEMPERATURE = 0.8;
-const AGENT_CREATIVE_TOP_P = 0.9;
-const AGENT_CREATIVE_TOP_K = 50;
+// Amazon Nova 2 inference tuning. The first (creative) pass runs Nova 2 Lite in
+// extended-thinking REASONING mode - "medium" effort is documented as optimal
+// for agentic workflows - so the planner reasons through the whole shoot before
+// answering, with a high temperature/top-p that "induce more variations" so the
+// three suggestions genuinely diverge. The repair pass turns reasoning OFF and
+// uses greedy decoding for a fast, reliable structured fix. NOTE: reasoning
+// effort "high" forbids temperature/top-p/top-k, so the agent uses "medium".
+const AGENT_REASONING_EFFORT = 'medium';
+const AGENT_REASONING_TEMPERATURE = 1;
+const AGENT_REASONING_TOP_P = 0.9;
 
 type BedrockNovaConfig = {
   apiKey?: string;
@@ -228,6 +230,30 @@ async function buildConverseBody(
 
   const isRepairPass = Boolean(options.repairError);
 
+  // Repair pass: greedy decoding (temperature 0, topK 1) with reasoning OFF is
+  // the fastest reliable way to fix a malformed structured output. Creative
+  // pass: Nova 2 Lite extended-thinking reasoning (medium) with a high
+  // temperature/top-p so the planner reasons through the shoot and the three
+  // options genuinely diverge.
+  const inferenceConfig: JsonObject = isRepairPass
+    ? { maxTokens: AGENT_MAX_OUTPUT_TOKENS, temperature: 0, topP: 1 }
+    : {
+        maxTokens: AGENT_MAX_OUTPUT_TOKENS,
+        temperature: AGENT_REASONING_TEMPERATURE,
+        topP: AGENT_REASONING_TOP_P,
+      };
+  // Nova-specific knobs travel via additionalModelRequestFields, not the
+  // standard inferenceConfig block. reasoningConfig turns on extended thinking;
+  // it is left off (default) for the greedy repair pass.
+  const additionalModelRequestFields: JsonObject = isRepairPass
+    ? { inferenceConfig: { topK: 1 } }
+    : {
+        reasoningConfig: {
+          type: 'enabled',
+          maxReasoningEffort: AGENT_REASONING_EFFORT,
+        },
+      };
+
   return {
     system: [{ text: buildChainAgentSystemPrompt(options) }],
     messages: [
@@ -236,23 +262,8 @@ async function buildConverseBody(
         content,
       },
     ],
-    // Amazon Nova guidance: greedy decoding (temperature 0, topK 1) yields the
-    // most reliable structured output, which is exactly what the repair pass
-    // needs. The first creative pass instead raises temperature/top-p/top-k to
-    // "induce more variations" so the three suggestions diverge across scene,
-    // mood, grade, and motion instead of collapsing onto one safe answer.
-    inferenceConfig: {
-      maxTokens: BEDROCK_NOVA_PRO_MAX_OUTPUT_TOKENS,
-      temperature: isRepairPass ? 0 : AGENT_CREATIVE_TEMPERATURE,
-      topP: isRepairPass ? 1 : AGENT_CREATIVE_TOP_P,
-    },
-    // topK is a Nova-specific knob and must travel via
-    // additionalModelRequestFields, not the standard inferenceConfig block.
-    additionalModelRequestFields: {
-      inferenceConfig: {
-        topK: isRepairPass ? 1 : AGENT_CREATIVE_TOP_K,
-      },
-    },
+    inferenceConfig,
+    additionalModelRequestFields,
   };
 }
 
@@ -410,11 +421,12 @@ function mergeUsage(left: JsonObject, right: JsonObject) {
 
 function parseAgentJson(rawText: string) {
   const trimmed = rawText.trim();
-  // Amazon Nova reasons better when it can think first, so the prompt asks it to
-  // plan inside <thinking> and emit the final JSON inside <output>. Prefer that
-  // block (its braces are the answer, not the analysis). We still fall back to a
-  // ``` fence, the whole text, and the first balanced object so a bare JSON
-  // object or a safety preamble does not waste a repair round-trip.
+  // Nova 2 reasons internally in reasoning mode (its thinking is returned
+  // separately and redacted), so the prompt asks it to emit only the final JSON
+  // inside <output>. Prefer that block (its braces are the answer, not any
+  // preamble). We still fall back to a ``` fence, the whole text, and the first
+  // balanced object so a bare JSON object or a safety preamble does not waste a
+  // repair round-trip.
   const outputBlock = /<output>\s*([\s\S]*?)\s*<\/output>/i
     .exec(trimmed)?.[1]
     ?.trim();

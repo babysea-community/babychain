@@ -232,7 +232,7 @@ flowchart LR
     end
 
     subgraph Bedrock["Amazon Bedrock"]
-        NOVA["Nova Pro · Converse API"]
+        NOVA["Amazon Nova 2 · Converse API"]
     end
 
     subgraph Storage["Media storage · optional"]
@@ -286,9 +286,9 @@ flowchart LR
     style Legend fill:#f8fafc,stroke:#cbd5e1
 ```
 
-Aurora is the single system of record: every run, ordered step, output URL, API key hash, audit event, callback delivery, inbound BabySea webhook delivery, agent checkpoint, and saved canvas lives in the `babychain_private` schema. The Vercel runtime is stateless: the `processRun` engine advances one action per invocation (start a step, poll a running step, or finalize) and is driven from four entry points — creating a run, polling `GET /api/v1/chains/get/{runId}`, the recovery cron, and the inbound `/api/webhooks/babysea` signed webhook. Because all state round-trips through Aurora, any function instance can resume a run mid-chain, so long chains survive serverless time limits.
+Aurora is the single system of record: every run, ordered step, output URL, API key hash, audit event, callback delivery, inbound BabySea webhook delivery, agent checkpoint, and saved canvas lives in the `babychain_private` schema. The Vercel runtime is stateless: the `processRun` engine advances one action per invocation (start a step, poll a running step, or finalize) and is driven from four entry points: creating a run, polling `GET /api/v1/chains/get/{runId}`, the recovery cron, and the inbound `/api/webhooks/babysea` signed webhook. Because all state round-trips through Aurora, any function instance can resume a run mid-chain, so long chains survive serverless time limits.
 
-Two provider modes share the same routes and run contract. **BYOK mode** resolves model fields, validation, and provider routing through **Semantic Lady**, then the runner calls the inference provider directly with server-side keys. **`babysea` mode** submits through the BabySea SDK and receives completion on the signed inbound webhook. For `chain_agent` runs the runner grounds **Amazon Nova Pro** on Bedrock with the same Semantic Lady downstream schema and records every suggestion in `chain_agent_checkpoint`. When media storage is enabled, each succeeded step's outputs are copied into your own AWS S3 (or CloudFront) or Vercel Blob store and the stored URL is preferred for API responses, downstream handoff, and Agentic Workflow checkpoints. Errors and traces from server and browser flow to Sentry. Provider, BabySea, Bedrock, database, and storage credentials never leave the trust boundary; callers only ever hold a BabyChain API key.
+Two provider modes share the same routes and run contract. **BYOK mode** resolves model fields, validation, and provider routing through **Semantic Lady**, then the runner calls the inference provider directly with server-side keys. **`babysea` mode** submits through the BabySea SDK and receives completion on the signed inbound webhook. For `chain_agent` runs the runner grounds **Amazon Nova 2** on Bedrock with the same Semantic Lady downstream schema and records every suggestion in `chain_agent_checkpoint`. When media storage is enabled, each succeeded step's outputs are copied into your own AWS S3 (or CloudFront) or Vercel Blob store and the stored URL is preferred for API responses, downstream handoff, and Agentic Workflow checkpoints. Errors and traces from server and browser flow to Sentry. Provider, BabySea, Bedrock, database, and storage credentials never leave the trust boundary; callers only ever hold a BabyChain API key.
 
 ### Runtime: Agentic Workflow Copilot run
 
@@ -344,7 +344,7 @@ sequenceDiagram
     Runner-->>Caller: one signed callback to webhook_url
 ```
 
-In **Copilot**, the run pauses at each downstream step with `status = awaiting_agent` and a `suggested` checkpoint; the caller approves — optionally editing `selected_prompt`/`selected_params` — via `POST /api/v1/chains/continue/{runId}`, and BabyChain re-validates the edit against Semantic Lady before submitting. In **Autopilot**, the planner's schema-valid suggestion is auto-approved and the run continues without pausing. If a caller stops polling, the recovery cron advances or finalizes in-flight runs and the one final signed callback is still delivered.
+In **Copilot**, the run pauses at each downstream step with `status = awaiting_agent` and a `suggested` checkpoint; the caller approves, optionally editing `selected_prompt`/`selected_params` via `POST /api/v1/chains/continue/{runId}`, and BabyChain re-validates the edit against Semantic Lady before submitting. In **Autopilot**, the planner's schema-valid suggestion is auto-approved and the run continues without pausing. If a caller stops polling, the recovery cron advances or finalizes in-flight runs and the one final signed callback is still delivered.
 
 ## 3. Quickstart
 
@@ -775,33 +775,33 @@ BabyChain supports three `chain_runner` modes:
 
 The Agentic Workflow uses Amazon Nova through Amazon Bedrock as a prompt-planning layer. It does not add a fifth model role to `chain_models`; the media workflow remains `image_model`, optional `refine_model`, `video_model`, and optional `modify_model`. It stores checkpoint suggestions, selected prompts, validation outcomes, repair attempts, instruction version, schema version, model id, latency, and token usage in Aurora alongside the run timeline.
 
-Agentic Workflow prompts live under `lib/agents/instructions` and follow Amazon's published Amazon Nova prompting guidance. The planner sends Nova a stable system prompt (persona; a private `<thinking>` reasoning method that observes the media first, diverges into three deliberately distinct directions, then decides; the schema-true JSON output contract returned in an `<output>` block; and a trust boundary that treats run input and media as untrusted data) plus a per-run user message carrying the media and context. The first pass uses a higher creative temperature/top-k so the three suggestions genuinely differ, while the one-pass self-repair stays greedy for reliable structured output. Grounding follows the Nova "provide supporting text" RAG pattern: BabyChain frames the downstream schema, current models, prior params, and a typed internal tool boundary (`read_downstream_schema`, `select_schema_defaults`) as the planner's trusted reference and instructs it to use only the schema fields, enums, and limits that appear there. BabyChain also pins provider-native prompt enhancement off on every agent step so a model default cannot rewrite the planned prompt. Bedrock tool calling and Knowledge Bases are not required for the current flow; add a Knowledge Base later only for durable brand/style memory across runs (`read_previous_step_summary` and `retrieve_brand_context` are reserved for that).
+Agentic Workflow prompts live under `lib/agents/instructions` and follow Amazon's published Amazon Nova prompting guidance. The planner sends Nova a stable system prompt (persona; an extended-thinking reasoning method, Nova 2 reasoning mode at medium effort, with no `<thinking>` tags, that observes the media first, diverges into three deliberately distinct directions, then decides; the schema-true JSON output contract returned in an `<output>` block; and a trust boundary that treats run input and media as untrusted data) plus a per-run user message carrying the media and context. The first pass runs in Nova 2 reasoning mode (medium effort, temperature 1 / top-p 0.9) so the three suggestions genuinely differ, while the one-pass self-repair turns reasoning off and stays greedy (temperature 0, top-k 1) for reliable structured output. Grounding follows the Nova "provide supporting text" RAG pattern: BabyChain frames the downstream schema, current models, prior params, and a typed internal tool boundary (`read_downstream_schema`, `select_schema_defaults`) as the planner's trusted reference and instructs it to use only the schema fields, enums, and limits that appear there. BabyChain also pins provider-native prompt enhancement off on every agent step so a model default cannot rewrite the planned prompt. Bedrock tool calling and Knowledge Bases are not required for the current flow; add a Knowledge Base later only for durable brand/style memory across runs (`read_previous_step_summary` and `retrieve_brand_context` are reserved for that).
 
 Configure the Agentic Workflow with:
 
 ```bash
 AWS_BEARER_TOKEN_BEDROCK=
 BEDROCK_REGION=us-east-1
-BEDROCK_NOVA_AGENT_MODEL=us.amazon.nova-pro-v1:0
+BEDROCK_NOVA_AGENT_MODEL=us.amazon.nova-2-lite-v1:0
 ```
 
 Until BabyChain Media Storage is enabled, the Agentic Workflow reads previous outputs from the existing provider URL or inline data URL. Provider URLs can expire, redirect, or exceed the temporary 24MB checkpoint media limit, so storage should be added before relying on long-running or large-video Agentic Workflow runs in production.
 
-### Model profile: Amazon Nova Pro
+### Model profile: Amazon Nova 2 Lite
 
-The Agentic Workflow runs on **Amazon Nova Pro** through Amazon Bedrock (`BEDROCK_NOVA_AGENT_MODEL=us.amazon.nova-pro-v1:0` by default) and BabyChain calls it through the `Converse` API (see [`lib/agents/bedrock-nova.ts`](lib/agents/bedrock-nova.ts)). Nova Pro is Amazon's balanced multimodal model for text, image, and video understanding. Source: [Amazon Nova Pro model card](https://docs.aws.amazon.com/bedrock/latest/userguide/model-card-amazon-nova-pro.html).
+The Agentic Workflow runs on **Amazon Nova 2 Lite** through Amazon Bedrock (`BEDROCK_NOVA_AGENT_MODEL=us.amazon.nova-2-lite-v1:0` by default) and BabyChain calls it through the `Converse` API (see [`lib/agents/bedrock-nova.ts`](lib/agents/bedrock-nova.ts)).
 
 ### Model details
 
-| Property          | Value                                                                                   |
-| :---------------- | :-------------------------------------------------------------------------------------- |
-| Provider          | Amazon                                                                                  |
-| Launch date       | Dec 05, 2024                                                                            |
-| Lifecycle         | Active (EOL no sooner than 2025-12-04)                                                  |
-| Context window    | 300K tokens                                                                             |
-| Max output tokens | 5K                                                                                      |
-| Knowledge cutoff  | Oct 2024                                                                                |
-| License/Terms     | [AWS third-party model terms](https://aws.amazon.com/legal/bedrock/third-party-models/) |
+Nova 2 Lite is Amazon's cost-efficient multimodal model for simple automation, document processing, and customer support across text, images, and video. For more information about model development and performance.
+
+| Property          | Value        |
+| :---------------- | :----------- |
+| Model launch date | Dec 02, 2025 |
+| Model lifecycle   | Active       |
+| Context window    | 1M tokens    |
+| Max output tokens | 64K          |
+| Knowledge cutoff  | Oct 2025     |
 
 ### Modalities
 

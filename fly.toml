@@ -18,7 +18,7 @@ kill_timeout = "30s"
   # without media storage.
   BABYCHAIN_STORAGE_PROVIDER = "none"
   BEDROCK_REGION = "us-east-1"
-  BEDROCK_NOVA_AGENT_MODEL = "us.amazon.nova-pro-v1:0"
+  BEDROCK_NOVA_AGENT_MODEL = "us.amazon.nova-2-lite-v1:0"
   NEXT_PUBLIC_SENTRY_ENVIRONMENT = "production"
 
 [http_service]

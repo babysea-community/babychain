@@ -4,6 +4,15 @@ All notable changes will be documented here. The format follows [Keep a Changelo
 
 ## [Unreleased]
 
+### Changed
+
+- Migrated the Agentic Workflow planner from Amazon Nova Pro to **Amazon Nova 2 Lite** (`us.amazon.nova-2-lite-v1:0`) on Bedrock via the `Converse` API. The first (creative) pass now runs in Nova 2 **reasoning mode** (extended thinking, `maxReasoningEffort: medium`, temperature 1 / top-p 0.9) instead of prompting the model to think in `<thinking>` tags, while the one-pass self-repair turns reasoning off and stays greedy (temperature 0, top-k 1) for reliable structured output. The planner still returns its final plan in an `<output>` block.
+- Rebuilt the Chain Agent instructions for professional, art-directed variation: the planner now defaults to three genuinely distinct directions with explicit photographic art direction (lighting, lens, depth of field, composition, pose, color grade, atmosphere) while locking subject identity, derives the nearest downstream aspect ratio by smallest numeric difference and preserves source orientation (a 1:1 or portrait base never becomes landscape), and treats image-to-video as animating the source frame rather than regenerating the scene. Instruction version bumped to `2026-06-22.1`.
+
+### Removed
+
+- Removed the `unsupportedSceneDrift` validation guard that rejected scene/background variation when no creator brief was present; the planner now art-directs distinct variations by default, so the guard contradicted the intended behavior.
+
 ## [0.4.0] - 2026-06-21
 
 ### Added

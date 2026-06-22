@@ -10,23 +10,6 @@ import type {
 } from '@/lib/agents/types';
 
 describe('validateChainAgentResult', () => {
-  it('rejects unsupported scene drift hidden in selected params prompt', () => {
-    const result = validateChainAgentResult(
-      resultWithPrompt({
-        selectedPrompt:
-          'A young Japanese woman walks through a park with flowers and greenery.',
-        generationPrompt:
-          'A young Japanese woman walks through a park with flowers and greenery.',
-      }),
-      contextWithCurrentInput({}),
-    );
-
-    expect(result).toMatchObject({
-      ok: false,
-      error: expect.stringContaining('unsupported new environment'),
-    });
-  });
-
   it('allows brief-driven scene transformation via model_context', () => {
     const result = validateChainAgentResult(
       resultWithPrompt({

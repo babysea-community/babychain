@@ -140,7 +140,7 @@ put_parameter BABYSEA_API_BASE_URL https://api.us.babysea.ai
 put_parameter BABYSEA_WEBHOOK_SECRET replace-with-babysea-webhook-secret-or-placeholder
 # Agentic Workflow (optional) - fill AWS_BEARER_TOKEN_BEDROCK only to enable the Amazon Nova planner
 put_parameter BEDROCK_REGION us-east-1
-put_parameter BEDROCK_NOVA_AGENT_MODEL us.amazon.nova-pro-v1:0
+put_parameter BEDROCK_NOVA_AGENT_MODEL us.amazon.nova-2-lite-v1:0
 put_parameter AWS_BEARER_TOKEN_BEDROCK replace-with-bedrock-bearer-token-or-skip
 # Storage (optional) - keep BABYCHAIN_STORAGE_PROVIDER=none to run without media storage
 put_parameter BABYCHAIN_STORAGE_PROVIDER none

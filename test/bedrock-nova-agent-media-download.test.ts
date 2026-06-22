@@ -76,7 +76,7 @@ describe('Bedrock Nova Chain Agent media download', () => {
     const agent = createBedrockNovaAgent({
       apiKey: 'bedrock_test_key_12345678',
       fetchImpl: fetchImpl as unknown as typeof fetch,
-      modelIdentifier: 'us.amazon.nova-pro-v1:0',
+      modelIdentifier: 'us.amazon.nova-2-lite-v1:0',
       region: 'us-east-1',
     });
 

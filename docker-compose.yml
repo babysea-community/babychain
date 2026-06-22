@@ -40,7 +40,7 @@ services:
       # Agentic Workflow (optional) - Amazon Bedrock Nova
       AWS_BEARER_TOKEN_BEDROCK: ${AWS_BEARER_TOKEN_BEDROCK:-}
       BEDROCK_REGION: ${BEDROCK_REGION:-us-east-1}
-      BEDROCK_NOVA_AGENT_MODEL: ${BEDROCK_NOVA_AGENT_MODEL:-us.amazon.nova-pro-v1:0}
+      BEDROCK_NOVA_AGENT_MODEL: ${BEDROCK_NOVA_AGENT_MODEL:-us.amazon.nova-2-lite-v1:0}
       # Storage (optional) - aws-s3 or vercel-blob
       BABYCHAIN_STORAGE_PROVIDER: ${BABYCHAIN_STORAGE_PROVIDER:-none}
       AWS_S3_REGION: ${AWS_S3_REGION:-}

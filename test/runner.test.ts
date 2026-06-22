@@ -1030,7 +1030,7 @@ describe('runner step claiming', () => {
       errorMessage: null,
       inputSnapshot: {},
       mode: 'autopilot' as const,
-      modelIdentifier: 'us.amazon.nova-pro-v1:0',
+      modelIdentifier: 'us.amazon.nova-2-lite-v1:0',
       output: {},
       previousStepKey: 'image',
       provider: 'bedrock' as const,
@@ -2004,7 +2004,7 @@ function chainAgentRecord(
         type: 'chain_agent',
         mode,
         provider: 'bedrock',
-        modelIdentifier: 'us.amazon.nova-pro-v1:0',
+        modelIdentifier: 'us.amazon.nova-2-lite-v1:0',
       },
       input: {
         image_model: 'bytedance/seedream-4.5',
