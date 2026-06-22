@@ -338,7 +338,7 @@ sequenceDiagram
     API->>Runner: continueAgentRun
     Runner->>DB: approve checkpoint + run = queued
     Runner->>Prov: submit next step (approved prompt)
-    Note over Runner,Caller: repeat poll + plan + approve per step — autopilot auto-approves
+    Note over Runner,Caller: repeat poll + plan + approve per step, autopilot auto-approves
 
     Runner->>DB: run = succeeded
     Runner-->>Caller: one signed callback to webhook_url
@@ -805,7 +805,7 @@ const AGENT_REASONING_TOP_P = 0.9; // creative (first) pass only
 | `AGENT_REASONING_TOP_P`       | `0.9`   | Nucleus-sampling breadth on the creative pass.                                                                                                                                                      | Pair with temperature; lower for tighter output.                                                      |
 | `AGENT_MAX_OUTPUT_TOKENS`     | `10000` | Output budget. **Reasoning tokens are billed as output and count against this**, so it must hold the private reasoning _and_ the final JSON (Nova 2 allows up to ~65k).                             | Raise it whenever you raise effort, or the answer can be truncated to an empty, unparseable response. |
 
-Two hard rules from the Nova 2 docs: reasoning effort `high` **forbids** `temperature`, `topP`, and `topK` (keep effort at `low`/`medium` if you tune those), and the one-pass self-repair always runs greedy (temperature 0, top-k 1) with reasoning off so a malformed creative response still gets a reliable structured fix — it is intentionally not tunable.
+Two hard rules from the Nova 2 docs: reasoning effort `high` **forbids** `temperature`, `topP`, and `topK` (keep effort at `low`/`medium` if you tune those), and the one-pass self-repair always runs greedy (temperature 0, top-k 1) with reasoning off so a malformed creative response still gets a reliable structured fix, it is intentionally not tunable.
 
 ### Model profile: Amazon Nova 2 Lite
 

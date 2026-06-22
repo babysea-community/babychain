@@ -49,7 +49,11 @@ import {
   serializeCompletedRunOutput,
   serializeRunWithSteps,
 } from './presenters';
-import { BABYCHAIN_SDK_REQUEST_TIMEOUT_MS } from './shared-constants';
+import {
+  BABYCHAIN_SDK_REQUEST_TIMEOUT_MS,
+  BABYSEA_V1_IMAGE_TIMEOUT_SECONDS,
+  BABYSEA_V1_VIDEO_TIMEOUT_SECONDS,
+} from './shared-constants';
 import { createChainStore, type ChainStore } from './store';
 import {
   assertSafeGenerationParamsTargets,
@@ -77,16 +81,17 @@ const STARTING_STEP_STALE_MS = BABYCHAIN_SDK_REQUEST_TIMEOUT_MS + 60_000;
 // Once a step has a provider/generation id it polls until the provider returns
 // a terminal state. This wall-clock watchdog auto-cancels a step that never
 // reaches a terminal state so a lost or hung provider job cannot keep a run
-// polling - and billing on the provider - forever. BabyChain follows BabySea's
-// per-step SLA for both BYOK and BabySea mode: an image step is cancelled after
-// 60s and a video step after 250s.
-const IMAGE_STEP_TIMEOUT_MS = 60_000;
-const VIDEO_STEP_TIMEOUT_MS = 250_000;
-
+// polling - and billing on the provider - forever. A BabyChain step hits a
+// SINGLE provider per model, so the budget is BabySea's per-provider inference
+// timeout (image 60s, video 250s). BabySea's larger 210s/790s budgets are its
+// 3-provider failover worst case (~3x the per-provider timeout), which does not
+// apply to a single BabyChain inference.
 function runningStepTimeoutMs(step: ChainStepRecord) {
-  return step.stepKind === 'video'
-    ? VIDEO_STEP_TIMEOUT_MS
-    : IMAGE_STEP_TIMEOUT_MS;
+  const seconds =
+    step.stepKind === 'video'
+      ? BABYSEA_V1_VIDEO_TIMEOUT_SECONDS.providerTimeout
+      : BABYSEA_V1_IMAGE_TIMEOUT_SECONDS.providerTimeout;
+  return seconds * 1000;
 }
 const TRANSIENT_PROVIDER_ERROR_CODES = new Set([
   'provider_network_error',
@@ -303,8 +308,10 @@ export async function processRun(
           );
         }
 
-        const errorMessage =
-          'The generation did not reach a terminal state before the running deadline.';
+        const timeoutSeconds = Math.round(
+          runningStepTimeoutMs(runningStep) / 1000,
+        );
+        const errorMessage = `The ${runningStep.stepKind} generation timed out: the provider did not finish within the ${timeoutSeconds}-second time limit, so it was canceled.`;
 
         const failedStep = await store.updateRunningStep(runningStep.id, {
           completedAt: new Date().toISOString(),
