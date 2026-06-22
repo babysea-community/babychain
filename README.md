@@ -787,6 +787,26 @@ BEDROCK_NOVA_AGENT_MODEL=us.amazon.nova-2-lite-v1:0
 
 Until BabyChain Media Storage is enabled, the Agentic Workflow reads previous outputs from the existing provider URL or inline data URL. Provider URLs can expire, redirect, or exceed the temporary 24MB checkpoint media limit, so storage should be added before relying on long-running or large-video Agentic Workflow runs in production.
 
+### Tuning the planner
+
+The model id, region, and Bedrock key above are environment variables. The planner's reasoning depth, creativity, and token budget are code constants in [`lib/agents/bedrock-nova.ts`](lib/agents/bedrock-nova.ts), so a self-hoster can tune them to their own latency, cost, and quality needs:
+
+```ts
+const AGENT_MAX_OUTPUT_TOKENS = 10000; // must hold the reasoning AND the final JSON
+const AGENT_REASONING_EFFORT = 'low'; // 'low' | 'medium' | 'high'
+const AGENT_REASONING_TEMPERATURE = 1; // creative (first) pass only
+const AGENT_REASONING_TOP_P = 0.9; // creative (first) pass only
+```
+
+| Constant                      | Default | Controls                                                                                                                                                                                            | When to change                                                                                        |
+| :---------------------------- | :------ | :-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :---------------------------------------------------------------------------------------------------- |
+| `AGENT_REASONING_EFFORT`      | `low`   | Nova 2 extended-thinking depth on the creative pass. `low` fits this single-pass image + schema analysis; `medium` suits multi-step / multi-tool coordination; `high` targets STEM-grade reasoning. | Raise to `medium` for complex briefs if you accept higher latency and cost.                           |
+| `AGENT_REASONING_TEMPERATURE` | `1`     | Creativity of the three suggestions. Higher diverges more (and slightly raises malformed-JSON odds, which the repair pass absorbs).                                                                 | Lower toward `0.7` for safer, more conservative variations.                                           |
+| `AGENT_REASONING_TOP_P`       | `0.9`   | Nucleus-sampling breadth on the creative pass.                                                                                                                                                      | Pair with temperature; lower for tighter output.                                                      |
+| `AGENT_MAX_OUTPUT_TOKENS`     | `10000` | Output budget. **Reasoning tokens are billed as output and count against this**, so it must hold the private reasoning _and_ the final JSON (Nova 2 allows up to ~65k).                             | Raise it whenever you raise effort, or the answer can be truncated to an empty, unparseable response. |
+
+Two hard rules from the Nova 2 docs: reasoning effort `high` **forbids** `temperature`, `topP`, and `topK` (keep effort at `low`/`medium` if you tune those), and the one-pass self-repair always runs greedy (temperature 0, top-k 1) with reasoning off so a malformed creative response still gets a reliable structured fix — it is intentionally not tunable.
+
 ### Model profile: Amazon Nova 2 Lite
 
 The Agentic Workflow runs on **Amazon Nova 2 Lite** through Amazon Bedrock (`BEDROCK_NOVA_AGENT_MODEL=us.amazon.nova-2-lite-v1:0` by default) and BabyChain calls it through the `Converse` API (see [`lib/agents/bedrock-nova.ts`](lib/agents/bedrock-nova.ts)).

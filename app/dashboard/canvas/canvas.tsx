@@ -1089,6 +1089,10 @@ function FieldControl({
     'nodrag w-full border border-border bg-input px-2.5 text-xs text-foreground outline-none focus-visible:border-ring disabled:opacity-50';
 
   if (field.type === 'textarea') {
+    // generation_prompt is the primary field on every card, so it gets a taller
+    // default box than secondary textareas (e.g. the negative prompt).
+    const textareaMinHeight =
+      field.name === 'generation_prompt' ? 'min-h-32' : 'min-h-20';
     // When the field is locked (during a run or under autopilot) or the step has
     // already succeeded, show the full prompt as an auto-height read-only block
     // so long prompts are not cropped inside a fixed-height textarea. This also
@@ -1099,7 +1103,8 @@ function FieldControl({
         <div
           className={cn(
             base,
-            'min-h-20 whitespace-pre-wrap break-words py-2 leading-5',
+            textareaMinHeight,
+            'whitespace-pre-wrap break-words py-2 leading-5',
           )}
         >
           {text}
@@ -1109,9 +1114,9 @@ function FieldControl({
     return (
       <TextInputControl
         as="textarea"
-        className={cn(base, 'min-h-20 resize-y py-1.5')}
+        className={cn(base, textareaMinHeight, 'resize-y py-1.5')}
         disabled={disabled}
-        rows={field.rows ?? 3}
+        rows={field.rows ?? (field.name === 'generation_prompt' ? 5 : 3)}
         value={value}
         onChange={onChange}
       />
@@ -3019,21 +3024,21 @@ function InfoNodeComponent({ id, data }: NodeProps) {
                 model_context
               </span>
               <p className="text-[0.62rem] leading-snug text-muted-foreground">
-                Optional creative brief for the Amazon Nova agent. Describe the
-                style, mood, scene, wardrobe, color grade, and camera direction
-                it should apply across every step; the agent reinterprets each
-                step around it while keeping your subject the same.
+                Optional creative brief for the agent. Describe the style, mood,
+                scene, wardrobe, color grade, and camera direction it should
+                apply to every step the agent plans after your first model card;
+                it reinterprets each of those steps around your brief while
+                keeping the subject the same.
               </p>
               <textarea
                 disabled={running}
-                rows={3}
+                rows={6}
                 maxLength={2000}
                 value={modelContextValue}
                 onChange={(event) =>
                   updateValue(id, 'model_context', event.target.value)
                 }
-                placeholder="e.g. Moody neon-noir night scene, cinematic lighting, shallow depth of field, slow push-in."
-                className="nodrag min-h-20 w-full resize-y border border-border bg-input px-2.5 py-1.5 text-xs leading-5 text-foreground outline-none focus-visible:border-ring disabled:opacity-40"
+                className="nodrag min-h-40 w-full resize-y border border-border bg-input px-2.5 py-1.5 text-xs leading-5 text-foreground outline-none focus-visible:border-ring disabled:opacity-40"
               />
             </div>
           ) : null}
