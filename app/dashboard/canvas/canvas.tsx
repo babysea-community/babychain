@@ -4689,7 +4689,10 @@ function CanvasInner(props: CanvasProps) {
       const infoNode = workingNodes.find(
         (node) => node.id === `info_${flowId}`,
       );
+      // model_context (Creator Brief) is agent-only; a self_control run never
+      // reads it, so do not send it for self_control.
       const modelContext =
+        runMode !== 'self_control' &&
         typeof infoNode?.data.values.model_context === 'string'
           ? infoNode.data.values.model_context.trim()
           : '';
@@ -4924,7 +4927,10 @@ function CanvasInner(props: CanvasProps) {
           const infoNode = nodesRef.current.find(
             (node) => node.id === `info_${flowId}`,
           );
+          // model_context (Creator Brief) is agent-only; a self_control run
+          // never reads it, so it must not appear in a self_control curl.
           const modelContext =
+            runMode !== 'self_control' &&
             typeof infoNode?.data.values.model_context === 'string'
               ? infoNode.data.values.model_context.trim()
               : '';

@@ -101,12 +101,18 @@ export async function POST(request: NextRequest) {
           `${template.slug}:${idempotencyKey}`,
         )
       : null;
+    // model_context (Creator Brief) is only consumed by the Chain Agent; a
+    // self_control run never reads it, so drop it from stored metadata.
+    const runMetadata =
+      executionConfig.type === 'self_control'
+        ? stripAgentOnlyMetadata(payload.metadata as JsonObject)
+        : (payload.metadata as JsonObject);
     const replayRequest: IdempotentRunRequest = {
       callbackUrl: payload.webhook_url ?? null,
       byokProviders,
       executionConfig,
       input,
-      metadata: payload.metadata as JsonObject,
+      metadata: runMetadata,
       providerMode,
     };
 
@@ -195,6 +201,17 @@ function executionConfigFromPayload(
     modelIdentifier:
       value.model_identifier ?? defaultBedrockNovaModelIdentifier(),
   };
+}
+
+// model_context (Creator Brief) is only consumed by the Chain Agent, so it is
+// dropped from self_control run metadata.
+function stripAgentOnlyMetadata(metadata: JsonObject): JsonObject {
+  if (!('model_context' in metadata)) {
+    return metadata;
+  }
+
+  const { model_context: _modelContext, ...rest } = metadata;
+  return rest as JsonObject;
 }
 
 function requiredByokProvidersForInput(
