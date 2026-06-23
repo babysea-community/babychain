@@ -14,6 +14,7 @@ type ChainAgentSchemaContext = {
 export function completeChainAgentSelectedParams(
   selectedParams: JsonObject,
   context: ChainAgentSchemaContext,
+  options: { pinPromptEnhancementOff?: boolean } = {},
 ): JsonObject {
   const schema = context.nextStep.schema;
 
@@ -54,12 +55,15 @@ export function completeChainAgentSelectedParams(
     }
   }
 
-  // Provider-native prompt enhancement is never used on a BabyChain step - it
-  // lets the inference provider rewrite the prompt the agent authored. Pin the
-  // toggle OFF in the proposed fields too: explicitly `false`, not absent, so
-  // the provider cannot fall back to its own default-on. Applies to both
-  // copilot and autopilot (this completion runs for both).
-  if ('generation_prompt_extend' in properties) {
+  // Pin provider-native prompt enhancement OFF on the agent's PROPOSAL only
+  // (pinPromptEnhancementOff): explicitly `false`, not absent, so the provider
+  // cannot fall back to its own default-on. This same completion also runs for
+  // the user's copilot approval and user-edited cards, where it must NOT
+  // override the user's choice - so it is gated behind the flag.
+  if (
+    options.pinPromptEnhancementOff &&
+    'generation_prompt_extend' in properties
+  ) {
     completed.generation_prompt_extend = false;
   }
 

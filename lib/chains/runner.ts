@@ -71,7 +71,6 @@ import type {
   ChainStepTemplate,
   ChainTemplate,
   JsonObject,
-  JsonValue,
 } from './types';
 
 const TERMINAL_RUN_STATUSES = new Set(['succeeded', 'failed', 'canceled']);
@@ -773,13 +772,6 @@ async function startStep(
   try {
     params = stepTemplate.buildParams(context);
     params = applyAgentParams(params, agentCheckpoint?.selectedParams ?? null);
-    // Provider-native prompt enhancement (BFL prompt_upsampling, DashScope
-    // prompt_extend, BytePlus optimize_prompt_options) rewrites the authored
-    // prompt before generation. It is never wanted on a BabyChain step, so it
-    // is forced off on EVERY step - including ones with no agent checkpoint and
-    // models whose schema defaults it ON - so the prompt can never be silently
-    // rewritten.
-    params = disablePromptEnhancement(params, agentStepSchema(step));
     params = prepareStepParamsForProvider({
       input: context.input,
       params,
@@ -1063,12 +1055,16 @@ async function prepareAgentCheckpoint(args: {
       },
     );
     const completedSelectedParams = withFreshAgentSeed(
-      completeChainAgentSelectedParams(selectedParams, {
-        nextStep: {
-          requestParams: agentContext.nextStep.requestParams,
-          schema: nextStepSchema,
+      completeChainAgentSelectedParams(
+        selectedParams,
+        {
+          nextStep: {
+            requestParams: agentContext.nextStep.requestParams,
+            schema: nextStepSchema,
+          },
         },
-      }),
+        { pinPromptEnhancementOff: true },
+      ),
       nextStepSchema,
       record,
     );
@@ -1319,56 +1315,6 @@ function applyAgentParams(
     ...params,
     ...agentTunableParams(selectedParams),
   } as GenerationParams;
-}
-
-// Provider-native prompt enhancement (BFL prompt_upsampling, DashScope
-// prompt_extend, BytePlus optimize_prompt_options) silently rewrites the prompt
-// before generation. That fights the prompt the user or Chain Agent carefully
-// authored, so BabyChain forces it off on EVERY step - regardless of the model
-// default or what a checkpoint selected. The boolean toggle is pinned to false;
-// the enum mode has no "off" value, so it is dropped entirely so the provider
-// receives no enhancement request at all.
-function disablePromptEnhancement(
-  params: GenerationParams,
-  schema: JsonObject | null,
-): GenerationParams {
-  const properties = agentSchemaProperties(schema);
-
-  if (!properties) {
-    return params;
-  }
-
-  const next = { ...params } as JsonObject;
-
-  if ('generation_prompt_extend' in properties) {
-    next.generation_prompt_extend = false;
-  }
-
-  if ('generation_prompt_extend_mode' in properties) {
-    delete next.generation_prompt_extend_mode;
-  }
-
-  return next as GenerationParams;
-}
-
-function agentSchemaProperties(
-  schema: JsonObject | null,
-): Record<string, JsonValue> | null {
-  if (!schema || typeof schema !== 'object' || Array.isArray(schema)) {
-    return null;
-  }
-
-  const properties = schema.properties;
-
-  if (
-    !properties ||
-    typeof properties !== 'object' ||
-    Array.isArray(properties)
-  ) {
-    return null;
-  }
-
-  return properties as Record<string, JsonValue>;
 }
 
 function normalizeAgentSelectedParams(

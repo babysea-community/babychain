@@ -154,6 +154,40 @@ describe('validateChainAgentResult', () => {
     });
   });
 
+  it('pins prompt_extend off on the agent proposal but honors user edits', () => {
+    const schemaContext = {
+      nextStep: {
+        requestParams: null,
+        schema: {
+          type: 'object',
+          properties: {
+            generation_prompt: { type: 'string' },
+            generation_prompt_extend: { type: 'boolean', default: true },
+          },
+        },
+      },
+    };
+
+    // Agent PROPOSAL: pinned OFF even though the model defaults it to true.
+    const proposal = completeChainAgentSelectedParams(
+      { generation_prompt: 'A cinematic portrait' },
+      schemaContext,
+      { pinPromptEnhancementOff: true },
+    );
+    expect(proposal.generation_prompt_extend).toBe(false);
+
+    // User edit / copilot approval (no flag): the user's choice is honored,
+    // never overridden back to false.
+    const userEdit = completeChainAgentSelectedParams(
+      {
+        generation_prompt: 'A cinematic portrait',
+        generation_prompt_extend: true,
+      },
+      schemaContext,
+    );
+    expect(userEdit.generation_prompt_extend).toBe(true);
+  });
+
   it('rejects selected prompt that does not match selected params prompt', () => {
     const result = validateChainAgentResult(
       resultWithPrompt({
