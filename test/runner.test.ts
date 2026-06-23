@@ -450,6 +450,66 @@ describe('runner step claiming', () => {
     expect(result.run.status).toBe('canceled');
   });
 
+  it('folds the owner model_context brief into a base step the agent did not plan', async () => {
+    // A 2-step image->video run in agent mode: the base image step is never
+    // planned by the agent, so the owner's Creator Brief (model_context) must
+    // be folded into its prompt here - otherwise "use a hat" never reaches the
+    // base image and the image-to-video step can only animate that hatless base.
+    const record = createRunWithSteps({
+      run: {
+        metadata: { model_context: 'use a hat with text BabyChain' },
+      },
+    });
+    const canceledRecord = createRunWithSteps({
+      run: {
+        completedAt: new Date().toISOString(),
+        metadata: { model_context: 'use a hat with text BabyChain' },
+        status: 'canceled',
+      },
+      step: {
+        completedAt: new Date().toISOString(),
+        status: 'canceled',
+      },
+    });
+    let claimedPrompt: unknown = null;
+    const store = {
+      claimQueuedStep: async (
+        _stepId: string,
+        patch: Record<string, unknown>,
+      ) => {
+        claimedPrompt = (patch.requestParams as Record<string, unknown>)
+          .generation_prompt;
+        return {
+          ...record.steps[0]!,
+          ...patch,
+        } as ChainRunWithSteps['steps'][number];
+      },
+      getRunWithSteps: async () => canceledRecord,
+      updateActiveRun: async () => null,
+      updateRunningStep: async (
+        _stepId: string,
+        patch: Record<string, unknown>,
+      ) =>
+        ({
+          ...record.steps[0]!,
+          ...patch,
+        }) as ChainRunWithSteps['steps'][number],
+    };
+    const babysea = {
+      generate: async () => {
+        throw new Error('generate should not be called');
+      },
+    };
+
+    await processRun(record, {
+      babysea: babysea as never,
+      store: store as never,
+    });
+
+    expect(claimedPrompt).toContain('A product render');
+    expect(claimedPrompt).toContain('use a hat with text BabyChain');
+  });
+
   it('cancels the BabySea generation when local cancellation wins during start', async () => {
     const record = createRunWithSteps();
     const canceledRecord = createRunWithSteps({
@@ -752,6 +812,89 @@ describe('runner step claiming', () => {
     expect(result.run.errorCode).toBe('provider_invalid_request');
     // No input will ever arrive for the queued video step once the image
     // step has failed, so it must be skipped immediately, not left queued.
+    expect(result.steps[1]!.status).toBe('skipped');
+    expect(result.steps[1]!.completedAt).toBeTruthy();
+  });
+
+  it('skips queued steps when an earlier step failed on an awaiting_agent run', async () => {
+    // A failure can be persisted while the run is parked at `awaiting_agent`
+    // (e.g. a failed agent checkpoint). The run-get route now advances such a
+    // run, and processRun must escalate the failure - failing the run and
+    // marking the still-queued downstream step skipped, never left queued.
+    const failedStepRecord = createRunWithSteps({
+      run: {
+        currentStepKey: null,
+        status: 'awaiting_agent',
+      },
+      step: {
+        completedAt: new Date().toISOString(),
+        errorCode: 'provider_invalid_request',
+        errorMessage: 'Alibaba Cloud responded 400.',
+        status: 'failed',
+      },
+    });
+    const queuedVideoStep = {
+      ...failedStepRecord.steps[0]!,
+      completedAt: null,
+      dependsOn: ['image'],
+      errorCode: null,
+      errorMessage: null,
+      id: '5f1c6f0a-95c5-4f1d-9f74-8f2f5b8f1c22',
+      modelIdentifier: 'bytedance/seedance-1.5-pro',
+      status: 'queued' as const,
+      stepIndex: 1,
+      stepKey: 'video',
+      stepKind: 'video' as const,
+    };
+    let updatedRecord: ChainRunWithSteps = {
+      ...failedStepRecord,
+      steps: [failedStepRecord.steps[0]!, queuedVideoStep],
+    };
+    const store = {
+      getRunWithSteps: async () => updatedRecord,
+      updateActiveRun: async (
+        _runId: string,
+        patch: Record<string, unknown>,
+      ) => {
+        updatedRecord = {
+          ...updatedRecord,
+          run: { ...updatedRecord.run, ...patch },
+        };
+        return updatedRecord.run;
+      },
+      updateQueuedStep: async (
+        stepId: string,
+        patch: Record<string, unknown>,
+      ) => {
+        const stepIndex = updatedRecord.steps.findIndex(
+          (step) => step.id === stepId && step.status === 'queued',
+        );
+
+        if (stepIndex < 0) {
+          return null;
+        }
+
+        const updatedStep = {
+          ...updatedRecord.steps[stepIndex]!,
+          ...patch,
+        } as ChainRunWithSteps['steps'][number];
+
+        updatedRecord = {
+          ...updatedRecord,
+          steps: updatedRecord.steps.map((step, index) =>
+            index === stepIndex ? updatedStep : step,
+          ),
+        };
+
+        return updatedStep;
+      },
+    };
+
+    const result = await processRun(updatedRecord, {
+      store: store as never,
+    });
+
+    expect(result.run.status).toBe('failed');
     expect(result.steps[1]!.status).toBe('skipped');
     expect(result.steps[1]!.completedAt).toBeTruthy();
   });

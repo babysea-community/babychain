@@ -47,11 +47,28 @@ export async function GET(request: NextRequest, context: RouteContext) {
 
     assertRunAccess(record.run, principal);
 
-    // If the run is in-flight, advance it. If it is terminal but the final
-    // callback has not been delivered, retry that delivery opportunistically.
+    // If the run is in-flight, advance it. A run that already has a failed or
+    // canceled step but has not yet reached a terminal status (for example one
+    // parked at `awaiting_agent`) must also be advanced so the failure is
+    // escalated: failRun then marks the remaining queued steps `skipped`
+    // instead of leaving the next card stuck on `queued`. If the run is
+    // terminal but the final callback has not been delivered, retry that
+    // delivery opportunistically.
+    const isTerminalRun =
+      record.run.status === 'succeeded' ||
+      record.run.status === 'failed' ||
+      record.run.status === 'canceled';
+
+    const hasUnresolvedStepFailure =
+      !isTerminalRun &&
+      record.steps.some(
+        (step) => step.status === 'failed' || step.status === 'canceled',
+      );
+
     const shouldProcess =
       record.run.status === 'queued' ||
       record.run.status === 'running' ||
+      hasUnresolvedStepFailure ||
       (Boolean(record.run.callbackUrl) &&
         record.run.callbackStatus !== 'delivered');
 

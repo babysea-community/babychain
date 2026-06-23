@@ -249,6 +249,45 @@ describe('UI request shape builders', () => {
     expect(curl).not.toContain('webhook_url');
   });
 
+  it('mirrors the run mode and model_context in the cURL when provided', () => {
+    const input = createChainRunInput({
+      imageModel: 'bfl/flux-1.1-pro',
+      imageModelInput: { generation_prompt: 'A studio portrait' },
+      videoModel: 'google/veo-3.1',
+      videoModelInput: { generation_prompt: 'Animate the portrait' },
+    });
+    const curl = createChainRunCurl(
+      input,
+      { siteUrl: 'https://babychain.example/' },
+      {
+        execution: {
+          type: 'chain_agent',
+          mode: 'autopilot',
+          provider: 'bedrock',
+        },
+        metadata: { model_context: 'use hat with text BabyChain' },
+      },
+    );
+
+    expect(curl).toContain('"execution"');
+    expect(curl).toContain('"type": "chain_agent"');
+    expect(curl).toContain('"mode": "autopilot"');
+    expect(curl).toContain('"model_context": "use hat with text BabyChain"');
+  });
+
+  it('omits execution and metadata from the cURL when not provided', () => {
+    const input = createChainRunInput({
+      imageModel: 'bfl/flux-1.1-pro',
+      imageModelInput: { generation_prompt: 'A studio portrait' },
+      videoModel: 'google/veo-3.1',
+      videoModelInput: { generation_prompt: 'Animate the portrait' },
+    });
+    const curl = createChainRunCurl(input);
+
+    expect(curl).not.toContain('"execution"');
+    expect(curl).not.toContain('"metadata"');
+  });
+
   it('builds debugging cURL snippets for chain API routes', () => {
     const runId = 'ea233d5f-12a7-45b6-aa14-b3b33bc9e3a2';
 

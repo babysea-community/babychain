@@ -74,6 +74,7 @@ import {
   createCancelRunCurl,
   createGetRunCurl,
   createChainRunCurl,
+  type ChainRunRequestExtras,
   createExampleStepInputFromValues,
   createListChainsCurl,
   createModelSchemaJsonFromFields,
@@ -3349,8 +3350,11 @@ function buildFlowCurlInput(
   return input;
 }
 
-function createNodeCurl(input: Record<string, unknown>) {
-  return createChainRunCurl(input);
+function createNodeCurl(
+  input: Record<string, unknown>,
+  extras?: ChainRunRequestExtras,
+) {
+  return createChainRunCurl(input, {}, extras);
 }
 
 function firstAvailableModelForRole(models: CanvasModel[], role: StepRole) {
@@ -4912,7 +4916,24 @@ function CanvasInner(props: CanvasProps) {
             flowId,
             fieldsRef.current,
           );
-          return createNodeCurl(input);
+          // Mirror the run the canvas actually launches: the selected run mode
+          // (self_control vs chain_agent copilot/autopilot) and the owner's
+          // model_context / Creator Brief. Without these the copied curl would
+          // silently run as a default self_control run with no brief.
+          const runMode = runModeByFlow.get(flowId) ?? 'self_control';
+          const infoNode = nodesRef.current.find(
+            (node) => node.id === `info_${flowId}`,
+          );
+          const modelContext =
+            typeof infoNode?.data.values.model_context === 'string'
+              ? infoNode.data.values.model_context.trim()
+              : '';
+          return createNodeCurl(input, {
+            execution: runModeExecution(runMode),
+            ...(modelContext
+              ? { metadata: { model_context: modelContext } }
+              : {}),
+          });
         } catch {
           return null;
         }

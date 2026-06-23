@@ -19,6 +19,17 @@ export type ChainRunInputParts = {
 
 export type ChainRunRequestBody = {
   input: Record<string, unknown>;
+  execution?: Record<string, unknown>;
+  metadata?: Record<string, unknown>;
+};
+
+// Optional request parts that mirror the run the canvas actually launches: the
+// execution config (self_control vs chain_agent copilot/autopilot) and run
+// metadata (the owner's model_context / Creator Brief). Without these the curl
+// would silently fall back to a default self_control run with no brief.
+export type ChainRunRequestExtras = {
+  execution?: Record<string, unknown>;
+  metadata?: Record<string, unknown>;
 };
 
 export type ChainCurlOptions = {
@@ -213,8 +224,17 @@ export function createChainRunInput({
   };
 }
 
-export function createChainRunRequest(input: Record<string, unknown>) {
-  return { input } satisfies ChainRunRequestBody;
+export function createChainRunRequest(
+  input: Record<string, unknown>,
+  extras: ChainRunRequestExtras = {},
+) {
+  return {
+    input,
+    ...(extras.execution ? { execution: extras.execution } : {}),
+    ...(extras.metadata && Object.keys(extras.metadata).length > 0
+      ? { metadata: extras.metadata }
+      : {}),
+  } satisfies ChainRunRequestBody;
 }
 
 export function createListChainsCurl(options: ChainCurlOptions = {}) {
@@ -228,8 +248,9 @@ export function createListChainsCurl(options: ChainCurlOptions = {}) {
 export function createChainRunCurl(
   input: Record<string, unknown>,
   options: ChainCurlOptions = {},
+  extras: ChainRunRequestExtras = {},
 ) {
-  const body = JSON.stringify(createChainRunRequest(input), null, 2);
+  const body = JSON.stringify(createChainRunRequest(input, extras), null, 2);
   const lines = [
     'curl --request POST',
     `  --url "${chainApiUrl('/api/v1/chains/runs', options)}"`,
