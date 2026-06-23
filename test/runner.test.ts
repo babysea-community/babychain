@@ -450,66 +450,6 @@ describe('runner step claiming', () => {
     expect(result.run.status).toBe('canceled');
   });
 
-  it('folds the owner model_context brief into a base step the agent did not plan', async () => {
-    // A 2-step image->video run in agent mode: the base image step is never
-    // planned by the agent, so the owner's Creator Brief (model_context) must
-    // be folded into its prompt here - otherwise "use a hat" never reaches the
-    // base image and the image-to-video step can only animate that hatless base.
-    const record = createRunWithSteps({
-      run: {
-        metadata: { model_context: 'use a hat with text BabyChain' },
-      },
-    });
-    const canceledRecord = createRunWithSteps({
-      run: {
-        completedAt: new Date().toISOString(),
-        metadata: { model_context: 'use a hat with text BabyChain' },
-        status: 'canceled',
-      },
-      step: {
-        completedAt: new Date().toISOString(),
-        status: 'canceled',
-      },
-    });
-    let claimedPrompt: unknown = null;
-    const store = {
-      claimQueuedStep: async (
-        _stepId: string,
-        patch: Record<string, unknown>,
-      ) => {
-        claimedPrompt = (patch.requestParams as Record<string, unknown>)
-          .generation_prompt;
-        return {
-          ...record.steps[0]!,
-          ...patch,
-        } as ChainRunWithSteps['steps'][number];
-      },
-      getRunWithSteps: async () => canceledRecord,
-      updateActiveRun: async () => null,
-      updateRunningStep: async (
-        _stepId: string,
-        patch: Record<string, unknown>,
-      ) =>
-        ({
-          ...record.steps[0]!,
-          ...patch,
-        }) as ChainRunWithSteps['steps'][number],
-    };
-    const babysea = {
-      generate: async () => {
-        throw new Error('generate should not be called');
-      },
-    };
-
-    await processRun(record, {
-      babysea: babysea as never,
-      store: store as never,
-    });
-
-    expect(claimedPrompt).toContain('A product render');
-    expect(claimedPrompt).toContain('use a hat with text BabyChain');
-  });
-
   it('cancels the BabySea generation when local cancellation wins during start', async () => {
     const record = createRunWithSteps();
     const canceledRecord = createRunWithSteps({

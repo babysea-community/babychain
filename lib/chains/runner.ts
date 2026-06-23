@@ -773,10 +773,6 @@ async function startStep(
   try {
     params = stepTemplate.buildParams(context);
     params = applyAgentParams(params, agentCheckpoint?.selectedParams ?? null);
-    // Fold the owner's Creator Brief into steps the agent did not plan (the
-    // base image step, and every step in self_control) so a global direction
-    // reaches the base image instead of being ignored there.
-    params = applyOwnerBriefToUnplannedStep(params, record, agentCheckpoint);
     // Provider-native prompt enhancement (BFL prompt_upsampling, DashScope
     // prompt_extend, BytePlus optimize_prompt_options) rewrites the authored
     // prompt before generation. It is never wanted on a BabyChain step, so it
@@ -1323,41 +1319,6 @@ function applyAgentParams(
     ...params,
     ...agentTunableParams(selectedParams),
   } as GenerationParams;
-}
-
-// The Chain Agent folds the owner's Creator Brief (model_context) into every
-// step it plans. Steps it does NOT plan - the base image step, and every step
-// in self_control mode - would otherwise ignore the brief, so a global
-// direction like "use a hat with text BabyChain" never reaches the base image.
-// An image-to-video step can only animate that base frame (it cannot add the
-// hat later), so the brief has to land on the base step's prompt to be honored
-// end to end. Append it to the prompt of any step the agent did not plan.
-function applyOwnerBriefToUnplannedStep(
-  params: GenerationParams,
-  record: ChainRunWithSteps,
-  agentCheckpoint: ChainAgentCheckpointRecord | null,
-): GenerationParams {
-  if (agentCheckpoint) {
-    return params;
-  }
-
-  const brief =
-    typeof record.run.metadata.model_context === 'string'
-      ? record.run.metadata.model_context.trim()
-      : '';
-
-  if (!brief) {
-    return params;
-  }
-
-  const next = { ...params } as JsonObject;
-  const prompt =
-    typeof next.generation_prompt === 'string'
-      ? next.generation_prompt.trim()
-      : '';
-  next.generation_prompt = prompt ? `${prompt}\n\n${brief}` : brief;
-
-  return next as GenerationParams;
 }
 
 // Provider-native prompt enhancement (BFL prompt_upsampling, DashScope
