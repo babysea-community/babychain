@@ -10,6 +10,7 @@ import { parseDataUrlOutputFile } from '@/lib/chains/output-files';
 import { lookupAllowedNetworkAddress } from '@/lib/security/network-safety';
 
 import { createAwsS3StorageProvider } from './aws-s3';
+import { invalidateRunCdnCache } from './cloudfront';
 import { createVercelBlobStorageProvider } from './vercel-blob';
 import type { BabyChainStorageProviderId, StorageProvider } from './types';
 
@@ -177,9 +178,11 @@ export async function deleteStoredAssets(
  * Best-effort deletion of every stored output asset for a run - all of its
  * `runs/<runId>/<stepKey>/...` image, refine, video, and modify files - from
  * the configured storage provider, by object-key prefix. This does not depend
- * on per-step metadata, so it reclaims every output the run wrote. Storage
- * being disabled (`none`) or misconfigured is a no-op so callers never fail
- * because of cleanup.
+ * on per-step metadata, so it reclaims every output the run wrote. When the
+ * provider is fronted by CloudFront, the run's `/runs/<runId>/*` cache is also
+ * invalidated so deleted media stops being served from edge caches at once.
+ * Storage being disabled (`none`) or misconfigured is a no-op so callers never
+ * fail because of cleanup.
  */
 export async function deleteRunStoredAssets(runId: string): Promise<void> {
   let provider: StorageProvider | null;
@@ -195,6 +198,7 @@ export async function deleteRunStoredAssets(runId: string): Promise<void> {
   }
 
   await provider.removeByPrefix(`runs/${runId}/`);
+  await invalidateRunCdnCache(runId);
 }
 
 async function readOutputMedia(value: string) {

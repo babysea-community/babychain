@@ -111,12 +111,12 @@ describe('model chain catalog', () => {
     );
     expect(
       catalogChains.has('bfl/flux-1.1-pro → wan/2.2-animate-mix-image'),
-    ).toBe(true);
+    ).toBe(false);
     expect(
       catalogChains.has(
         'bfl/flux-1.1-pro → runway/gen-4-turbo → wan/2.2-animate-mix-video',
       ),
-    ).toBe(true);
+    ).toBe(false);
     expect(
       catalogChains.has(
         'bfl/flux-1.1-pro → google/veo-3.1-lite → wan/2.7-videoedit',

@@ -113,35 +113,34 @@ describe('chain templates', () => {
     expect(isImageToVideoChainModel('bytedance/seedance-1.5-pro')).toBe(true);
     expect(isImageToVideoChainModel('google/veo-3.1')).toBe(true);
     expect(isImageToVideoChainModel('runway/gen-4-turbo')).toBe(true);
+    // Reference (reference_video) and continuation (first_clip) inputs animate
+    // into video, so these stay image-to-video steps, never modify steps.
     expect(isImageToVideoChainModel('wan/2.7-r2v')).toBe(true);
-    // Text-to-video-only and performance-transfer models are not wireable as
-    // the chain image-to-video step.
+    expect(isImageToVideoChainModel('wan/2.7-i2v-2026-04-25')).toBe(true);
+    expect(isImageToVideoChainModel('happyhorse/1.0-r2v')).toBe(true);
+    expect(isImageToVideoChainModel('bytedance/seedance-2.0')).toBe(true);
+    expect(isImageToVideoChainModel('bytedance/seedance-2.0-fast')).toBe(true);
+    // Text-to-video-only models are not wireable as the image-to-video step.
     expect(isImageToVideoChainModel('wan/2.7-t2v')).toBe(false);
     expect(isImageToVideoChainModel('happyhorse/1.0-t2v')).toBe(false);
-    expect(isImageToVideoChainModel('runway/act-two')).toBe(false);
-    expect(isImageToVideoChainModel('wan/2.2-animate-mix')).toBe(false);
-    expect(isImageToVideoChainModel('wan/2.2-animate-move')).toBe(false);
-    expect(isImageToVideoChainModel('runway/act-two-image')).toBe(true);
-    expect(isImageToVideoChainModel('wan/2.2-animate-mix-image')).toBe(true);
-    expect(isImageToVideoChainModel('wan/2.2-animate-move-image')).toBe(true);
+    // Video editors are modify steps, not image-to-video steps.
     expect(isImageToVideoChainModel('runway/aleph-2')).toBe(false);
     expect(isImageToVideoChainModel('runway/gen-4-aleph')).toBe(false);
     expect(isImageToVideoChainModel('happyhorse/1.0-video-edit')).toBe(false);
     expect(isImageToVideoChainModel('wan/2.7-videoedit')).toBe(false);
 
+    // modify is limited to the four models that edit a required primary video.
     expect(isVideoToVideoChainModel('runway/aleph-2')).toBe(true);
     expect(isVideoToVideoChainModel('runway/gen-4-aleph')).toBe(true);
     expect(isVideoToVideoChainModel('wan/2.7-videoedit')).toBe(true);
     expect(isVideoToVideoChainModel('happyhorse/1.0-video-edit')).toBe(true);
-    // Seedance 2.0 supports multimodal video references, so it can modify.
-    expect(isVideoToVideoChainModel('bytedance/seedance-2.0')).toBe(true);
-    expect(isVideoToVideoChainModel('bytedance/seedance-2.0-fast')).toBe(true);
+    // Reference/continuation video inputs are not edits, so these are not modify.
+    expect(isVideoToVideoChainModel('bytedance/seedance-2.0')).toBe(false);
+    expect(isVideoToVideoChainModel('bytedance/seedance-2.0-fast')).toBe(false);
+    expect(isVideoToVideoChainModel('happyhorse/1.0-r2v')).toBe(false);
+    expect(isVideoToVideoChainModel('wan/2.7-r2v')).toBe(false);
+    expect(isVideoToVideoChainModel('wan/2.7-i2v-2026-04-25')).toBe(false);
     expect(isVideoToVideoChainModel('bytedance/seedance-1.5-pro')).toBe(false);
-    expect(isVideoToVideoChainModel('runway/act-two')).toBe(false);
-    expect(isVideoToVideoChainModel('wan/2.2-animate-mix')).toBe(false);
-    expect(isVideoToVideoChainModel('runway/act-two-video')).toBe(true);
-    expect(isVideoToVideoChainModel('wan/2.2-animate-mix-video')).toBe(true);
-    expect(isVideoToVideoChainModel('wan/2.2-animate-move-video')).toBe(true);
   });
 
   it('keeps every catalog model in the correct chain role slots', () => {
@@ -156,8 +155,8 @@ describe('chain templates', () => {
       'bytedance/seedance-1-pro': ['video'],
       'bytedance/seedance-1-pro-fast': ['video'],
       'bytedance/seedance-1.5-pro': ['video'],
-      'bytedance/seedance-2.0': ['video', 'modify'],
-      'bytedance/seedance-2.0-fast': ['video', 'modify'],
+      'bytedance/seedance-2.0': ['video'],
+      'bytedance/seedance-2.0-fast': ['video'],
       'bytedance/seedream-4': ['image', 'refine'],
       'bytedance/seedream-4.5': ['image', 'refine'],
       'bytedance/seedream-5-lite': ['image', 'refine'],
@@ -172,7 +171,7 @@ describe('chain templates', () => {
       'google/veo-3.1-lite': ['video'],
       'gpt/image-2': ['image', 'refine'],
       'happyhorse/1.0-i2v': ['video'],
-      'happyhorse/1.0-r2v': ['video', 'modify'],
+      'happyhorse/1.0-r2v': ['video'],
       'happyhorse/1.0-t2v': [],
       'happyhorse/1.0-video-edit': ['modify'],
       'qwen/image': ['image'],
@@ -183,8 +182,6 @@ describe('chain templates', () => {
       'qwen/image-edit-plus': ['image', 'refine'],
       'qwen/image-max': ['image'],
       'qwen/image-plus': ['image'],
-      'runway/act-two-image': ['video'],
-      'runway/act-two-video': ['modify'],
       'runway/aleph-2': ['modify'],
       'runway/gen-4-aleph': ['modify'],
       'runway/gen-4-image': ['image', 'refine'],
@@ -192,17 +189,13 @@ describe('chain templates', () => {
       'runway/gen-4-turbo': ['video'],
       'runway/gen-4.5': ['video'],
       'wan/2.1-imageedit': ['image', 'refine'],
-      'wan/2.2-animate-mix-image': ['video'],
-      'wan/2.2-animate-mix-video': ['modify'],
-      'wan/2.2-animate-move-image': ['video'],
-      'wan/2.2-animate-move-video': ['modify'],
       'wan/2.5-i2i-preview': ['image', 'refine'],
       'wan/2.6-image': ['image', 'refine'],
       'wan/2.6-t2i': ['image'],
-      'wan/2.7-i2v-2026-04-25': ['video', 'modify'],
+      'wan/2.7-i2v-2026-04-25': ['video'],
       'wan/2.7-image': ['image', 'refine'],
       'wan/2.7-image-pro': ['image', 'refine'],
-      'wan/2.7-r2v': ['video', 'modify'],
+      'wan/2.7-r2v': ['video'],
       'wan/2.7-t2v': [],
       'wan/2.7-videoedit': ['modify'],
       'z/image-turbo': ['image'],
@@ -554,138 +547,6 @@ describe('chain templates', () => {
     ).toThrow('does not support the image-to-video workflow');
   });
 
-  it('requires media-driven image variants to receive caller reference media', () => {
-    const template = getChainTemplate('chain');
-
-    expect(() =>
-      parseTemplateInput(
-        template!,
-        {
-          image_model: TEXT_IMAGE_MODEL,
-          video_model: 'runway/act-two-image',
-          video_model_input: {
-            generation_aspect_ratio: '1280:720',
-          },
-        },
-        { byokMode: true },
-      ),
-    ).toThrow('video_model_input.generation_input_video_file is required');
-
-    expect(() =>
-      parseTemplateInput(
-        template!,
-        {
-          image_model: TEXT_IMAGE_MODEL,
-          video_model: 'runway/act-two-image',
-          video_model_input: {
-            generation_aspect_ratio: '1280:720',
-          },
-        },
-        { agentDownstreamInputs: true, byokMode: true },
-      ),
-    ).not.toThrow();
-
-    expect(() =>
-      parseTemplateInput(
-        template!,
-        {
-          image_model: TEXT_IMAGE_MODEL,
-          video_model: 'runway/act-two-image',
-          video_model_input: {
-            generation_aspect_ratio: '1280:720',
-            generation_input_video_file: [
-              'https://cdn.example.com/reference.mp4',
-            ],
-          },
-        },
-        { byokMode: true },
-      ),
-    ).not.toThrow();
-
-    expect(() =>
-      parseTemplateInput(
-        template!,
-        {
-          image_model: TEXT_IMAGE_MODEL,
-          video_model: 'wan/2.2-animate-mix-image',
-          video_model_input: {
-            generation_input_video_file: [
-              'https://cdn.example.com/reference.mp4',
-            ],
-            generation_mode: 'wan-std',
-          },
-        },
-        { byokMode: true },
-      ),
-    ).not.toThrow();
-  });
-
-  it('requires media-driven video variants to receive caller companion media', () => {
-    const template = getChainTemplate('chain');
-
-    expect(() =>
-      parseTemplateInput(
-        template!,
-        {
-          image_model: TEXT_IMAGE_MODEL,
-          video_model: 'runway/gen-4-turbo',
-          modify_model: 'wan/2.2-animate-mix-video',
-          video_model_input: {
-            generation_aspect_ratio: '1280:720',
-            generation_duration: 5,
-            generation_prompt: 'Animate the generated image',
-          },
-        },
-        { byokMode: true },
-      ),
-    ).toThrow('modify_model_input.generation_input_image_file is required');
-
-    expect(() =>
-      parseTemplateInput(
-        template!,
-        {
-          image_model: TEXT_IMAGE_MODEL,
-          video_model: 'runway/gen-4-turbo',
-          modify_model: 'wan/2.2-animate-mix-video',
-          video_model_input: {
-            generation_aspect_ratio: '1280:720',
-            generation_duration: 5,
-            generation_prompt: 'Animate the generated image',
-          },
-          modify_model_input: {
-            generation_input_image_file: [
-              'https://cdn.example.com/reference.png',
-            ],
-            generation_mode: 'wan-std',
-          },
-        },
-        { byokMode: true },
-      ),
-    ).not.toThrow();
-
-    expect(() =>
-      parseTemplateInput(
-        template!,
-        {
-          image_model: TEXT_IMAGE_MODEL,
-          video_model: 'runway/gen-4-turbo',
-          modify_model: 'runway/act-two-video',
-          video_model_input: {
-            generation_aspect_ratio: '1280:720',
-            generation_duration: 5,
-            generation_prompt: 'Animate the generated image',
-          },
-          modify_model_input: {
-            generation_input_video_file: [
-              'https://cdn.example.com/reference.mp4',
-            ],
-          },
-        },
-        { byokMode: true },
-      ),
-    ).not.toThrow();
-  });
-
   it('requires the modify_model to accept video input', () => {
     const template = getChainTemplate('chain');
 
@@ -934,9 +795,11 @@ describe('chain templates', () => {
     ).not.toThrow();
   });
 
-  it('accepts Seedance 2.0 as a video-to-video modify model', () => {
+  it('rejects Seedance 2.0 as a video-to-video modify model', () => {
     const template = getChainTemplate('chain');
 
+    // Seedance 2.0 takes an optional reference video, not a primary video edit
+    // input, so it is a video step, never a modify step.
     expect(() =>
       parseTemplateInput(
         template!,
@@ -954,13 +817,16 @@ describe('chain templates', () => {
         },
         { byokMode: true },
       ),
-    ).not.toThrow();
+    ).toThrow('does not support the video-to-video workflow');
   });
 
   it('rejects data-video handoffs into URL-only modify providers', () => {
     const template = getChainTemplate('chain');
 
-    for (const modifyModel of ['wan/2.7-videoedit', 'bytedance/seedance-2.0']) {
+    for (const modifyModel of [
+      'wan/2.7-videoedit',
+      'happyhorse/1.0-video-edit',
+    ]) {
       expect(() =>
         parseTemplateInput(
           template!,

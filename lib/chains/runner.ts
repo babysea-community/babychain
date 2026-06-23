@@ -51,8 +51,7 @@ import {
 } from './presenters';
 import {
   BABYCHAIN_SDK_REQUEST_TIMEOUT_MS,
-  BABYSEA_V1_IMAGE_TIMEOUT_SECONDS,
-  BABYSEA_V1_VIDEO_TIMEOUT_SECONDS,
+  BABYCHAIN_STEP_WATCHDOG_SECONDS,
 } from './shared-constants';
 import { createChainStore, type ChainStore } from './store';
 import {
@@ -81,15 +80,16 @@ const STARTING_STEP_STALE_MS = BABYCHAIN_SDK_REQUEST_TIMEOUT_MS + 60_000;
 // a terminal state. This wall-clock watchdog auto-cancels a step that never
 // reaches a terminal state so a lost or hung provider job cannot keep a run
 // polling - and billing on the provider - forever. A BabyChain step hits a
-// SINGLE provider per model, so the budget is BabySea's per-provider inference
-// timeout (image 60s, video 250s). BabySea's larger 210s/790s budgets are its
-// 3-provider failover worst case (~3x the per-provider timeout), which does not
-// apply to a single BabyChain inference.
+// SINGLE provider per model, so this budget is independent of BabySea's
+// 3-provider failover route budget (210s/790s); video gets more room because
+// providers like Runway plus an unstable network can legitimately run long. The
+// watchdog is wall-clock across cron re-entries, not one invocation, so it is
+// not bound by Vercel's per-invocation maxDuration.
 function runningStepTimeoutMs(step: ChainStepRecord) {
   const seconds =
     step.stepKind === 'video'
-      ? BABYSEA_V1_VIDEO_TIMEOUT_SECONDS.providerTimeout
-      : BABYSEA_V1_IMAGE_TIMEOUT_SECONDS.providerTimeout;
+      ? BABYCHAIN_STEP_WATCHDOG_SECONDS.video
+      : BABYCHAIN_STEP_WATCHDOG_SECONDS.image;
   return seconds * 1000;
 }
 const TRANSIENT_PROVIDER_ERROR_CODES = new Set([

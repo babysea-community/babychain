@@ -14,56 +14,13 @@ export type MediaDrivenModelVariant = {
   role: MediaDrivenChainRole;
 };
 
-const MEDIA_DRIVEN_BASE_MODEL_IDENTIFIERS = new Set([
-  'runway/act-two',
-  'wan/2.2-animate-mix',
-  'wan/2.2-animate-move',
-]);
+// Act Two and Wan Animate are temporarily removed from BabyChain; they will be
+// reintroduced later as dedicated card types. Emptying these arrays neutralizes
+// the variant machinery without deleting it, so the wiring can be restored when
+// the new card types land.
+const MEDIA_DRIVEN_BASE_MODEL_IDENTIFIERS = new Set<string>();
 
-const MEDIA_DRIVEN_MODEL_VARIANTS = [
-  {
-    baseModelIdentifier: 'runway/act-two',
-    inputKind: 'image',
-    modelIdentifier: 'runway/act-two-image',
-    requiredCallerMediaField: 'generation_input_video_file',
-    role: 'video',
-  },
-  {
-    baseModelIdentifier: 'runway/act-two',
-    inputKind: 'video',
-    modelIdentifier: 'runway/act-two-video',
-    requiredCallerMediaField: 'generation_input_video_file',
-    role: 'modify',
-  },
-  {
-    baseModelIdentifier: 'wan/2.2-animate-mix',
-    inputKind: 'image',
-    modelIdentifier: 'wan/2.2-animate-mix-image',
-    requiredCallerMediaField: 'generation_input_video_file',
-    role: 'video',
-  },
-  {
-    baseModelIdentifier: 'wan/2.2-animate-mix',
-    inputKind: 'video',
-    modelIdentifier: 'wan/2.2-animate-mix-video',
-    requiredCallerMediaField: 'generation_input_image_file',
-    role: 'modify',
-  },
-  {
-    baseModelIdentifier: 'wan/2.2-animate-move',
-    inputKind: 'image',
-    modelIdentifier: 'wan/2.2-animate-move-image',
-    requiredCallerMediaField: 'generation_input_video_file',
-    role: 'video',
-  },
-  {
-    baseModelIdentifier: 'wan/2.2-animate-move',
-    inputKind: 'video',
-    modelIdentifier: 'wan/2.2-animate-move-video',
-    requiredCallerMediaField: 'generation_input_image_file',
-    role: 'modify',
-  },
-] as const satisfies readonly MediaDrivenModelVariant[];
+const MEDIA_DRIVEN_MODEL_VARIANTS: readonly MediaDrivenModelVariant[] = [];
 
 const MEDIA_DRIVEN_MODEL_VARIANT_BY_IDENTIFIER: ReadonlyMap<
   string,

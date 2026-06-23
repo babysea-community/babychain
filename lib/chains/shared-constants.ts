@@ -16,6 +16,18 @@ export const BABYSEA_V1_VIDEO_TIMEOUT_SECONDS = {
   providerTimeout: 250,
 } as const;
 
+// Wall-clock watchdog for a single BabyChain step that has a provider/generation
+// id but never reaches a terminal state (a lost or hung provider job). The
+// runner enforces this budget across cron re-entries, NOT within one serverless
+// invocation, so it is deliberately decoupled from the BabySea 3-provider
+// failover route budgets above and from Vercel's per-invocation ceiling. A
+// BabyChain step hits ONE provider per model; video gets more room because
+// providers like Runway plus an unstable network can legitimately run long.
+export const BABYCHAIN_STEP_WATCHDOG_SECONDS = {
+  image: 120,
+  video: 360,
+} as const;
+
 export const BABYSEA_V1_STEP_MAX_DURATION_SECONDS = {
   image: providerFailoverBudgetSeconds(
     BABYSEA_V1_IMAGE_TIMEOUT_SECONDS,

@@ -723,7 +723,7 @@ AWS_S3_ENDPOINT_URL=
 
 `AWS_S3_ENDPOINT_URL` is the browser-readable base URL BabyChain returns for stored media. It can be a CloudFront distribution domain, your custom CloudFront domain, a bucket-hosted S3 URL, or an AWS S3 path-style bucket URL. BabyChain still writes objects to AWS S3 using `AWS_S3_REGION` and `AWS_S3_BUCKET_NAME`; true S3-compatible services with custom write endpoints are not part of this provider. Do not set a second public base URL.
 
-Create an IAM user or role for BabyChain with object write/read access limited to the media bucket. Replace `your-babychain-media-bucket` with the value used in `AWS_S3_BUCKET_NAME`:
+Create an IAM user or role for BabyChain with object write/read access limited to the media bucket. Replace `your-bucket-name` with the value used in `AWS_S3_BUCKET_NAME`:
 
 ```json
 {
@@ -733,7 +733,7 @@ Create an IAM user or role for BabyChain with object write/read access limited t
       "Sid": "BabyChainListBucket",
       "Effect": "Allow",
       "Action": ["s3:ListBucket"],
-      "Resource": "arn:aws:s3:::your-babychain-media-bucket"
+      "Resource": "arn:aws:s3:::your-bucket-name"
     },
     {
       "Sid": "BabyChainWriteMediaObjects",
@@ -744,13 +744,25 @@ Create an IAM user or role for BabyChain with object write/read access limited t
         "s3:PutObjectAcl",
         "s3:DeleteObject"
       ],
-      "Resource": "arn:aws:s3:::your-babychain-media-bucket/*"
+      "Resource": "arn:aws:s3:::your-bucket-name/*"
+    },
+    {
+      "Sid": "BabyChainFindMediaDistribution",
+      "Effect": "Allow",
+      "Action": ["cloudfront:ListDistributions"],
+      "Resource": "*"
+    },
+    {
+      "Sid": "BabyChainInvalidateMediaCache",
+      "Effect": "Allow",
+      "Action": ["cloudfront:CreateInvalidation"],
+      "Resource": "arn:aws:cloudfront::your-account-id:distribution/your-distribution-id"
     }
   ]
 }
 ```
 
-For CloudFront, point the distribution origin at the same S3 bucket and set `AWS_S3_ENDPOINT_URL` to the CloudFront or custom domain. If the bucket itself is private, configure CloudFront origin access so browsers can read the CloudFront URL while BabyChain writes with the IAM credentials above.
+For CloudFront, point the distribution origin at the same S3 bucket and set `AWS_S3_ENDPOINT_URL` to the CloudFront or custom domain. If the bucket itself is private, configure CloudFront origin access so browsers can read the CloudFront URL while BabyChain writes with the IAM credentials above. When an owner deletes a canvas card, BabyChain removes the run's `runs/<runId>/` objects from the bucket and then invalidates the matching `/runs/<runId>/*` CloudFront paths, so deleted images and videos stop being served from edge caches immediately instead of lingering until their TTL expires. BabyChain finds the distribution by matching the `AWS_S3_ENDPOINT_URL` host against each distribution's domain or alternate domain name (CNAME), which is why the `cloudfront:ListDistributions` and `cloudfront:CreateInvalidation` permissions above are included; the invalidation is best-effort, so a public URL that points straight at S3 or missing CloudFront permissions simply skips it without blocking the delete.
 
 ### Vercel Blob
 
@@ -775,7 +787,7 @@ BabyChain supports three `chain_runner` modes:
 
 The Agentic Workflow uses Amazon Nova through Amazon Bedrock as a prompt-planning layer. It does not add a fifth model role to `chain_models`; the media workflow remains `image_model`, optional `refine_model`, `video_model`, and optional `modify_model`. It stores checkpoint suggestions, selected prompts, validation outcomes, repair attempts, instruction version, schema version, model id, latency, and token usage in Aurora alongside the run timeline.
 
-Agentic Workflow prompts live under `lib/agents/instructions` and follow Amazon's published Amazon Nova prompting guidance. The planner sends Nova a stable system prompt (persona; an extended-thinking reasoning method, Nova 2 reasoning mode at low effort, with no `<thinking>` tags, that observes the media first, diverges into three deliberately distinct directions, then decides; the schema-true JSON output contract returned in an `<output>` block; and a trust boundary that treats run input and media as untrusted data) plus a per-run user message carrying the media and context. The first pass runs in Nova 2 reasoning mode (low effort, temperature 1 / top-p 0.9, with a 10k-token budget that holds the private reasoning and the final JSON) so the three suggestions genuinely differ, while the one-pass self-repair turns reasoning off and stays greedy (temperature 0, top-k 1) for reliable structured output. Grounding follows the Nova "provide supporting text" RAG pattern: BabyChain frames the downstream schema, current models, prior params, and a typed internal tool boundary (`read_downstream_schema`, `select_schema_defaults`) as the planner's trusted reference and instructs it to use only the schema fields, enums, and limits that appear there. BabyChain also pins provider-native prompt enhancement off on every agent step so a model default cannot rewrite the planned prompt. Bedrock tool calling and Knowledge Bases are not required for the current flow; add a Knowledge Base later only for durable brand/style memory across runs (`read_previous_step_summary` and `retrieve_brand_context` are reserved for that).
+Agentic Workflow prompts live under `lib/agents/instructions` and follow Amazon's published Amazon Nova prompting guidance. The planner sends Nova a stable system prompt (persona; an extended-thinking reasoning method, Nova 2 reasoning mode at low effort, with no `<thinking>` tags, that observes the media first, diverges into three deliberately distinct directions, then decides; the schema-true JSON output contract returned in an `<output>` block; and a trust boundary that treats run input and media as untrusted data) plus a per-run user message carrying the media and context. The first pass runs in Nova 2 reasoning mode (low effort, temperature 1 / top-p 0.9, with a 10k-token budget that holds the private reasoning and the final JSON) so the three suggestions genuinely differ, while the one-pass self-repair turns reasoning off and stays greedy (temperature 0, top-k 1) for reliable structured output. Grounding follows the Nova "provide supporting text" RAG pattern: BabyChain frames the downstream schema, current models, prior params, and a typed internal tool boundary (`read_downstream_schema`, `select_schema_defaults`) as the planner's trusted reference and instructs it to use only the schema fields, enums, and limits that appear there. BabyChain also pins provider-native prompt enhancement off by default on the planner's proposed parameters, so a model default cannot silently rewrite the planned prompt (in Copilot a reviewer can opt back in). Bedrock tool calling and Knowledge Bases are not required for the current flow; add a Knowledge Base later only for durable brand/style memory across runs (`read_previous_step_summary` and `retrieve_brand_context` are reserved for that).
 
 Configure the Agentic Workflow with:
 

@@ -50,6 +50,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@aws-sdk/client-cloudfront": "catalog:",
     "@aws-sdk/client-s3": "catalog:",
     "@radix-ui/react-slot": "catalog:",
     "@sentry/nextjs": "catalog:",

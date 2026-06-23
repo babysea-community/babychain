@@ -1262,9 +1262,9 @@ describe('runner step claiming', () => {
 
   it('excludes reserved media fields from Chain Agent downstream schema', async () => {
     const record = chainAgentRecord('copilot', {
-      videoModel: 'runway/act-two-image',
+      videoModel: 'wan/2.7-r2v',
       videoModelInput: {
-        generation_aspect_ratio: '1280:720',
+        generation_aspect_ratio: '16:9',
         generation_prompt: 'Animate the portrait naturally.',
       },
     });
@@ -1276,7 +1276,7 @@ describe('runner step claiming', () => {
     const agent = createPromptAgent({
       selectedPrompt: 'A subtle portrait animation with a gentle focus pull.',
       selectedParams: {
-        generation_aspect_ratio: '1280:720',
+        generation_aspect_ratio: '16:9',
       },
       onContext: (context) => {
         observedSchemas.push(context.nextStep.schema as JsonObject);

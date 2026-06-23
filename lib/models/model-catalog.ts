@@ -37,31 +37,36 @@ const BYOK_ONLY_BYTEPLUS_MODELS = new Set([
   'bytedance/seedance-2.0-fast',
 ]);
 
-export const MODEL_CATALOG = listModels().flatMap((model) => {
-  if (!isMediaDrivenBaseModelIdentifier(model.apiName)) {
-    return [toCatalogEntry(model)];
-  }
+// Act Two and Wan Animate are temporarily excluded from the BabyChain catalog;
+// they will return later as dedicated card types.
+const EXCLUDED_BASE_MODEL_IDENTIFIERS = new Set([
+  'runway/act-two',
+  'wan/2.2-animate-mix',
+  'wan/2.2-animate-move',
+]);
 
-  return listMediaDrivenModelVariants()
-    .filter((variant) => variant.baseModelIdentifier === model.apiName)
-    .map((variant) =>
-      toCatalogEntry(model, {
-        mediaInputKind: variant.inputKind,
-        modelIdentifier: variant.modelIdentifier,
-        semanticModelIdentifier: variant.baseModelIdentifier,
-        uiName: `${model.uiName} (${formatVariantInputKind(
-          variant.inputKind,
-        )})`,
-      }),
-    );
-});
+export const MODEL_CATALOG = listModels()
+  .filter((model) => !EXCLUDED_BASE_MODEL_IDENTIFIERS.has(model.apiName))
+  .flatMap((model) => {
+    if (!isMediaDrivenBaseModelIdentifier(model.apiName)) {
+      return [toCatalogEntry(model)];
+    }
 
-export const MODEL_LOOKUP_CATALOG = [
-  ...MODEL_CATALOG,
-  ...listModels()
-    .filter((model) => isMediaDrivenBaseModelIdentifier(model.apiName))
-    .map((model) => toCatalogEntry(model)),
-];
+    return listMediaDrivenModelVariants()
+      .filter((variant) => variant.baseModelIdentifier === model.apiName)
+      .map((variant) =>
+        toCatalogEntry(model, {
+          mediaInputKind: variant.inputKind,
+          modelIdentifier: variant.modelIdentifier,
+          semanticModelIdentifier: variant.baseModelIdentifier,
+          uiName: `${model.uiName} (${formatVariantInputKind(
+            variant.inputKind,
+          )})`,
+        }),
+      );
+  });
+
+export const MODEL_LOOKUP_CATALOG = MODEL_CATALOG;
 
 function toCatalogEntry(
   model: SemanticLadyModel,

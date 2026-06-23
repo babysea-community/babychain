@@ -5,6 +5,7 @@ import {
   BABYCHAIN_CRON_RUN_LIMIT,
   BABYCHAIN_SDK_REQUEST_TIMEOUT_MS,
   BABYCHAIN_SDK_ROUTE_MAX_DURATION_SECONDS,
+  BABYCHAIN_STEP_WATCHDOG_SECONDS,
   BABYSEA_V1_STEP_MAX_DURATION_SECONDS,
   VERCEL_PRO_FLUID_COMPUTE_MAX_DURATION_SECONDS,
 } from '@/lib/chains/shared-constants';
@@ -14,6 +15,20 @@ describe('BabyChain topology constants', () => {
   it('captures BabySea v1 worst-case route budgets', () => {
     expect(BABYSEA_V1_STEP_MAX_DURATION_SECONDS.image).toBe(210);
     expect(BABYSEA_V1_STEP_MAX_DURATION_SECONDS.video).toBe(790);
+  });
+
+  it('keeps the step watchdog decoupled from and within the failover budget', () => {
+    expect(BABYCHAIN_STEP_WATCHDOG_SECONDS.image).toBe(120);
+    expect(BABYCHAIN_STEP_WATCHDOG_SECONDS.video).toBe(360);
+    // The single-provider wall-clock watchdog must stay within BabySea's
+    // per-step failover budget so a step never outlives the run's route
+    // ceiling, even though the two are configured independently.
+    expect(BABYCHAIN_STEP_WATCHDOG_SECONDS.image).toBeLessThanOrEqual(
+      BABYSEA_V1_STEP_MAX_DURATION_SECONDS.image,
+    );
+    expect(BABYCHAIN_STEP_WATCHDOG_SECONDS.video).toBeLessThanOrEqual(
+      BABYSEA_V1_STEP_MAX_DURATION_SECONDS.video,
+    );
   });
 
   it('keeps BabyChain on the SDK happy path with one BabySea step per invocation', () => {

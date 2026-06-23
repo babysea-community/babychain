@@ -4,7 +4,6 @@ import type { ModelChainCatalogEntry } from '@/lib/chains/catalog';
 import type { ModelCatalogEntry } from '@/lib/models/model-catalog';
 
 const ChartLine = createFontAwesomeIcon('chart-line');
-const Cloud = createFontAwesomeIcon('cloud');
 const CodeFork = createFontAwesomeIcon('code-fork');
 const Database = createFontAwesomeIcon('database');
 const Fingerprint = createFontAwesomeIcon('fingerprint');
@@ -19,6 +18,7 @@ const ShieldHalved = createFontAwesomeIcon('shield-halved');
 const Terminal = createFontAwesomeIcon('terminal');
 const UserAstronaut = createFontAwesomeIcon('user-astronaut');
 const UserSecret = createFontAwesomeIcon('user-secret');
+const UserShield = createFontAwesomeIcon('user-shield');
 
 export const siteNavigation = {
   brand: 'BabyChain',
@@ -39,8 +39,8 @@ export const siteNavigation = {
     },
     {
       href: '/login',
-      icon: Cloud,
-      label: 'Launch on Cloud',
+      icon: UserShield,
+      label: 'Owner access',
       variant: 'outline' as const,
     },
   ],

@@ -6,6 +6,9 @@ settings:
 
 catalogs:
   default:
+    '@aws-sdk/client-cloudfront':
+      specifier: 3.1074.0
+      version: 3.1074.0
     '@aws-sdk/client-s3':
       specifier: 3.1074.0
       version: 3.1074.0
@@ -82,8 +85,8 @@ catalogs:
       specifier: 19.2.7
       version: 19.2.7
     semantic-lady:
-      specifier: 0.5.1
-      version: 0.5.1
+      specifier: 0.6.0
+      version: 0.6.0
     server-only:
       specifier: 0.0.1
       version: 0.0.1
@@ -120,6 +123,9 @@ importers:
 
   .:
     dependencies:
+      '@aws-sdk/client-cloudfront':
+        specifier: 'catalog:'
+        version: 3.1074.0
       '@aws-sdk/client-s3':
         specifier: 'catalog:'
         version: 3.1074.0
@@ -161,7 +167,7 @@ importers:
         version: 19.2.7(react@19.2.7)
       semantic-lady:
         specifier: 'catalog:'
-        version: 0.5.1
+        version: 0.6.0
       server-only:
         specifier: 'catalog:'
         version: 0.0.1
@@ -255,6 +261,10 @@ packages:
 
   '@aws-sdk/checksums@3.1000.8':
     resolution: {integrity: sha512-v0U9S7gBIme3OTgt1LdbAF4RpvavCc+4GK1+1xqAcqtbrHsEhjQo6R45LKcjhs/+WrRJij1Y0Gztw7QPAIeUfA==}
+    engines: {node: '>=20.0.0'}
+
+  '@aws-sdk/client-cloudfront@3.1074.0':
+    resolution: {integrity: sha512-vs90eOBBBIRAm20e+VfIeDaEkyaX1jIJMr9O4MqWgaxVA3RrTf2d84nX7y7JE95/K5rMlLYyXOCx3G9a5EibGA==}
     engines: {node: '>=20.0.0'}
 
   '@aws-sdk/client-s3@3.1074.0':
@@ -3287,8 +3297,8 @@ packages:
     resolution: {integrity: sha512-eflK8wEtyOE6+hsaRVPxvUKYCpRgzLqDTb8krvAsRIwOGlHoSgYLgBXoubGgLd2fT41/OUYdb48v4k4WWHQurA==}
     engines: {node: '>= 10.13.0'}
 
-  semantic-lady@0.5.1:
-    resolution: {integrity: sha512-tLGmH8jFLfymhlKwOCrg0u2mAtLdGFBzScEyX6dKBb8CcVTJAIYkIkUbjKxx0+9Y1fnFPrpDaxN8hmD5KgFckw==}
+  semantic-lady@0.6.0:
+    resolution: {integrity: sha512-8b0fLc3RQRuJPEbgRk94CoFP/7KutG5nH6TzEk/Gg1W7c3ithp/ZZUk46kosxHsDSqtjQpZt1OXuKwlUiFU5Mw==}
     engines: {node: '>=24.14.0 <25'}
 
   semver@6.3.1:
@@ -3847,6 +3857,19 @@ snapshots:
       '@aws-sdk/core': 3.974.23
       '@aws-sdk/types': 3.973.13
       '@smithy/core': 3.25.1
+      '@smithy/types': 4.15.0
+      tslib: 2.8.1
+
+  '@aws-sdk/client-cloudfront@3.1074.0':
+    dependencies:
+      '@aws-crypto/sha256-browser': 5.2.0
+      '@aws-crypto/sha256-js': 5.2.0
+      '@aws-sdk/core': 3.974.23
+      '@aws-sdk/credential-provider-node': 3.972.58
+      '@aws-sdk/types': 3.973.13
+      '@smithy/core': 3.25.1
+      '@smithy/fetch-http-handler': 5.5.1
+      '@smithy/node-http-handler': 4.8.1
       '@smithy/types': 4.15.0
       tslib: 2.8.1
 
@@ -7141,7 +7164,7 @@ snapshots:
       ajv-formats: 2.1.1(ajv@8.20.0)
       ajv-keywords: 5.1.0(ajv@8.20.0)
 
-  semantic-lady@0.5.1: {}
+  semantic-lady@0.6.0: {}
 
   semver@6.3.1: {}
 
