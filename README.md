@@ -157,18 +157,18 @@ BabyChain turns model-to-model media workflows into durable backend runs. Compos
 
 ### BabyChain and canvas workflow tools
 
-BabyChain provides a canvas too. The distinction is where the workflow becomes production infrastructure. Canvas workflow tools are strong creative workbenches. BabyChain is a deployable control plane: the canvas is a persistent, multi-flow studio built on top of the same authenticated API, durable Aurora state, server-side credentials, callbacks, and run timeline that product code uses directly.
+BabyChain provides a canvas too. The distinction is not that node-graph tools lack APIs: ComfyUI-style workflows can run locally, and Comfy Cloud exposes an API for submitting workflow JSON, tracking async jobs, and retrieving outputs. BabyChain is narrower and more product-opinionated: the canvas edits a normalized image/video chain contract backed by the same authenticated API, AWS Aurora state, server-side credentials, callbacks, and run timeline that product code uses directly.
 
-| Area              | Canvas workflow tools                              | BabyChain                                                              |
-| :---------------- | :------------------------------------------------- | :--------------------------------------------------------------------- |
-| Primary interface | Canvas-first workflow authoring                    | Multi-flow canvas studio plus stable HTTP API for the same contract    |
-| Runtime           | Desktop/local runtime or UI-managed cloud runtime  | Self-hosted Vercel deployment with Aurora-backed state                 |
-| Persistence       | Workflow files, local state, or tool-specific jobs | Durable runs, ordered steps, request params, outputs, audit, callbacks |
-| Model access      | Local model files or tool-specific provider nodes  | Server-side BYOK provider keys or BabySea key                          |
-| Caller experience | Open UI, run graph, inspect outputs                | Compose/test in studio, then poll API or receive signed callback       |
-| Production fit    | Creative iteration and workflow authoring          | Product backends, queues, retries, idempotency, auth, webhooks         |
+| Area              | ComfyUI-style workflow tools                                      | BabyChain                                                                         |
+| :---------------- | :---------------------------------------------------------------- | :-------------------------------------------------------------------------------- |
+| Primary interface | General node-graph workflow authoring                             | Opinionated multi-flow image/video studio plus stable HTTP API for the same chain |
+| Runtime           | Local runtime or cloud workflow execution                         | Self-hosted Vercel control plane with AWS Aurora-backed state                     |
+| Persistence       | Workflow JSON, local or cloud job state, and output files         | Durable runs, ordered steps, request params, outputs, audit, callbacks            |
+| Model access      | Local models, provider nodes, or a workflow cloud API             | Server-side BYOK provider keys or BabySea key behind normalized `generation_*`    |
+| Caller experience | Submit/export a graph, monitor a job, and download outputs        | Submit one normalized chain, poll the run API, or receive one signed callback     |
+| Production fit    | Flexible graph execution, creative iteration, and workflow export | Product backends, queues, retries, idempotency, auth, webhooks                    |
 
-Use BabyChain when a visual generative workflow is ready to become infrastructure: design and test visually, then expose a stable API contract that product code can call repeatedly without exposing inference credentials or asking every user to operate a model UI.
+Use BabyChain when a visual generative workflow is ready to become an application contract: design and test visually, then expose one normalized API that product code can call repeatedly without exposing inference credentials or asking every user to understand the underlying provider graph.
 
 ### Use cases
 
@@ -202,146 +202,226 @@ Solid edges are control/request flow; dotted edges are data/media flow. Everythi
 ### System containers
 
 ```mermaid
-flowchart LR
-    subgraph Legend["Legend"]
-        direction LR
-        Lc["client"] -->|control / request| Ls["service"]
-        Ls -.->|data / media| Lt["store"]
+%%{init: {"theme": "base", "flowchart": {"htmlLabels": true, "curve": "basis", "nodeSpacing": 48, "rankSpacing": 64, "padding": 18}, "themeVariables": {"fontFamily": "ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif", "fontSize": "14px", "lineColor": "#64748b", "primaryTextColor": "#0f172a"}} }%%
+flowchart TB
+  subgraph Legend["Legend"]
+    direction LR
+    LEG_A["control path"] --> LEG_B["service"]
+    LEG_C["media/data path"] -.-> LEG_D["store"]
+  end
+
+  subgraph Clients["External callers · no provider credentials"]
+    direction LR
+    OWNER["Owner browser<br/>dashboard · canvas · library"]
+    APP["Product backend<br/>Bearer BabyChain API key"]
+    SCHED["Scheduler<br/>Vercel Cron or external"]
+  end
+
+  subgraph Vercel["Vercel trust boundary · Next.js App Router"]
+    direction TB
+
+    subgraph Surfaces["HTTP surfaces"]
+      direction LR
+      UI["Dashboard<br/>/dashboard/*"]
+      CHAIN_API["Chain API<br/>create · get · continue · cancel"]
+      MODEL_API["Model API<br/>catalog · schema"]
+      RECOVERY["Recovery cron<br/>queued-run sweep"]
+      BABYSEA_HOOK["BabySea webhook receiver<br/>optional signed updates"]
     end
 
-    subgraph Clients["Clients · hold only a BabyChain API key"]
-        OWNER["Owner browser<br/>canvas + library"]
-        APP["Product backend<br/>API caller"]
-        SCHED["Scheduler<br/>Vercel Cron / external"]
+    subgraph Core["Runtime core"]
+      direction LR
+      RUNNER["Chain runner<br/>one action per invocation"]
+      SL["Semantic Lady<br/>generation_* schema brain"]
+      AGENT["Agentic Workflow<br/>Copilot · Autopilot"]
     end
 
-    subgraph TB["Vercel · server-side trust boundary · Next.js"]
-        UI["/dashboard/*<br/>server components + actions"]
-        API["/api/v1/chains/*<br/>create / get / continue / cancel"]
-        MODELS["/api/v1/models/*"]
-        SL["Semantic Lady<br/>generation_* schema<br/>fields · validation · routing"]
-        RUNNER["Chain runner · processRun<br/>orchestration · idempotency<br/>storage · callbacks"]
-        AGENT["Agentic Workflow planner<br/>copilot / autopilot"]
-        CRONR["/api/cron/process-runs"]
-        HOOK["/api/webhooks/babysea"]
-        SECRETS[["Server secrets<br/>provider + BabySea keys<br/>Bedrock token · DB + storage creds"]]
-    end
+    SECRETS[["Server secrets<br/>provider keys · BabySea key<br/>Amazon Nova token · DB/storage creds"]]
+  end
 
-    subgraph AWS["AWS Aurora · babychain_private"]
-        DB[("chain_run · chain_step · canvas<br/>chain_agent_checkpoint · api_key<br/>audit_event · callback_delivery<br/>babysea_webhook_delivery")]
-    end
+  subgraph Aurora["AWS Aurora · babychain_private"]
+    DB[("durable state<br/>runs · steps · canvases<br/>checkpoints · keys · audit<br/>callbacks · webhooks")]
+  end
 
-    subgraph Bedrock["Amazon Bedrock"]
-        NOVA["Amazon Nova 2 · Converse API"]
-    end
+  subgraph Nova["Amazon Nova (Amazon Bedrock)"]
+    NOVA_API["Converse API<br/>planner reasoning + repair"]
+  end
 
-    subgraph Storage["Media storage · optional"]
-        S3["AWS S3 / CloudFront"]
-        BLOB["Vercel Blob"]
-    end
+  subgraph Media["Durable media storage"]
+    S3["AWS S3<br/>CloudFront optional"]
+    BLOB["Vercel Blob"]
+  end
 
-    subgraph BYOK["Inference providers · BYOK mode"]
-        ALI["Alibaba Cloud"]
-        BFL["Black Forest Labs"]
-        BP["BytePlus"]
-        GGL["Google"]
-        OAI["OpenAI"]
-        RW["Runway"]
-    end
+  subgraph Providers["Generation backends"]
+    BYOK["BYOK providers<br/>Alibaba · BFL · BytePlus<br/>Google · OpenAI · Runway"]
+    BABYSEA["BabySea API<br/>babysea mode"]
+  end
 
-    BS["BabySea API<br/>babysea mode + webhooks"]
-    SENTRY["Sentry<br/>errors + traces"]
+  SENTRY["Sentry<br/>errors · traces"]
 
-    OWNER -->|owner session JWT| UI
-    APP -->|Bearer API key| API
-    SCHED -->|cron secret| CRONR
-    BS -->|signed webhook| HOOK
-    UI -->|server actions| API
-    API --> RUNNER
-    API -->|public field schema| MODELS
-    MODELS --> SL
-    CRONR -->|recover queued runs| RUNNER
-    HOOK -->|generation update| RUNNER
-    RUNNER -->|BYOK validate + route| SL
-    RUNNER -->|BYOK submit + poll| ALI & BFL & BP & GGL & OAI & RW
-    RUNNER -->|babysea SDK submit| BS
-    RUNNER -->|request next-step plan| AGENT
-    AGENT -->|schema-true fields| SL
-    AGENT -->|Converse + media| NOVA
-    RUNNER -->|one signed callback| APP
+  OWNER --> UI
+  APP --> CHAIN_API
+  APP --> MODEL_API
+  SCHED --> RECOVERY
+  UI --> CHAIN_API
+  CHAIN_API --> RUNNER
+  MODEL_API --> SL
+  RECOVERY --> RUNNER
+  BABYSEA -.-> BABYSEA_HOOK
+  BABYSEA_HOOK --> RUNNER
 
-    RUNNER <-.->|persist run / steps / checkpoints / audit| DB
-    UI <-.->|save / load / delete canvas| DB
-    RUNNER -.->|copy succeeded outputs| S3 & BLOB
-    S3 & BLOB -.->|stored prior output| AGENT
-    SECRETS -.->|injected at runtime| RUNNER
-    RUNNER -.->|errors + traces| SENTRY
-    UI -.->|errors + traces| SENTRY
+  RUNNER --> SL
+  RUNNER --> BYOK
+  RUNNER --> BABYSEA
+  RUNNER --> AGENT
+  AGENT --> SL
+  AGENT --> NOVA_API
+  RUNNER --> APP
 
-    style TB fill:#eff6ff,stroke:#2563eb,stroke-width:2px
-    style SL fill:#fce7f3,stroke:#db2777,stroke-width:2px
-    style SECRETS fill:#fee2e2,stroke:#dc2626
-    style Storage fill:#fff7ed,stroke:#ea580c
-    style AWS fill:#eef2ff,stroke:#4f46e5
-    style Legend fill:#f8fafc,stroke:#cbd5e1
+  RUNNER <--> DB
+  UI <--> DB
+  RUNNER -.-> S3
+  RUNNER -.-> BLOB
+  S3 -.-> AGENT
+  BLOB -.-> AGENT
+  SECRETS -.-> RUNNER
+  SECRETS -.-> AGENT
+  RUNNER -.-> SENTRY
+  UI -.-> SENTRY
+
+  classDef client fill:#f8fafc,stroke:#94a3b8,stroke-width:1.4px,color:#0f172a
+  classDef surface fill:#dbeafe,stroke:#2563eb,stroke-width:1.6px,color:#0f172a
+  classDef core fill:#e0f2fe,stroke:#0284c7,stroke-width:1.8px,color:#082f49
+  classDef schema fill:#fce7f3,stroke:#db2777,stroke-width:2px,color:#500724
+  classDef data fill:#eef2ff,stroke:#4f46e5,stroke-width:2px,color:#111827
+  classDef ai fill:#f5f3ff,stroke:#7c3aed,stroke-width:2px,color:#2e1065
+  classDef storage fill:#fff7ed,stroke:#ea580c,stroke-width:1.8px,color:#431407
+  classDef provider fill:#ecfeff,stroke:#0891b2,stroke-width:1.6px,color:#164e63
+  classDef secret fill:#fee2e2,stroke:#dc2626,stroke-width:1.8px,color:#450a0a
+  classDef obs fill:#f1f5f9,stroke:#64748b,stroke-width:1.4px,color:#0f172a
+
+  class OWNER,APP,SCHED,LEG_A,LEG_B,LEG_C,LEG_D client
+  class UI,CHAIN_API,MODEL_API,RECOVERY,BABYSEA_HOOK surface
+  class RUNNER,AGENT core
+  class SL schema
+  class DB data
+  class NOVA_API ai
+  class S3,BLOB storage
+  class BYOK,BABYSEA provider
+  class SECRETS secret
+  class SENTRY obs
+
+  style Vercel fill:#eff6ff,stroke:#2563eb,stroke-width:2px,color:#0f172a
+  style Surfaces fill:#f8fafc,stroke:#93c5fd,stroke-width:1px,color:#0f172a
+  style Core fill:#f0f9ff,stroke:#7dd3fc,stroke-width:1px,color:#0f172a
+  style Aurora fill:#eef2ff,stroke:#4f46e5,stroke-width:2px,color:#0f172a
+  style Nova fill:#faf5ff,stroke:#7c3aed,stroke-width:2px,color:#0f172a
+  style Media fill:#fff7ed,stroke:#ea580c,stroke-width:2px,color:#0f172a
+  style Providers fill:#ecfeff,stroke:#0891b2,stroke-width:2px,color:#0f172a
+  style Clients fill:#f8fafc,stroke:#94a3b8,stroke-width:2px,color:#0f172a
+  style Legend fill:#ffffff,stroke:#cbd5e1,stroke-width:1px,color:#0f172a
 ```
 
 Aurora is the single system of record: every run, ordered step, output URL, API key hash, audit event, callback delivery, inbound BabySea webhook delivery, agent checkpoint, and saved canvas lives in the `babychain_private` schema. The Vercel runtime is stateless: the `processRun` engine advances one action per invocation (start a step, poll a running step, or finalize) and is driven from four entry points: creating a run, polling `GET /api/v1/chains/get/{runId}`, the recovery cron, and the inbound `/api/webhooks/babysea` signed webhook. Because all state round-trips through Aurora, any function instance can resume a run mid-chain, so long chains survive serverless time limits.
 
-Two provider modes share the same routes and run contract. **BYOK mode** resolves model fields, validation, and provider routing through **Semantic Lady**, then the runner calls the inference provider directly with server-side keys. **`babysea` mode** submits through the BabySea SDK and receives completion on the signed inbound webhook. For `chain_agent` runs the runner grounds **Amazon Nova 2** on Bedrock with the same Semantic Lady downstream schema and records every suggestion in `chain_agent_checkpoint`. When media storage is enabled, each succeeded step's outputs are copied into your own AWS S3 (or CloudFront) or Vercel Blob store and the stored URL is preferred for API responses, downstream handoff, and Agentic Workflow checkpoints. Errors and traces from server and browser flow to Sentry. Provider, BabySea, Bedrock, database, and storage credentials never leave the trust boundary; callers only ever hold a BabyChain API key.
+Two provider modes share the same routes and run contract. **BYOK mode** resolves model fields, validation, and provider routing through **Semantic Lady**, then the runner calls the inference provider directly with server-side keys. **`babysea` mode** submits through the BabySea SDK and receives completion on the signed inbound webhook. For `chain_agent` runs the runner grounds **Amazon Nova (Amazon Bedrock)** with the same Semantic Lady downstream schema and records every suggestion in `chain_agent_checkpoint`. When media storage is enabled, each succeeded step's outputs are copied into your own AWS S3 (or CloudFront) or Vercel Blob store and the stored URL is preferred for API responses, downstream handoff, and Agentic Workflow checkpoints. Errors and traces from server and browser flow to Sentry. Provider, BabySea, Amazon Nova, database, and storage credentials never leave the trust boundary; callers only ever hold a BabyChain API key.
 
 ### Runtime: Agentic Workflow Copilot run
 
 ```mermaid
+%%{init: {"theme": "base", "sequence": {"mirrorActors": false, "actorMargin": 72, "messageMargin": 46, "boxMargin": 12, "noteMargin": 14}} }%%
 sequenceDiagram
     autonumber
     actor Caller as Product backend
-    participant API as BabyChain API
+
+  box rgb(239, 246, 255) Vercel trust boundary
+    participant API as Chain API
+    participant Runner as Durable runner
     participant SL as Semantic Lady
-    participant Runner as Chain runner
-    participant Prov as Provider / BabySea
+    participant Agent as Agentic planner
+  end
+
+  box rgb(236, 254, 255) External execution
+    participant BYOK as BYOK providers
+    participant BabySea as BabySea API
     participant Store as Media storage
-    participant Nova as Bedrock Nova
-    participant DB as Aurora
+    participant Nova as Amazon Nova<br/>(Amazon Bedrock)
+  end
 
-    Caller->>API: POST /chains/runs (chain_agent, copilot)
-    API->>SL: validate generation_* fields + route models
-    SL-->>API: validated chain + provider routing
-    API->>Runner: processRun
-    Runner->>Prov: submit step 1 (seed prompt)
-    Prov-->>Runner: generation id (running)
-    Runner->>DB: persist run + step (running)
-    API-->>Caller: run (status running)
+  participant DB as AWS Aurora<br/>babychain_private
+  participant Hook as webhook_url
 
-    loop poll until step succeeds
-        Caller->>API: GET /chains/get/{runId}
-        API->>Runner: processRun (advance one action)
-        Runner->>Prov: poll generation status
-        Prov-->>Runner: succeeded + output URL
-        Runner->>Store: copy output (when storage enabled)
-        Store-->>Runner: stored URL
-        Runner->>DB: step succeeded + stored URL
+  Caller->>API: POST /api/v1/chains/runs<br/>chain_agent + copilot
+  API->>SL: validate models + generation fields
+  SL-->>API: fields, roles, defaults, routes
+  API->>DB: create run + steps<br/>idempotency key scoped to caller
+  API->>Runner: processRun(runId)
+  alt BYOK mode
+    Runner->>BYOK: submit first step<br/>deterministic submit key
+    BYOK-->>Runner: provider job id
+  else babysea mode
+    Runner->>BabySea: submit first step<br/>BabySea SDK
+    BabySea-->>Runner: BabySea generation id
+  end
+  Runner->>DB: step running<br/>provider ids + timeline
+  API-->>Caller: run = running
+
+  loop Advance one action per request
+    Caller->>API: GET /api/v1/chains/get/{runId}
+    API->>Runner: processRun(runId)
+    alt BYOK polling
+      Runner->>BYOK: poll provider job
+      BYOK-->>Runner: status + output URL
+    else BabySea polling
+      Runner->>BabySea: poll BabySea generation
+      BabySea-->>Runner: status + output URL
+    else BabySea webhook, if configured
+      BabySea-->>API: signed webhook update
+      API->>Runner: resume from webhook
     end
-    Note over Prov,Runner: babysea mode instead pushes completion via signed /api/webhooks/babysea
+    opt Storage enabled
+      Runner->>Store: copy succeeded output
+      Store-->>Runner: stable media URL
+    end
+    Runner->>DB: persist step result<br/>or terminal failure
+  end
 
-    Note over Runner,Nova: next step is agent-planned
-    Runner->>SL: read downstream schema + defaults
-    SL-->>Runner: required fields + enums + ranges
-    Runner->>Nova: suggestNextStep (prior media + schema)
-    Nova-->>Runner: suggestion (prompt + schema-valid params)
-    Runner->>DB: create checkpoint (suggested) + run = awaiting_agent
-    API-->>Caller: run (awaiting_agent + agent_checkpoints)
+  Note over Runner,Agent: Downstream step is planned only after prior media exists.
+  Runner->>SL: read next model schema + defaults
+  SL-->>Runner: required fields + enum limits
+  Runner->>Agent: build planning context<br/>prior media + schema
+  Agent->>Nova: Converse request<br/>reasoning pass (low effort)
+  Nova-->>Agent: prompt candidates + params
+  Agent->>SL: complete + validate proposal
+  SL-->>Agent: schema-valid selected fields
+  opt First pass fails validation
+    Agent->>Nova: greedy self-repair<br/>reasoning off
+    Nova-->>Agent: repaired structured JSON
+  end
+  Agent-->>Runner: validated suggestion
+  Runner->>DB: insert chain_agent_checkpoint<br/>status = suggested
+  Runner->>DB: run = awaiting_agent
+  API-->>Caller: run + agent_checkpoints[]
 
-    Caller->>API: POST /chains/continue/{runId} (checkpoint_id + edits)
-    API->>SL: re-validate selected params
-    SL-->>API: ok
-    API->>Runner: continueAgentRun
-    Runner->>DB: approve checkpoint + run = queued
-    Runner->>Prov: submit next step (approved prompt)
-    Note over Runner,Caller: repeat poll + plan + approve per step, autopilot auto-approves
+  Caller->>API: POST /api/v1/chains/continue/{runId}<br/>checkpoint_id + optional edits
+  API->>SL: validate selected prompt + params
+  SL-->>API: accepted
+  API->>DB: checkpoint approved<br/>run = queued
+  API->>Runner: processRun(runId)
+  alt BYOK mode
+    Runner->>BYOK: submit approved step
+  else babysea mode
+    Runner->>BabySea: submit approved step
+  end
 
-    Runner->>DB: run = succeeded
-    Runner-->>Caller: one signed callback to webhook_url
+  Note over Agent,DB: Autopilot skips the approval pause and writes an approved chain_agent_checkpoint.
+  Note over Runner,BabySea: Repeat submit, poll, store, checkpoint until the chain is terminal.
+
+  Runner->>DB: run succeeded/failed/canceled<br/>callback claimed
+  opt webhook_url supplied
+    Runner-->>Hook: one signed terminal callback
+    Runner->>DB: callback_delivery recorded
+  end
 ```
 
 In **Copilot**, the run pauses at each downstream step with `status = awaiting_agent` and a `suggested` checkpoint; the caller approves, optionally editing `selected_prompt`/`selected_params` via `POST /api/v1/chains/continue/{runId}`, and BabyChain re-validates the edit against Semantic Lady before submitting. In **Autopilot**, the planner's schema-valid suggestion is auto-approved and the run continues without pausing. If a caller stops polling, the recovery cron advances or finalizes in-flight runs and the one final signed callback is still delivered.
@@ -427,7 +507,7 @@ pnpm run aurora:migrate   # creates the babychain_private schema + tables
 pnpm dev
 ```
 
-Open <http://localhost:3011/dashboard/canvas> and log in with `OWNER_EMAIL` / `OWNER_PASSWORD`.
+Open <http://localhost:3011/dashboard/canvas> and log in with `OWNER_EMAIL`/`OWNER_PASSWORD`.
 
 For the first run, choose models that match the provider keys in `.env.local`. For example, if you configured only a BFL key, image generation can work but an image-to-video chain still needs a video provider key. If you configured Alibaba Cloud, BytePlus, Google, or Runway keys, pick image and video models from the same configured provider to reduce first-run variables.
 
@@ -881,7 +961,7 @@ BabyChain supports three `chain_runner` modes:
 
 The Agentic Workflow uses Amazon Nova through Amazon Bedrock as a prompt-planning layer. It does not add a fifth model role to `chain_models`; the media workflow remains `image_model`, optional `refine_model`, `video_model`, and optional `modify_model`. It stores checkpoint suggestions, selected prompts, validation outcomes, repair attempts, instruction version, schema version, model id, latency, and token usage in Aurora alongside the run timeline.
 
-Agentic Workflow prompts live under `lib/agents/instructions` and follow Amazon's published Amazon Nova prompting guidance. The planner sends Nova a stable system prompt (persona; an extended-thinking reasoning method, Nova 2 reasoning mode at low effort, with no `<thinking>` tags, that observes the media first, diverges into three deliberately distinct directions, then decides; the schema-true JSON output contract returned in an `<output>` block; and a trust boundary that treats run input and media as untrusted data) plus a per-run user message carrying the media and context. The first pass runs in Nova 2 reasoning mode (low effort, temperature 1 / top-p 0.9, with a 10k-token budget that holds the private reasoning and the final JSON) so the three suggestions genuinely differ, while the one-pass self-repair turns reasoning off and stays greedy (temperature 0, top-k 1) for reliable structured output. Grounding follows the Nova "provide supporting text" RAG pattern: BabyChain frames the downstream schema, current models, prior params, and a typed internal tool boundary (`read_downstream_schema`, `select_schema_defaults`) as the planner's trusted reference and instructs it to use only the schema fields, enums, and limits that appear there. BabyChain also pins provider-native prompt enhancement off by default on the planner's proposed parameters, so a model default cannot silently rewrite the planned prompt (in Copilot a reviewer can opt back in). Bedrock tool calling and Knowledge Bases are not required for the current flow; add a Knowledge Base later only for durable brand/style memory across runs (`read_previous_step_summary` and `retrieve_brand_context` are reserved for that).
+Agentic Workflow prompts live under `lib/agents/instructions` and follow Amazon's published Amazon Nova prompting guidance. The planner sends Nova a stable system prompt (persona; an extended-thinking reasoning method, Nova 2 reasoning mode at low effort, with no `<thinking>` tags, that observes the media first, diverges into three deliberately distinct directions, then decides; the schema-true JSON output contract returned in an `<output>` block; and a trust boundary that treats run input and media as untrusted data) plus a per-run user message carrying the media and context. The first pass runs in Nova 2 reasoning mode (low effort, temperature 1/top-p 0.9, with a 10k-token budget that holds the private reasoning and the final JSON) so the three suggestions genuinely differ, while the one-pass self-repair turns reasoning off and stays greedy (temperature 0, top-k 1) for reliable structured output. Grounding follows the Nova "provide supporting text" RAG pattern: BabyChain frames the downstream schema, current models, prior params, and a typed internal tool boundary (`read_downstream_schema`, `select_schema_defaults`) as the planner's trusted reference and instructs it to use only the schema fields, enums, and limits that appear there. BabyChain also pins provider-native prompt enhancement off by default on the planner's proposed parameters, so a model default cannot silently rewrite the planned prompt (in Copilot a reviewer can opt back in). Bedrock tool calling and Knowledge Bases are not required for the current flow; add a Knowledge Base later only for durable brand/style memory across runs (`read_previous_step_summary` and `retrieve_brand_context` are reserved for that).
 
 Configure the Agentic Workflow with:
 
@@ -904,12 +984,12 @@ const AGENT_REASONING_TEMPERATURE = 1; // creative (first) pass only
 const AGENT_REASONING_TOP_P = 0.9; // creative (first) pass only
 ```
 
-| Constant                      | Default | Controls                                                                                                                                                                                            | When to change                                                                                        |
-| :---------------------------- | :------ | :-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :---------------------------------------------------------------------------------------------------- |
-| `AGENT_REASONING_EFFORT`      | `low`   | Nova 2 extended-thinking depth on the creative pass. `low` fits this single-pass image + schema analysis; `medium` suits multi-step / multi-tool coordination; `high` targets STEM-grade reasoning. | Raise to `medium` for complex briefs if you accept higher latency and cost.                           |
-| `AGENT_REASONING_TEMPERATURE` | `1`     | Creativity of the three suggestions. Higher diverges more (and slightly raises malformed-JSON odds, which the repair pass absorbs).                                                                 | Lower toward `0.7` for safer, more conservative variations.                                           |
-| `AGENT_REASONING_TOP_P`       | `0.9`   | Nucleus-sampling breadth on the creative pass.                                                                                                                                                      | Pair with temperature; lower for tighter output.                                                      |
-| `AGENT_MAX_OUTPUT_TOKENS`     | `10000` | Output budget. **Reasoning tokens are billed as output and count against this**, so it must hold the private reasoning _and_ the final JSON (Nova 2 allows up to ~65k).                             | Raise it whenever you raise effort, or the answer can be truncated to an empty, unparseable response. |
+| Constant                      | Default | Controls                                                                                                                                                                                          | When to change                                                                                        |
+| :---------------------------- | :------ | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | :---------------------------------------------------------------------------------------------------- |
+| `AGENT_REASONING_EFFORT`      | `low`   | Nova 2 extended-thinking depth on the creative pass. `low` fits this single-pass image + schema analysis; `medium` suits multi-step/multi-tool coordination; `high` targets STEM-grade reasoning. | Raise to `medium` for complex briefs if you accept higher latency and cost.                           |
+| `AGENT_REASONING_TEMPERATURE` | `1`     | Creativity of the three suggestions. Higher diverges more (and slightly raises malformed-JSON odds, which the repair pass absorbs).                                                               | Lower toward `0.7` for safer, more conservative variations.                                           |
+| `AGENT_REASONING_TOP_P`       | `0.9`   | Nucleus-sampling breadth on the creative pass.                                                                                                                                                    | Pair with temperature; lower for tighter output.                                                      |
+| `AGENT_MAX_OUTPUT_TOKENS`     | `10000` | Output budget. **Reasoning tokens are billed as output and count against this**, so it must hold the private reasoning _and_ the final JSON (Nova 2 allows up to ~65k).                           | Raise it whenever you raise effort, or the answer can be truncated to an empty, unparseable response. |
 
 Two hard rules from the Nova 2 docs: reasoning effort `high` **forbids** `temperature`, `topP`, and `topK` (keep effort at `low`/`medium` if you tune those), and the one-pass self-repair always runs greedy (temperature 0, top-k 1) with reasoning off so a malformed creative response still gets a reliable structured fix, it is intentionally not tunable.
 
