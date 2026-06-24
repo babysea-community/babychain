@@ -4,6 +4,8 @@ All notable changes will be documented here. The format follows [Keep a Changelo
 
 ## [Unreleased]
 
+## [0.4.1] - 2026-06-24
+
 ### Added
 
 - Natural image-to-video openings, set by editable code constants in `lib/config/natural-video.ts` (not env vars), so no video model opens on a frozen copy of the previous step. By default BabyChain treats every provider the same with an ffmpeg trim; an opt-in reference mode fixes the providers that support it at the source:
@@ -12,6 +14,8 @@ All notable changes will be documented here. The format follows [Keep a Changelo
 
 ### Changed
 
+- Prepared the final H0 hackathon release as `0.4.1`: package metadata, the Dockerfile `BABYCHAIN_VERSION` label default, Docker publish docs, and the Docker Hub tag overview now track the final release tag.
+- Public deployment examples now standardize on `GEMINI_API_KEY` for Google models and keep env definitions in the canonical BabyChain order across README, deployment guides, Docker Compose, Fly, Cloud Run, CloudFormation, EC2, GitHub Actions, and GitLab CI.
 - The run API now **rejects** a caller-supplied `refine_model_input`, `video_model_input`, or `modify_model_input` `generation_prompt` with a `400 invalid_chain_input` when `execution.type` is `chain_agent`. In agent mode the Agentic Workflow authors every downstream step prompt, so those caller prompts were previously accepted and then silently discarded. The error directs callers to steer the planner with `metadata.model_context` or switch to `execution.type: "self_control"` to author prompts directly. The base `image_model_input.generation_prompt` stays caller-authored and is unaffected. The canvas dashboard already strips agent-planned prompts before sending, so it is not affected; this only tightens direct API usage.
 - Clarified the canvas `model_context` brief helper text: the brief only steers the steps the agent plans after the first model card, so anything that must be visible from the first frame (such as text or a logo on clothing) belongs in the first model card's prompt or a refine step - the agent never rewrites the base image, and image-to-video cannot add detail that is not already in the source frame.
 - Updated the BYOK schema source to `semantic-lady@0.6.1`: Black Forest Labs FLUX 1.1 [pro] ultra `generation_aspect_ratio` is now an enum of common presets (`21:9` through `9:21`, default `16:9`) instead of a free-form string, so the canvas renders it as a dropdown that matches every other model's aspect ratio field.

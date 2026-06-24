@@ -348,9 +348,18 @@ In **Copilot**, the run pauses at each downstream step with `status = awaiting_a
 
 ## 3. Quickstart
 
-Prerequisites: Node.js 24+, pnpm, and an accessible PostgreSQL database (AWS Aurora or local). See [4. Database](#4-database) for cluster setup.
+This path is for a new user starting from an empty clone. It gets the dashboard, API, database schema, and one real provider-backed run working locally before deployment.
 
-Run locally:
+### Prerequisites
+
+- **Node.js** `>=24.14.0 <25`.
+- **pnpm** `11.7.0` (the version declared in [`package.json`](package.json)).
+- **PostgreSQL** reachable from your machine. AWS Aurora PostgreSQL is the production target; local PostgreSQL also works for development.
+- **Inference credentials for the models you select.** For the default BYOK mode, configure provider keys for the image/video models you plan to run. A first image-to-video run needs an image-capable model key and a video-capable model key, or one provider key that supports both roles. See [5. Models and Modes](#5-models-and-modes).
+
+Agentic Workflow modes are optional for the first setup. They require `AWS_BEARER_TOKEN_BEDROCK`; `BEDROCK_REGION` and `BEDROCK_NOVA_AGENT_MODEL` default to `us-east-1` and `us.amazon.nova-2-lite-v1:0` if left unset.
+
+### 1. Clone and install
 
 ```bash
 git clone https://github.com/babysea-community/babychain.git
@@ -359,16 +368,80 @@ pnpm install --frozen-lockfile
 cp .env.example .env.local
 ```
 
-Fill `.env.local` from [`.env.example`](.env.example) (at minimum `DATABASE_URL`, the `OWNER_*` dashboard credentials, the `BABYCHAIN_*` secrets, and one provider key for BYOK), apply the database schema, then start the app:
+### 2. Configure `.env.local`
+
+Fill `.env.local` from [`.env.example`](.env.example). For a local BYOK run, these are the required groups:
+
+| Group               | Required values                                                                                                                                                              |
+| :------------------ | :--------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| App URL             | `NEXT_PUBLIC_SITE_URL=http://localhost:3011`                                                                                                                                 |
+| Owner login         | `OWNER_EMAIL`, `OWNER_PASSWORD`, `OWNER_SESSION_SECRET`                                                                                                                      |
+| Database            | `DATABASE_URL`                                                                                                                                                               |
+| BabyChain API       | `BABYCHAIN_API_KEY`, `BABYCHAIN_CRON_SECRET`, `BABYCHAIN_CALLBACK_SECRET`                                                                                                    |
+| Provider mode       | `BABYCHAIN_PROVIDER_MODE=byok`                                                                                                                                               |
+| BYOK provider keys  | At least the provider keys required by the models you will run: `DASHSCOPE_API_KEY`, `BFL_API_KEY`, `ARK_API_KEY`, `GEMINI_API_KEY`, `OPENAI_API_KEY`, `RUNWAYML_API_SECRET` |
+| Agentic Workflow    | Optional for first setup. Set `AWS_BEARER_TOKEN_BEDROCK` to enable Copilot/Autopilot; region/model have defaults.                                                            |
+| Durable media store | Optional: `BABYCHAIN_STORAGE_PROVIDER` plus S3 or Vercel Blob values                                                                                                         |
+
+Generate strong secret values with OpenSSL:
+
+```bash
+openssl rand -hex 32
+```
+
+Use a different generated value for `OWNER_SESSION_SECRET`, `BABYCHAIN_CRON_SECRET`, and `BABYCHAIN_CALLBACK_SECRET`. `BABYCHAIN_API_KEY` can be any long secret string; prefixing it (for example `bchn_...`) makes it easier to recognize in logs.
+
+For Aurora/RDS, keep `?sslmode=require` in `DATABASE_URL`:
+
+```bash
+DATABASE_URL=postgresql://USER:PASSWORD@WRITER-ENDPOINT:5432/postgres?sslmode=require
+```
+
+For local PostgreSQL, point at localhost; BabyChain disables TLS automatically for `localhost` and `127.0.0.1`.
+
+### 3. Check wiring and apply the schema
+
+Run the deployment doctor before the migration. It validates required files, required environment variables, provider mode, provider keys, and basic TCP reachability to `DATABASE_URL`.
+
+```bash
+pnpm run doctor
+```
+
+If the database is intentionally unavailable while you are only checking env names, skip just the reachability probe:
+
+```bash
+BABYCHAIN_DOCTOR_SKIP_DB_REACHABILITY=1 pnpm run doctor
+```
+
+Apply the database schema:
 
 ```bash
 pnpm run aurora:migrate   # creates the babychain_private schema + tables
+```
+
+`pnpm run aurora:migrate` reads `DATABASE_URL` from `.env.local` and applies [`scripts/aurora-migrate.mjs`](scripts/aurora-migrate.mjs). It is idempotent, so it is safe to run again after schema changes.
+
+### 4. Start the app and run a chain
+
+```bash
 pnpm dev
 ```
 
-Open <http://localhost:3011>. The owner dashboard lives at `/dashboard/canvas`; login with `OWNER_EMAIL`/`OWNER_PASSWORD`, build a chain on the canvas, and run chain to submit through the same `POST /api/v1/chains/runs` route used by API callers.
+Open <http://localhost:3011/dashboard/canvas> and log in with `OWNER_EMAIL` / `OWNER_PASSWORD`.
 
-> `pnpm run aurora:migrate` reads `DATABASE_URL` from `.env.local` and applies [`scripts/aurora-migrate.mjs`](scripts/aurora-migrate.mjs). It is idempotent (`create … if not exists`), so it is safe to re-run after schema changes.
+For the first run, choose models that match the provider keys in `.env.local`. For example, if you configured only a BFL key, image generation can work but an image-to-video chain still needs a video provider key. If you configured Alibaba Cloud, BytePlus, Google, or Runway keys, pick image and video models from the same configured provider to reduce first-run variables.
+
+Click **Run only** to stream outputs onto the canvas, or **RUN + SAVE** to also store the finished flow in the Library. A successful setup shows card badges moving from `queued` to `running` to `succeeded`; the same run can be fetched through `GET /api/v1/chains/get/{runId}`.
+
+### 5. Optional: seed demo canvases
+
+After migration, you can seed fixed demo canvases for the configured owner:
+
+```bash
+pnpm run aurora:seed-demo
+```
+
+The seed script requires `OWNER_EMAIL` and `DATABASE_URL` in `.env.local`. It opens the database connection with SSL, so use it against Aurora/RDS unless your local PostgreSQL accepts SSL connections. The seeded canvases reference BFL, Alibaba Cloud, and Runway models, so configure the matching provider keys before running them.
 
 ### API
 
@@ -494,7 +567,7 @@ The shared contract checks that each adapter returns zero-cost direct estimates 
 
 ## 4. Database
 
-BabyChain stores all durable runtime state in a private `babychain_private` schema on AWS Aurora PostgreSQL: API keys, chain runs, ordered steps, saved canvases, webhook deliveries, callbacks, and audit events. `DATABASE_URL` is the only required database value.
+BabyChain stores all durable runtime state in a private `babychain_private` schema on AWS Aurora PostgreSQL: API keys, chain runs, ordered steps, agent checkpoints, saved canvases, webhook deliveries, callbacks, and audit events. `DATABASE_URL` is the only required database value.
 
 ```bash
 # Aurora cluster writer endpoint (sslmode=require enables TLS)
@@ -734,6 +807,7 @@ BabyChain runs without media storage by default. In that mode it keeps the provi
 Use AWS S3 when you want your own S3 bucket, CloudFront distribution, or custom media domain:
 
 ```bash
+BABYCHAIN_STORAGE_PROVIDER=aws-s3
 AWS_S3_REGION=
 AWS_S3_ACCESS_KEY_ID=
 AWS_S3_SECRET_ACCESS_KEY=
@@ -888,7 +962,7 @@ Use the Vercel button to clone the starter and create the project. Then set ever
 
 BabyChain still needs a reachable PostgreSQL database. Follow [4. Database](#4-database) to create the database, build `DATABASE_URL`, allow Vercel to reach port `5432`, and run `pnpm run aurora:migrate` once against the production database before the first real run.
 
-**Cron and function limits.** The checked-in [`vercel.json`](vercel.json) uses `maxDuration = 300` on long-running routes and a daily recovery cron, which is the safe default. On plans that support it, you can change the cron schedule to `* * * * *` for one-minute recovery and raise route `maxDuration` only where your Vercel plan allows the higher budget.
+**Cron and function limits.** The checked-in [`vercel.json`](vercel.json) schedules `/api/cron/process-runs` once per day as a conservative recovery sweep. Duration budgets are set in the route modules: chain create/get/continue, the BabySea webhook, and the recovery cron export `maxDuration = 300`, while output and cancel routes use `60`. Make sure those route-level durations are supported by your Vercel plan. On plans that support it, you can change the cron schedule to `* * * * *` for one-minute recovery and adjust route durations only where your plan allows the budget.
 
 ### AWS CloudFormation
 

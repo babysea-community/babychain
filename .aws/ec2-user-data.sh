@@ -103,6 +103,16 @@ write_parameter_value BABYSEA_API_KEY
 write_parameter_value BABYSEA_REGION us
 write_parameter_value BABYSEA_API_BASE_URL https://api.us.babysea.ai
 write_parameter_value BABYSEA_WEBHOOK_SECRET
+write_parameter_value AWS_BEARER_TOKEN_BEDROCK
+write_parameter_value BEDROCK_REGION us-east-1
+write_parameter_value BEDROCK_NOVA_AGENT_MODEL us.amazon.nova-2-lite-v1:0
+write_parameter_value BABYCHAIN_STORAGE_PROVIDER none
+write_parameter_value AWS_S3_REGION
+write_parameter_value AWS_S3_ACCESS_KEY_ID
+write_parameter_value AWS_S3_SECRET_ACCESS_KEY
+write_parameter_value AWS_S3_BUCKET_NAME
+write_parameter_value AWS_S3_ENDPOINT_URL
+write_parameter_value BLOB_READ_WRITE_TOKEN
 write_parameter_value NEXT_PUBLIC_SENTRY_DSN
 write_parameter_value NEXT_PUBLIC_SENTRY_ENVIRONMENT production
 write_parameter_value SENTRY_ORG
@@ -147,12 +157,15 @@ provider_mode="${provider_mode:-byok}"
 
 case "$provider_mode" in
   byok)
-    require_env_value DASHSCOPE_API_KEY
-    require_env_value BFL_API_KEY
-    require_env_value ARK_API_KEY
-    require_env_value GEMINI_API_KEY
-    require_env_value OPENAI_API_KEY
-    require_env_value RUNWAYML_API_SECRET
+    if [[ -z "$(env_value DASHSCOPE_API_KEY || true)" ]] && \
+      [[ -z "$(env_value BFL_API_KEY || true)" ]] && \
+      [[ -z "$(env_value ARK_API_KEY || true)" ]] && \
+      [[ -z "$(env_value GEMINI_API_KEY || true)" ]] && \
+      [[ -z "$(env_value OPENAI_API_KEY || true)" ]] && \
+      [[ -z "$(env_value RUNWAYML_API_SECRET || true)" ]]; then
+      log 'BABYCHAIN_PROVIDER_MODE=byok requires at least one provider key: DASHSCOPE_API_KEY, BFL_API_KEY, ARK_API_KEY, GEMINI_API_KEY, OPENAI_API_KEY, or RUNWAYML_API_SECRET.'
+      exit 1
+    fi
     ;;
   babysea)
     require_env_value BABYSEA_API_KEY

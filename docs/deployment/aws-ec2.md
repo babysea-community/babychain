@@ -104,7 +104,7 @@ Required parameters for every real deployment are:
 - `BABYCHAIN_CRON_SECRET`
 - `BABYCHAIN_CALLBACK_SECRET`
 
-With the default `BABYCHAIN_PROVIDER_MODE=byok`, populate all BYOK inference keys in the order below: `DASHSCOPE_API_KEY`, `BFL_API_KEY`, `ARK_API_KEY`, `GEMINI_API_KEY`, `OPENAI_API_KEY`, and `RUNWAYML_API_SECRET`.
+With the default `BABYCHAIN_PROVIDER_MODE=byok`, populate the BYOK inference keys required by the models you plan to run. The commands below use these BYOK key names: `DASHSCOPE_API_KEY`, `BFL_API_KEY`, `ARK_API_KEY`, `GEMINI_API_KEY`, `OPENAI_API_KEY`, and `RUNWAYML_API_SECRET`.
 
 With `BABYCHAIN_PROVIDER_MODE=babysea`, set `BABYSEA_API_KEY` and `BABYSEA_API_BASE_URL`. Add `BABYSEA_WEBHOOK_SECRET` if your integration uses it.
 
@@ -138,10 +138,11 @@ put_parameter BABYSEA_API_KEY replace-with-babysea-api-key-or-placeholder
 put_parameter BABYSEA_REGION us
 put_parameter BABYSEA_API_BASE_URL https://api.us.babysea.ai
 put_parameter BABYSEA_WEBHOOK_SECRET replace-with-babysea-webhook-secret-or-placeholder
-# Agentic Workflow (optional) - fill AWS_BEARER_TOKEN_BEDROCK only to enable the Amazon Nova planner
+# Agentic Workflow (optional) - set AWS_BEARER_TOKEN_BEDROCK only to enable the Amazon Nova planner
+# Omit this command unless you plan to use Copilot/Autopilot.
+# put_parameter AWS_BEARER_TOKEN_BEDROCK replace-with-real-bedrock-bearer-token
 put_parameter BEDROCK_REGION us-east-1
 put_parameter BEDROCK_NOVA_AGENT_MODEL us.amazon.nova-2-lite-v1:0
-put_parameter AWS_BEARER_TOKEN_BEDROCK replace-with-bedrock-bearer-token-or-skip
 # Storage (optional) - keep BABYCHAIN_STORAGE_PROVIDER=none to run without media storage
 put_parameter BABYCHAIN_STORAGE_PROVIDER none
 put_parameter AWS_S3_REGION replace-with-s3-region-or-skip
@@ -159,7 +160,7 @@ put_parameter SENTRY_PROJECT replace-with-sentry-project
 
 Keep `SENTRY_AUTH_TOKEN` in CI or your build environment only when you intentionally upload source maps; it is not needed by the running EC2 container.
 
-The BabySea and Sentry values can be placeholders when you stay in BYOK mode and do not upload source maps.
+Unused BYOK provider parameters can be placeholders as long as you do not select those providers' models. The BabySea and Sentry values can be placeholders when you stay in BYOK mode and do not upload source maps.
 
 ### 5. Create the EC2 instance profile
 
@@ -379,12 +380,12 @@ Optionally delete the security group, key pair, SSM parameters, ECR images, ECR 
 
 ## Troubleshooting
 
-| Symptom               | Check                                                                                                                                                                         |
-| :-------------------- | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| User data exits early | SSH in and run `sudo cloud-init status --long` and `sudo tail -n 200 /var/log/cloud-init-output.log`.                                                                         |
-| Container is missing  | Check that placeholders were rendered in `/tmp/babychain-ec2-user-data.sh` before launch.                                                                                     |
-| ECR pull fails        | Confirm the instance profile has `AmazonEC2ContainerRegistryReadOnly` and ECR login can reach the registry.                                                                   |
-| SSM load fails        | Confirm the inline policy contains `ssm:GetParametersByPath` for `arn:aws:ssm:$AWS_REGION:$ACCOUNT_ID:parameter${PARAMETER_PREFIX}/*`.                                        |
-| BYOK startup fails    | Add all BYOK inference keys under the Parameter Store path: `DASHSCOPE_API_KEY`, `BFL_API_KEY`, `ARK_API_KEY`, `GEMINI_API_KEY`, `OPENAI_API_KEY`, and `RUNWAYML_API_SECRET`. |
-| Runs stay queued      | Check `sudo systemctl status babychain-cron.timer` and `sudo journalctl -u babychain-cron.service`.                                                                           |
-| Public URL is wrong   | Rebuild with the final `SITE_URL`, push the image, and replace the container or instance.                                                                                     |
+| Symptom               | Check                                                                                                                                              |
+| :-------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------- |
+| User data exits early | SSH in and run `sudo cloud-init status --long` and `sudo tail -n 200 /var/log/cloud-init-output.log`.                                              |
+| Container is missing  | Check that placeholders were rendered in `/tmp/babychain-ec2-user-data.sh` before launch.                                                          |
+| ECR pull fails        | Confirm the instance profile has `AmazonEC2ContainerRegistryReadOnly` and ECR login can reach the registry.                                        |
+| SSM load fails        | Confirm the inline policy contains `ssm:GetParametersByPath` for `arn:aws:ssm:$AWS_REGION:$ACCOUNT_ID:parameter${PARAMETER_PREFIX}/*`.             |
+| BYOK startup fails    | Add at least one BYOK inference key under the Parameter Store path, and make sure the keys match the providers used by your selected chain models. |
+| Runs stay queued      | Check `sudo systemctl status babychain-cron.timer` and `sudo journalctl -u babychain-cron.service`.                                                |
+| Public URL is wrong   | Rebuild with the final `SITE_URL`, push the image, and replace the container or instance.                                                          |

@@ -116,6 +116,18 @@ spec:
                 secretKeyRef:
                   name: babychain-babysea-webhook-secret
                   key: latest
+            - name: BEDROCK_REGION
+              value: us-east-1
+            - name: BEDROCK_NOVA_AGENT_MODEL
+              value: us.amazon.nova-2-lite-v1:0
+            - name: BABYCHAIN_STORAGE_PROVIDER
+              value: 'none'
+            - name: AWS_S3_REGION
+              value: ''
+            - name: AWS_S3_BUCKET_NAME
+              value: ''
+            - name: AWS_S3_ENDPOINT_URL
+              value: ''
             - name: NEXT_PUBLIC_SENTRY_DSN
               value: ''
             - name: NEXT_PUBLIC_SENTRY_ENVIRONMENT

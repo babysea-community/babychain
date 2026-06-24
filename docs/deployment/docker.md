@@ -70,7 +70,7 @@ SENTRY_ORG=YOUR_SENTRY_ORG
 SENTRY_PROJECT=YOUR_SENTRY_PROJECT
 ```
 
-Default deployments use `BABYCHAIN_PROVIDER_MODE=byok`, so fill all BYOK inference keys. The BabySea and Sentry values can be placeholders when you stay in BYOK mode and do not upload source maps. Keep `SENTRY_AUTH_TOKEN` in CI or your build environment only when you intentionally upload source maps; it is not needed by the running container.
+Default deployments use `BABYCHAIN_PROVIDER_MODE=byok`, so fill the provider keys required by the models you plan to run. Unused BYOK provider keys can stay blank as long as you do not select those providers' models. The BabySea and Sentry values can be placeholders when you stay in BYOK mode and do not upload source maps. Keep `SENTRY_AUTH_TOKEN` in CI or your build environment only when you intentionally upload source maps; it is not needed by the running container.
 
 ### 1. Prepare an ENV file
 
@@ -192,10 +192,10 @@ Manual Docker Hub publish from a trusted local checkout uses the same image name
 ```bash
 docker build \
 	--build-arg NEXT_PUBLIC_SITE_URL="http://localhost:3000" \
-	-t babyseaoss/babychain:0.4.0 \
+	-t babyseaoss/babychain:0.4.1 \
 	-t babyseaoss/babychain:latest .
 
-docker push babyseaoss/babychain:0.4.0
+docker push babyseaoss/babychain:0.4.1
 docker push babyseaoss/babychain:latest
 ```
 

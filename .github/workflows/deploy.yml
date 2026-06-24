@@ -45,7 +45,7 @@ jobs:
       - uses: pnpm/action-setup@v6
         if: steps.check.outputs.deploy == 'true'
         with:
-          version: 10.19.0
+          version: 11.7.0
       - uses: actions/setup-node@v6
         if: steps.check.outputs.deploy == 'true'
         with:
@@ -72,6 +72,9 @@ jobs:
 
           const required = [
             'NEXT_PUBLIC_SITE_URL',
+            'OWNER_EMAIL',
+            'OWNER_PASSWORD',
+            'OWNER_SESSION_SECRET',
             'DATABASE_URL',
             'BABYCHAIN_API_KEY',
             'BABYCHAIN_CRON_SECRET',
@@ -135,11 +138,10 @@ jobs:
             !env.BFL_API_KEY?.trim() &&
             !env.ARK_API_KEY?.trim() &&
             !env.GEMINI_API_KEY?.trim() &&
-            !env.GOOGLE_API_KEY?.trim() &&
             !env.OPENAI_API_KEY?.trim() &&
             !env.RUNWAYML_API_SECRET?.trim()
           ) {
-            console.error('::error::BABYCHAIN_PROVIDER_MODE=byok requires BFL_API_KEY, ARK_API_KEY, DASHSCOPE_API_KEY, GEMINI_API_KEY or GOOGLE_API_KEY, OPENAI_API_KEY, or RUNWAYML_API_SECRET.');
+            console.error('::error::BABYCHAIN_PROVIDER_MODE=byok requires BFL_API_KEY, ARK_API_KEY, DASHSCOPE_API_KEY, GEMINI_API_KEY, OPENAI_API_KEY, or RUNWAYML_API_SECRET.');
             process.exit(1);
           }
 

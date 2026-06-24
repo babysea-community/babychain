@@ -21,6 +21,8 @@ The catalog can include provider models that are exposed for direct routing even
 
 ## Model table
 
+The table lists the 54 BabyChain model entries returned by the public model catalog.
+
 | No  | Inference Provider | Model Name in BabyChain         | Type  | Mode Options |
 | :-- | :----------------- | :------------------------------ | :---: | ------------ |
 | 1   | Alibaba Cloud      | `qwen/image`                    | Image | BYOK/BabySea |
@@ -42,44 +44,41 @@ The catalog can include provider models that are exposed for direct routing even
 | 17  | Alibaba Cloud      | `happyhorse/1.0-r2v`            | Video | BYOK         |
 | 18  | Alibaba Cloud      | `happyhorse/1.0-t2v`            | Video | BYOK         |
 | 19  | Alibaba Cloud      | `happyhorse/1.0-video-edit`     | Video | BYOK         |
-| 20  | Alibaba Cloud      | `wan/2.2-animate-mix`           | Video | BYOK         |
-| 21  | Alibaba Cloud      | `wan/2.2-animate-move`          | Video | BYOK         |
-| 22  | Alibaba Cloud      | `wan/2.7-i2v-2026-04-25`        | Video | BYOK         |
-| 23  | Alibaba Cloud      | `wan/2.7-r2v`                   | Video | BYOK         |
-| 24  | Alibaba Cloud      | `wan/2.7-t2v`                   | Video | BYOK         |
-| 25  | Alibaba Cloud      | `wan/2.7-videoedit`             | Video | BYOK         |
-| 26  | Black Forest Labs  | `bfl/flux-1.1-pro`              | Image | BYOK/BabySea |
-| 27  | Black Forest Labs  | `bfl/flux-1.1-pro-ultra`        | Image | BYOK/BabySea |
-| 28  | Black Forest Labs  | `bfl/flux-2-flex`               | Image | BYOK/BabySea |
-| 29  | Black Forest Labs  | `bfl/flux-2-klein-4b`           | Image | BYOK/BabySea |
-| 30  | Black Forest Labs  | `bfl/flux-2-klein-9b`           | Image | BYOK/BabySea |
-| 31  | Black Forest Labs  | `bfl/flux-2-max`                | Image | BYOK/BabySea |
-| 32  | Black Forest Labs  | `bfl/flux-2-pro`                | Image | BYOK/BabySea |
-| 33  | BytePlus           | `bytedance/seedream-4`          | Image | BYOK/BabySea |
-| 34  | BytePlus           | `bytedance/seedream-4.5`        | Image | BYOK/BabySea |
-| 35  | BytePlus           | `bytedance/seedream-5-lite`     | Image | BYOK/BabySea |
-| 36  | BytePlus           | `bytedance/seedance-1-pro`      | Video | BYOK/BabySea |
-| 37  | BytePlus           | `bytedance/seedance-1-pro-fast` | Video | BYOK/BabySea |
-| 38  | BytePlus           | `bytedance/seedance-1.5-pro`    | Video | BYOK/BabySea |
-| 39  | BytePlus           | `bytedance/seedance-2.0`        | Video | BYOK         |
-| 40  | BytePlus           | `bytedance/seedance-2.0-fast`   | Video | BYOK         |
-| 41  | Google             | `google/imagen-4`               | Image | BYOK         |
-| 42  | Google             | `google/imagen-4-fast`          | Image | BYOK         |
-| 43  | Google             | `google/imagen-4-ultra`         | Image | BYOK         |
-| 44  | Google             | `google/nano-banana`            | Image | BYOK         |
-| 45  | Google             | `google/nano-banana-2`          | Image | BYOK         |
-| 46  | Google             | `google/nano-banana-pro`        | Image | BYOK         |
-| 47  | Google             | `google/veo-3.1`                | Video | BYOK         |
-| 48  | Google             | `google/veo-3.1-fast`           | Video | BYOK         |
-| 49  | Google             | `google/veo-3.1-lite`           | Video | BYOK         |
-| 50  | OpenAI             | `gpt/image-2`                   | Image | BYOK         |
-| 51  | Runway             | `runway/gen-4-image`            | Image | BYOK         |
-| 52  | Runway             | `runway/gen-4-image-turbo`      | Image | BYOK         |
-| 53  | Runway             | `runway/act-two`                | Video | BYOK         |
-| 54  | Runway             | `runway/aleph-2`                | Video | BYOK         |
-| 55  | Runway             | `runway/gen-4.5`                | Video | BYOK         |
-| 56  | Runway             | `runway/gen-4-aleph`            | Video | BYOK         |
-| 57  | Runway             | `runway/gen-4-turbo`            | Video | BYOK         |
+| 20  | Alibaba Cloud      | `wan/2.7-i2v-2026-04-25`        | Video | BYOK         |
+| 21  | Alibaba Cloud      | `wan/2.7-r2v`                   | Video | BYOK         |
+| 22  | Alibaba Cloud      | `wan/2.7-t2v`                   | Video | BYOK         |
+| 23  | Alibaba Cloud      | `wan/2.7-videoedit`             | Video | BYOK         |
+| 24  | Black Forest Labs  | `bfl/flux-1.1-pro`              | Image | BYOK/BabySea |
+| 25  | Black Forest Labs  | `bfl/flux-1.1-pro-ultra`        | Image | BYOK/BabySea |
+| 26  | Black Forest Labs  | `bfl/flux-2-flex`               | Image | BYOK/BabySea |
+| 27  | Black Forest Labs  | `bfl/flux-2-klein-4b`           | Image | BYOK/BabySea |
+| 28  | Black Forest Labs  | `bfl/flux-2-klein-9b`           | Image | BYOK/BabySea |
+| 29  | Black Forest Labs  | `bfl/flux-2-max`                | Image | BYOK/BabySea |
+| 30  | Black Forest Labs  | `bfl/flux-2-pro`                | Image | BYOK/BabySea |
+| 31  | BytePlus           | `bytedance/seedream-4`          | Image | BYOK/BabySea |
+| 32  | BytePlus           | `bytedance/seedream-4.5`        | Image | BYOK/BabySea |
+| 33  | BytePlus           | `bytedance/seedream-5-lite`     | Image | BYOK/BabySea |
+| 34  | BytePlus           | `bytedance/seedance-1-pro`      | Video | BYOK/BabySea |
+| 35  | BytePlus           | `bytedance/seedance-1-pro-fast` | Video | BYOK/BabySea |
+| 36  | BytePlus           | `bytedance/seedance-1.5-pro`    | Video | BYOK/BabySea |
+| 37  | BytePlus           | `bytedance/seedance-2.0`        | Video | BYOK         |
+| 38  | BytePlus           | `bytedance/seedance-2.0-fast`   | Video | BYOK         |
+| 39  | Google             | `google/imagen-4`               | Image | BYOK         |
+| 40  | Google             | `google/imagen-4-fast`          | Image | BYOK         |
+| 41  | Google             | `google/imagen-4-ultra`         | Image | BYOK         |
+| 42  | Google             | `google/nano-banana`            | Image | BYOK         |
+| 43  | Google             | `google/nano-banana-2`          | Image | BYOK         |
+| 44  | Google             | `google/nano-banana-pro`        | Image | BYOK         |
+| 45  | Google             | `google/veo-3.1`                | Video | BYOK         |
+| 46  | Google             | `google/veo-3.1-fast`           | Video | BYOK         |
+| 47  | Google             | `google/veo-3.1-lite`           | Video | BYOK         |
+| 48  | OpenAI             | `gpt/image-2`                   | Image | BYOK         |
+| 49  | Runway             | `runway/gen-4-image`            | Image | BYOK         |
+| 50  | Runway             | `runway/gen-4-image-turbo`      | Image | BYOK         |
+| 51  | Runway             | `runway/aleph-2`                | Video | BYOK         |
+| 52  | Runway             | `runway/gen-4.5`                | Video | BYOK         |
+| 53  | Runway             | `runway/gen-4-aleph`            | Video | BYOK         |
+| 54  | Runway             | `runway/gen-4-turbo`            | Video | BYOK         |
 
 ## Mode options
 

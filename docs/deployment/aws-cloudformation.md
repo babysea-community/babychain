@@ -102,11 +102,11 @@ Required runtime secrets for every real deployment are:
 - `BABYCHAIN_CRON_SECRET`
 - `BABYCHAIN_CALLBACK_SECRET`
 
-With the default `ProviderMode=byok`, populate all BYOK inference keys in the order below: `DASHSCOPE_API_KEY`, `BFL_API_KEY`, `ARK_API_KEY`, `GEMINI_API_KEY`, `OPENAI_API_KEY`, and `RUNWAYML_API_SECRET`.
+With the default `ProviderMode=byok`, populate the BYOK inference keys required by the models you plan to run. The template uses these BYOK key names: `DASHSCOPE_API_KEY`, `BFL_API_KEY`, `ARK_API_KEY`, `GEMINI_API_KEY`, `OPENAI_API_KEY`, and `RUNWAYML_API_SECRET`.
 
 With `ProviderMode=babysea`, put `BABYSEA_API_KEY` in Secrets Manager and optionally put `BABYSEA_WEBHOOK_SECRET` there too. The CloudFormation stack maps the `BabySeaApiBaseUrl` and `BabySeaRegion` parameters to the runtime `BABYSEA_API_BASE_URL` and `BABYSEA_REGION` environment variables.
 
-Media storage and the Agentic Workflow planner are optional. Set `StorageProvider` to `aws-s3` or `vercel-blob` (with the `AwsS3Region`, `AwsS3BucketName`, `AwsS3EndpointUrl` parameters and the `AWS_S3_ACCESS_KEY_ID`/`AWS_S3_SECRET_ACCESS_KEY`/`BLOB_READ_WRITE_TOKEN` secrets) to enable storage, and populate the `AWS_BEARER_TOKEN_BEDROCK` secret (with the `BedrockRegion`, `BedrockNovaAgentModel` parameters) to enable the Amazon Nova planner. The stack creates all of these secrets, so leave them as placeholders to run without either feature.
+Media storage and the Agentic Workflow planner are optional. Set `StorageProvider` to `aws-s3` or `vercel-blob` (with the `AwsS3Region`, `AwsS3BucketName`, `AwsS3EndpointUrl` parameters and the `AWS_S3_ACCESS_KEY_ID`/`AWS_S3_SECRET_ACCESS_KEY`/`BLOB_READ_WRITE_TOKEN` secrets) to enable storage, and populate the `AWS_BEARER_TOKEN_BEDROCK` secret (with the `BedrockRegion`, `BedrockNovaAgentModel` parameters) to enable the Amazon Nova planner. The stack creates all of these secrets. Placeholder values are acceptable only when you will not use the related feature; replace `AWS_BEARER_TOKEN_BEDROCK` with a real token before running Copilot or Autopilot.
 
 ```bash
 put_secret() {
@@ -131,7 +131,7 @@ put_secret OPENAI_API_KEY replace-with-openai-api-key
 put_secret RUNWAYML_API_SECRET replace-with-runway-api-key
 put_secret BABYSEA_API_KEY replace-with-babysea-api-key
 put_secret BABYSEA_WEBHOOK_SECRET replace-with-babysea-webhook-secret
-put_secret AWS_BEARER_TOKEN_BEDROCK replace-with-bedrock-bearer-token-or-placeholder
+put_secret AWS_BEARER_TOKEN_BEDROCK replace-with-real-bedrock-bearer-token-or-placeholder-if-unused
 put_secret AWS_S3_ACCESS_KEY_ID replace-with-s3-access-key-or-placeholder
 put_secret AWS_S3_SECRET_ACCESS_KEY replace-with-s3-secret-access-key-or-placeholder
 put_secret BLOB_READ_WRITE_TOKEN replace-with-vercel-blob-token-or-placeholder
@@ -139,7 +139,7 @@ put_secret SENTRY_ORG replace-with-sentry-org
 put_secret SENTRY_PROJECT replace-with-sentry-project
 ```
 
-The Sentry values can be placeholders when you do not upload source maps. Keep `SENTRY_AUTH_TOKEN` in CI or your build environment only when you intentionally upload source maps; it is not needed by the running ECS container. For BabySea mode, replace the BabySea placeholders with real values and set `ProviderMode=babysea` on the stack update.
+Unused BYOK provider secrets can be placeholders as long as you do not select those providers' models. The Sentry values can be placeholders when you do not upload source maps. Keep `SENTRY_AUTH_TOKEN` in CI or your build environment only when you intentionally upload source maps; it is not needed by the running ECS container. For BabySea mode, replace the BabySea placeholders with real values and set `ProviderMode=babysea` on the stack update.
 
 Do not put `DATABASE_URL`, owner credentials, provider keys, or BabyChain secrets in build args. They belong in Secrets Manager and are injected at runtime.
 

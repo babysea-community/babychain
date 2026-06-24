@@ -7,7 +7,7 @@ Coolify can deploy BabyChain from the production `Dockerfile` or from the includ
 - A Coolify instance connected to your Git provider.
 - A reachable PostgreSQL database, preferably Aurora/RDS for production.
 - BabyChain schema applied with `pnpm run aurora:migrate` against `DATABASE_URL`.
-- BYOK provider credentials. Default deployments use `BABYCHAIN_PROVIDER_MODE=byok`, so set all inference provider keys in the order shown below.
+- BYOK provider credentials. Default deployments use `BABYCHAIN_PROVIDER_MODE=byok`, so set the provider keys required by the models you plan to run. The example below uses `GEMINI_API_KEY` for Google models.
 - Optional BabySea credentials only if you switch `BABYCHAIN_PROVIDER_MODE` to `babysea`.
 - A public domain selected before the first build, for example `https://your-domain.example.com`.
 
@@ -65,7 +65,7 @@ SENTRY_ORG=YOUR_SENTRY_ORG
 SENTRY_PROJECT=YOUR_SENTRY_PROJECT
 ```
 
-The BabySea and Sentry values can be placeholders when you stay in BYOK mode and do not upload source maps. Keep `SENTRY_AUTH_TOKEN` in CI or your build environment only when you intentionally upload source maps; it is not needed by the running container. For BabySea mode, change `BABYCHAIN_PROVIDER_MODE` to `babysea` and replace the BabySea placeholders with real values.
+Unused BYOK provider keys can stay blank as long as you do not select those providers' models. The BabySea and Sentry values can be placeholders when you stay in BYOK mode and do not upload source maps. Keep `SENTRY_AUTH_TOKEN` in CI or your build environment only when you intentionally upload source maps; it is not needed by the running container. For BabySea mode, change `BABYCHAIN_PROVIDER_MODE` to `babysea` and replace the BabySea placeholders with real values.
 
 ### 3. Deploy
 

@@ -41,10 +41,10 @@ variables:
   PNPM_CONFIG_MINIMUM_RELEASE_AGE: '0'
   DAST_WEBSITE: https://babychain.babysea.live
   NEXT_PUBLIC_SITE_URL: https://your-domain.example.com
-  DATABASE_URL: postgresql://postgres:postgres@localhost:5432/postgres
   OWNER_EMAIL: ci_owner_email
   OWNER_PASSWORD: ci_owner_password
   OWNER_SESSION_SECRET: ci_owner_session_secret
+  DATABASE_URL: postgresql://postgres:postgres@localhost:5432/postgres
   BABYCHAIN_API_KEY: ci_babychain_api_key
   BABYCHAIN_CRON_SECRET: ci_babychain_cron_secret
   BABYCHAIN_CALLBACK_SECRET: ci_babychain_callback_secret
@@ -61,10 +61,20 @@ variables:
   BABYSEA_REGION: us
   BABYSEA_API_BASE_URL: https://api.us.babysea.ai
   BABYSEA_WEBHOOK_SECRET: ci_babysea_webhook_secret
+  AWS_BEARER_TOKEN_BEDROCK: ci_aws_bearer_token_bedrock
+  BEDROCK_REGION: us-east-1
+  BEDROCK_NOVA_AGENT_MODEL: ci_bedrock_nova_agent_model
+  BABYCHAIN_STORAGE_PROVIDER: none
+  AWS_S3_REGION: ci_aws_s3_region
+  AWS_S3_ACCESS_KEY_ID: ci_aws_s3_access_key_id
+  AWS_S3_SECRET_ACCESS_KEY: ci_aws_s3_secret_access_key
+  AWS_S3_BUCKET_NAME: ci_aws_s3_bucket_name
+  AWS_S3_ENDPOINT_URL: ci_aws_s3_endpoint_url
+  BLOB_READ_WRITE_TOKEN: ci_blob_read_write_token
   NEXT_PUBLIC_SENTRY_DSN: https://example.sentry.io
-  NEXT_PUBLIC_SENTRY_ENVIRONMENT: ci
-  SENTRY_ORG: ci
-  SENTRY_PROJECT: ci
+  NEXT_PUBLIC_SENTRY_ENVIRONMENT: ci_next_public_sentry_environment
+  SENTRY_ORG: ci_sentry_org
+  SENTRY_PROJECT: ci_sentry_project
   SENTRY_AUTH_TOKEN: ci_sentry_auth_token
 
 default:

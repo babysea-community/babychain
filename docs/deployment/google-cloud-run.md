@@ -9,7 +9,7 @@ Google Cloud Run runs BabyChain from the production Docker image and gives you m
 - APIs enabled for Cloud Run, Cloud Build, Artifact Registry, Secret Manager, and Cloud Scheduler.
 - A reachable PostgreSQL database, preferably Aurora/RDS for production.
 - BabyChain schema applied with `pnpm run aurora:migrate` against `DATABASE_URL`.
-- BYOK provider credentials. Default deployments use `BABYCHAIN_PROVIDER_MODE=byok`, so create all inference provider secrets in the order shown below.
+- BYOK provider credentials. Default deployments use `BABYCHAIN_PROVIDER_MODE=byok`, so create the provider secrets required by the models you plan to run. The direct deploy command below uses `GEMINI_API_KEY` for Google models; create placeholders for unused providers if you use that command unchanged.
 - Optional BabySea credentials only if you switch `BABYCHAIN_PROVIDER_MODE` to `babysea`.
 - A final Cloud Run URL or custom domain selected before the production build.
 
@@ -74,7 +74,7 @@ printf '%s' 'YOUR_AWS_S3_SECRET_ACCESS_KEY' | gcloud secrets create babychain-s3
 printf '%s' 'YOUR_BLOB_READ_WRITE_TOKEN' | gcloud secrets create babychain-blob-token --data-file=-
 ```
 
-Then append the non-secret storage settings to `--set-env-vars` (set `BABYCHAIN_STORAGE_PROVIDER=aws-s3` or `vercel-blob`, plus `AWS_S3_REGION`, `AWS_S3_BUCKET_NAME`, `AWS_S3_ENDPOINT_URL`) and the secrets to `--set-secrets` (`AWS_BEARER_TOKEN_BEDROCK=babychain-bedrock-bearer-token:latest`, `AWS_S3_ACCESS_KEY_ID=babychain-s3-access-key-id:latest`, `AWS_S3_SECRET_ACCESS_KEY=babychain-s3-secret-access-key:latest`, `BLOB_READ_WRITE_TOKEN=babychain-blob-token:latest`). Mirror the same values in `.gcp/cloud-run-service.yaml` if you deploy from the YAML.
+Then append the non-secret storage settings to `--set-env-vars` (set `BABYCHAIN_STORAGE_PROVIDER=aws-s3` or `vercel-blob`, plus `AWS_S3_REGION`, `AWS_S3_BUCKET_NAME`, `AWS_S3_ENDPOINT_URL`) and the secrets to `--set-secrets` (`AWS_BEARER_TOKEN_BEDROCK=babychain-bedrock-bearer-token:latest`, `AWS_S3_ACCESS_KEY_ID=babychain-s3-access-key-id:latest`, `AWS_S3_SECRET_ACCESS_KEY=babychain-s3-secret-access-key:latest`, `BLOB_READ_WRITE_TOKEN=babychain-blob-token:latest`). The checked-in `.gcp/cloud-run-service.yaml` includes the non-secret defaults; add the matching secret references there only when you enable Agentic Workflow or storage from the YAML.
 
 ### 3. Build and push the image
 
@@ -108,7 +108,7 @@ gcloud run deploy "$SERVICE_NAME" \
   --allow-unauthenticated \
   --min-instances 1 \
   --max-instances 10 \
-  --set-env-vars "PORT=3000,HOSTNAME=0.0.0.0,NEXT_TELEMETRY_DISABLED=1,NEXT_PUBLIC_SITE_URL=$SITE_URL,BABYCHAIN_PROVIDER_MODE=byok,BFL_REGION=global,BFL_API_BASE_URL=https://api.bfl.ai/v1,BABYSEA_REGION=us,BABYSEA_API_BASE_URL=https://api.us.babysea.ai,BABYCHAIN_STORAGE_PROVIDER=none,BEDROCK_REGION=us-east-1,BEDROCK_NOVA_AGENT_MODEL=us.amazon.nova-2-lite-v1:0,NEXT_PUBLIC_SENTRY_ENVIRONMENT=production" \
+  --set-env-vars "PORT=3000,HOSTNAME=0.0.0.0,NEXT_TELEMETRY_DISABLED=1,NEXT_PUBLIC_SITE_URL=$SITE_URL,BABYCHAIN_PROVIDER_MODE=byok,BFL_REGION=global,BFL_API_BASE_URL=https://api.bfl.ai/v1,BABYSEA_REGION=us,BABYSEA_API_BASE_URL=https://api.us.babysea.ai,BEDROCK_REGION=us-east-1,BEDROCK_NOVA_AGENT_MODEL=us.amazon.nova-2-lite-v1:0,BABYCHAIN_STORAGE_PROVIDER=none,NEXT_PUBLIC_SENTRY_ENVIRONMENT=production" \
   --set-secrets "OWNER_EMAIL=babychain-owner-email:latest,OWNER_PASSWORD=babychain-owner-password:latest,OWNER_SESSION_SECRET=babychain-owner-session-secret:latest,DATABASE_URL=babychain-database-url:latest,BABYCHAIN_API_KEY=babychain-api-key:latest,BABYCHAIN_CRON_SECRET=babychain-cron-secret:latest,BABYCHAIN_CALLBACK_SECRET=babychain-callback-secret:latest,DASHSCOPE_API_KEY=babychain-dashscope-api-key:latest,BFL_API_KEY=babychain-bfl-api-key:latest,ARK_API_KEY=babychain-ark-api-key:latest,GEMINI_API_KEY=babychain-gemini-api-key:latest,OPENAI_API_KEY=babychain-openai-api-key:latest,RUNWAYML_API_SECRET=babychain-runway-api-secret:latest"
 ```
 

@@ -1,6 +1,6 @@
 {
   "name": "babychain",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "description": "Canvas studio, agentic planner, and durable chain API for image and video model workflows with one final callback.",
   "private": true,
   "license": "Apache-2.0",
