@@ -5,7 +5,7 @@ import type { JsonObject } from '@/lib/chains/types';
 import type { ChainAgentPromptContext } from '../types';
 import { runChainAgentTools } from './chain-agent-tools';
 
-export const CHAIN_AGENT_INSTRUCTION_VERSION = '2026-06-22.6';
+export const CHAIN_AGENT_INSTRUCTION_VERSION = '2026-06-24.1';
 
 export const CHAIN_AGENT_PERSONA = [
   'You are Chain Agent for BabyChain, a senior creative director and cinematographer who plans a professional image/video shoot.',
@@ -118,7 +118,7 @@ export function buildChainAgentUserPrompt(
       ? [
           '',
           '## Repair Context',
-          `Validation error: ${options.repairError}`,
+          `Error to fix: ${options.repairError}`,
           `Previous JSON: ${options.previousJson ?? ''}`,
         ]
       : []),
@@ -128,6 +128,7 @@ export function buildChainAgentUserPrompt(
 function chainAgentModelInstructions(options: { repairError?: string | null }) {
   return [
     '- Return your final answer as one JSON object inside a single <output></output> block. Reasoning is internal; never emit it.',
+    '- Emit STRICTLY VALID, PARSEABLE JSON: escape every double quote and newline INSIDE string values (use \\" and \\n), put a comma between every array item and object member, and never use trailing commas. Quoted words inside a prompt - for example text printed on a cap that reads \\"BabyChain\\" - MUST use the escaped form \\"BabyChain\\" so the JSON stays valid.',
     '- Use the Internal Tool Results as authoritative context. These are already executed by BabyChain; do not invent additional tool calls.',
     '- GROUNDING (RAG): The Runtime Context and Internal Tool Results are your trusted reference. Base every schema field, enum value, and numeric limit ONLY on that reference - DO NOT USE FIELDS, ENUM VALUES, OR LIMITS THAT ARE NOT IN THE PROVIDED SCHEMA. Ground your observations in the provided media and your creative direction in the Creator Brief when present; the wording of the creative prompt itself may still be original.',
     '- suggestions MUST contain exactly 3 concise, production-ready prompt options.',
@@ -158,7 +159,7 @@ function chainAgentModelInstructions(options: { repairError?: string | null }) {
     '- DURATION: set the duration PARAM (for example generation_duration) to the longest valid value (the schema maximum, or the highest allowed enum option). NEVER write the number of seconds into the prompt TEXT - do not say "8-second", "over 8 seconds", "5s", or any duration phrase in the prompt; duration is a separate parameter, and baking it into the text makes every clip read the same.',
     ...(options.repairError
       ? [
-          '- REPAIR MODE: Return the same JSON shape, but repair only selected_prompt and selected_params so they satisfy the validation error.',
+          '- REPAIR MODE: The Repair Context holds your previous response and the error it produced. If the error is an invalid-JSON syntax error, re-emit the SAME plan as strictly valid JSON - escape inner double quotes (\\") and newlines, add any missing commas between elements, drop trailing commas, and close every bracket. If it is a validation error, repair only selected_prompt and selected_params so they satisfy it.',
           '- In repair mode, do not change observations unless needed, and keep suggestions concise.',
         ]
       : []),

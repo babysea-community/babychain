@@ -688,6 +688,70 @@ describe('provider adapters', () => {
     expect(submittedBody).not.toHaveProperty('size');
   });
 
+  it('snaps off-grid FLUX 1.x width/height to the nearest multiple of 32', async () => {
+    let submittedBody: Record<string, unknown> = {};
+    const fetchImpl = vi.fn(async (_url: string | URL | Request, init) => {
+      submittedBody = JSON.parse(String(init?.body));
+
+      return new Response(
+        JSON.stringify({
+          id: 'bfl_task_123',
+          polling_url: 'https://api.bfl.ai/v1/get_result?id=bfl_task_123',
+        }),
+        { status: 200 },
+      );
+    }) as typeof fetch;
+
+    const provider = createBflProvider({ apiKey: 'bfl_test_key', fetchImpl });
+
+    await provider.submit({
+      idempotencyKey: 'idem_bfl_snap',
+      modelIdentifier: 'bfl/flux-1.1-pro',
+      params: {
+        generation_prompt: 'A clean product render',
+        generation_width: 1152,
+        generation_height: 720,
+      },
+      stepKind: 'image',
+    });
+
+    // FLUX 1.x [pro] rejects a height of 720 with a 422 (not a multiple of 32);
+    // it snaps up to 736. 1152 is already a multiple of 32 and is unchanged.
+    expect(submittedBody).toMatchObject({ width: 1152, height: 736 });
+  });
+
+  it('leaves FLUX 2 width/height untouched (no multiple-of-32 grid)', async () => {
+    let submittedBody: Record<string, unknown> = {};
+    const fetchImpl = vi.fn(async (_url: string | URL | Request, init) => {
+      submittedBody = JSON.parse(String(init?.body));
+
+      return new Response(
+        JSON.stringify({
+          id: 'bfl_task_123',
+          polling_url: 'https://api.bfl.ai/v1/get_result?id=bfl_task_123',
+        }),
+        { status: 200 },
+      );
+    }) as typeof fetch;
+
+    const provider = createBflProvider({ apiKey: 'bfl_test_key', fetchImpl });
+
+    await provider.submit({
+      idempotencyKey: 'idem_bfl_flux2_nosnap',
+      modelIdentifier: 'bfl/flux-2-pro',
+      params: {
+        generation_prompt: 'A clean product render',
+        generation_width: 1000,
+        generation_height: 1000,
+      },
+      stepKind: 'image',
+    });
+
+    // FLUX 2 only requires >= 64 with no multiple-of-32 step, so off-grid
+    // dimensions pass through unchanged.
+    expect(submittedBody).toMatchObject({ width: 1000, height: 1000 });
+  });
+
   it('does not synthesize BFL dimensions from generation_size', async () => {
     let submittedBody: Record<string, unknown> = {};
     const fetchImpl = vi.fn(async (_url: string | URL | Request, init) => {
@@ -737,7 +801,7 @@ describe('provider adapters', () => {
 
     await provider.submit({
       idempotencyKey: 'idem_bfl_ultra',
-      modelIdentifier: 'bfl/flux-pro-1.1-ultra',
+      modelIdentifier: 'bfl/flux-1.1-pro-ultra',
       params: {
         generation_prompt: 'A clean product render',
         generation_aspect_ratio: '21:9',

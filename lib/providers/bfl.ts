@@ -438,6 +438,21 @@ function truncate(text: string, max: number) {
  *   - `generation_aspect_ratio`  → `aspect_ratio`
  *   - `generation_output_format` → `output_format`
  */
+// FLUX 1.x [pro] endpoints (flux-1.1-pro and friends) constrain width/height to
+// a multiple of 32 within 256-1440 and reject any other value with a 422
+// `multiple_of` error. Snap an off-grid dimension (for example an agent-planned
+// 720) to the nearest valid step and clamp it into range so the request is
+// accepted. FLUX 2 only requires >= 64 with no step, so its dimensions are left
+// untouched. Non-numeric input passes through.
+function snapBflFlux1Dimension(value: unknown): number | null {
+  const numeric = typeof value === 'number' ? value : Number(value);
+  if (!Number.isFinite(numeric)) {
+    return null;
+  }
+  const snapped = Math.round(numeric / 32) * 32;
+  return Math.min(1440, Math.max(256, snapped));
+}
+
 async function mapSubmitBody(
   params: Record<string, unknown>,
   opts: { fetchImpl: typeof fetch; endpoint: string },
@@ -445,6 +460,8 @@ async function mapSubmitBody(
   const body: JsonObject = {};
   const endpointFamily = classifyBflEndpoint(opts.endpoint);
   const usesDimensionSize = endpointFamily !== 'flux1-ultra';
+  // Only FLUX 1.x [pro] enforces the multiple-of-32, 256-1440 dimension grid.
+  const snapsDimensions = endpointFamily === 'flux1';
 
   for (const [rawKey, value] of Object.entries(params)) {
     if (value === undefined) continue;
@@ -464,11 +481,15 @@ async function mapSubmitBody(
       continue;
     }
     if (rawKey === 'generation_width') {
-      body.width = value as never;
+      body.width = (
+        snapsDimensions ? (snapBflFlux1Dimension(value) ?? value) : value
+      ) as never;
       continue;
     }
     if (rawKey === 'generation_height') {
-      body.height = value as never;
+      body.height = (
+        snapsDimensions ? (snapBflFlux1Dimension(value) ?? value) : value
+      ) as never;
       continue;
     }
     if (rawKey === 'generation_prompt_extend') {
@@ -541,8 +562,10 @@ async function mapSubmitBody(
           assignBflInputImageFields(body, inputUrls, 8);
         }
         break;
-      case 'flux1-redux':
-        // FLUX 1.x Redux: single image, URL accepted.
+      case 'flux1':
+      case 'flux1-ultra':
+        // FLUX 1.x [pro] and ultra take a single optional image_prompt
+        // (URL accepted).
         if (typeof body.image_prompt !== 'string') {
           body.image_prompt = toBflImageInputValue(firstUrl) as never;
         }
@@ -631,13 +654,16 @@ function normalizeProviderOutputFormat(value: unknown) {
  */
 function classifyBflEndpoint(
   endpoint: string,
-): 'flux2-klein' | 'flux2' | 'flux1-redux' | 'flux1-ultra' | 'unknown' {
+): 'flux2-klein' | 'flux2' | 'flux1' | 'flux1-ultra' | 'unknown' {
   const normalized = endpoint.toLowerCase();
   if (normalized.startsWith('flux-2-klein')) return 'flux2-klein';
   if (normalized.startsWith('flux-2-')) return 'flux2';
-  if (normalized === 'flux-pro-1.1-ultra') return 'flux1-ultra';
+  // FLUX 1.1 [pro] ultra (BabyChain id `flux-1.1-pro-ultra`, legacy
+  // `flux-pro-1.1-ultra`) takes an aspect_ratio instead of width/height, so it
+  // must be matched before the FLUX 1.x dimension family below.
+  if (normalized.endsWith('-ultra')) return 'flux1-ultra';
   if (normalized.startsWith('flux-1.1-') || normalized.startsWith('flux-1-'))
-    return 'flux1-redux';
+    return 'flux1';
   return 'unknown';
 }
 

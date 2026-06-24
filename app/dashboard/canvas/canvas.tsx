@@ -1108,12 +1108,17 @@ function FieldControl({
     // means the operator never has to drag the box open again after a run.
     if (disabled || settled) {
       const text = String(value ?? '').trim();
+      // Prompts expand to show their full text when locked. File/URL and JSON
+      // fields can hold very long values (a data URL, a list of links), so they
+      // stay height-capped and scroll instead of stretching the card off-screen.
+      const isPrompt = field.name.endsWith('_prompt');
       return (
         <div
           className={cn(
             base,
             textareaMinHeight,
             'whitespace-pre-wrap break-words py-2 leading-5',
+            !isPrompt && 'nowheel max-h-24 overflow-y-auto overscroll-contain',
           )}
         >
           {text}
@@ -3038,21 +3043,26 @@ function InfoNodeComponent({ id, data }: NodeProps) {
                 apply to every step the agent plans after your first model card;
                 it reinterprets each of those steps around your brief while
                 keeping the subject the same. Anything that must be visible from
-                the first frame — such as text or a logo on clothing — belongs
-                in your first model card&rsquo;s prompt (or a refine step),
-                because the agent never rewrites your base image and video
-                models cannot add detail that is not already in it.
+                the first frame, such as text or a logo on clothing, belongs in
+                your first model card&rsquo;s prompt (or a refine step), because
+                the agent never rewrites your base image and video models cannot
+                add detail that is not already in it.
               </p>
-              <textarea
-                disabled={running}
-                rows={6}
-                maxLength={2000}
-                value={modelContextValue}
-                onChange={(event) =>
-                  updateValue(id, 'model_context', event.target.value)
-                }
-                className="nodrag min-h-40 w-full resize-y border border-border bg-input px-2.5 py-1.5 text-xs leading-5 text-foreground outline-none focus-visible:border-ring disabled:opacity-40"
-              />
+              {running ? (
+                <div className="nodrag min-h-40 w-full whitespace-pre-wrap break-words border border-border bg-input px-2.5 py-2 text-xs leading-5 text-foreground">
+                  {modelContextValue.trim()}
+                </div>
+              ) : (
+                <textarea
+                  rows={6}
+                  maxLength={2000}
+                  value={modelContextValue}
+                  onChange={(event) =>
+                    updateValue(id, 'model_context', event.target.value)
+                  }
+                  className="nodrag min-h-40 w-full resize-y border border-border bg-input px-2.5 py-1.5 text-xs leading-5 text-foreground outline-none focus-visible:border-ring disabled:opacity-40"
+                />
+              )}
             </div>
           ) : null}
         </div>
