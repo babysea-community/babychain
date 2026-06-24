@@ -244,36 +244,6 @@ function semanticFieldSpec(field: {
     };
   }
 
-  // BFL FLUX 1.1 [pro] ultra exposes aspect_ratio as a free-form string (any
-  // ratio between 21:9 and 9:21) rather than an enum, so on its own it renders
-  // as a bare text box. Offer the common presets as a dropdown for parity with
-  // every other model's aspect ratio; the free-string schema still accepts the
-  // selected value.
-  if (
-    (field.type === 'string' || field.type === 'url') &&
-    field.name === 'generation_aspect_ratio'
-  ) {
-    return {
-      name: field.name,
-      type: 'select',
-      options: selectOptions([
-        '21:9',
-        '16:9',
-        '3:2',
-        '4:3',
-        '1:1',
-        '3:4',
-        '2:3',
-        '9:16',
-        '9:21',
-      ]),
-      schema,
-      valueKind: 'string',
-      ...defaultFieldValue(field.default),
-      ...(required ? { required } : {}),
-    };
-  }
-
   if (field.type === 'string' || field.type === 'url') {
     const isPrompt = field.name.endsWith('_prompt');
     return {

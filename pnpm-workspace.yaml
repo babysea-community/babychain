@@ -30,7 +30,7 @@ catalog:
   prettier: 3.8.3
   react: 19.2.7
   react-dom: 19.2.7
-  semantic-lady: 0.6.0
+  semantic-lady: 0.6.1
   server-only: 0.0.1
   sonner: 2.0.7
   tailwind-merge: 3.6.0

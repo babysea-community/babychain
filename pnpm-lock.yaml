@@ -85,8 +85,8 @@ catalogs:
       specifier: 19.2.7
       version: 19.2.7
     semantic-lady:
-      specifier: 0.6.0
-      version: 0.6.0
+      specifier: 0.6.1
+      version: 0.6.1
     server-only:
       specifier: 0.0.1
       version: 0.0.1
@@ -167,7 +167,7 @@ importers:
         version: 19.2.7(react@19.2.7)
       semantic-lady:
         specifier: 'catalog:'
-        version: 0.6.0
+        version: 0.6.1
       server-only:
         specifier: 'catalog:'
         version: 0.0.1
@@ -3297,8 +3297,8 @@ packages:
     resolution: {integrity: sha512-eflK8wEtyOE6+hsaRVPxvUKYCpRgzLqDTb8krvAsRIwOGlHoSgYLgBXoubGgLd2fT41/OUYdb48v4k4WWHQurA==}
     engines: {node: '>= 10.13.0'}
 
-  semantic-lady@0.6.0:
-    resolution: {integrity: sha512-8b0fLc3RQRuJPEbgRk94CoFP/7KutG5nH6TzEk/Gg1W7c3ithp/ZZUk46kosxHsDSqtjQpZt1OXuKwlUiFU5Mw==}
+  semantic-lady@0.6.1:
+    resolution: {integrity: sha512-DDXvJiXbnxuJ7uIQF3DSfDQMSoKYjCHrBRVGkr1YqiuDk+XFA7qq+RFmvfEyxxArOUqy96POIKAl13GTCKxDsA==}
     engines: {node: '>=24.14.0 <25'}
 
   semver@6.3.1:
@@ -7164,7 +7164,7 @@ snapshots:
       ajv-formats: 2.1.1(ajv@8.20.0)
       ajv-keywords: 5.1.0(ajv@8.20.0)
 
-  semantic-lady@0.6.0: {}
+  semantic-lady@0.6.1: {}
 
   semver@6.3.1: {}
 
