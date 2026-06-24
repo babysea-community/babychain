@@ -705,6 +705,26 @@ BabySea mode relies on the BabySea SDK's normalized `generation_*` contract. BYO
 
 All modes keep caller applications on BabyChain API keys. Provider credentials never belong in frontend code or caller requests.
 
+### Natural video openings
+
+Image-to-video models pin the conditioning image as the literal first frame, so a chained clip opens on a frozen copy of the previous step before motion begins. BabyChain softens that with editable code constants in [`lib/config/natural-video.ts`](lib/config/natural-video.ts) (not environment variables, so the decision ships with the image):
+
+```ts
+export const VIDEO_HANDOFF_AS_REFERENCE = false; // opt-in: open in motion at the source (BytePlus/Alibaba)
+export const VIDEO_TRIM_LEAD_IN_MS = 800; // default fix: trim the static hold in ms (0 = off)
+export const VIDEO_FFMPEG_PATH = 'ffmpeg'; // binary for the trim
+```
+
+By default BabyChain treats every video model the same: it trims the first 800ms - the brief static hold - off every stored clip with ffmpeg, so no provider opens on the previous image. This is provider-agnostic, so it also covers Runway and Google, which have no reference mode. The reference option below is an opt-in, no-re-encode alternative for the two providers that support it (and the recommended fix on serverless runtimes where ffmpeg cannot run).
+
+| Constant                     | Default  | Controls                                                                                                                                                                                                                                                                                                                                                                                                                                                              | When to change                                                                                                                                     |
+| :--------------------------- | :------- | :-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `VIDEO_HANDOFF_AS_REFERENCE` | `false`  | Opt-in. Sends the auto chain handoff image to the providers that support it (BytePlus Seedance, Alibaba Wan i2v) as a subject `reference_image` instead of a pinned `first_frame`, so the clip opens already in motion in the handoff's style. Only the auto handoff is affected - a caller-provided first image (`generation_input_image_file`) stays `first_frame`, Alibaba `r2v` models are unchanged, and Runway/Google have no reference mode so they ignore it. | Set `true` to also fix BytePlus/Alibaba at the source - the recommended opening fix on serverless runtimes like Vercel, where the trim cannot run. |
+| `VIDEO_TRIM_LEAD_IN_MS`      | `800`    | Trims that many milliseconds off the start of every stored video output with ffmpeg, dropping the static hold uniformly across every provider (Runway and Google included, which ignore the reference role). Needs an output storage provider (bytes are downloaded to re-encode) and ffmpeg (bundled in the Docker image); fails open to the original bytes on any error, a safe no-op without ffmpeg (e.g. Vercel).                                                 | Lower toward `500` if it clips real motion, raise toward `1000` if a hold remains; set `0` to disable the trim.                                    |
+| `VIDEO_FFMPEG_PATH`          | `ffmpeg` | Path to the ffmpeg binary used by the trim.                                                                                                                                                                                                                                                                                                                                                                                                                           | Set an absolute path if ffmpeg is not on `PATH`.                                                                                                   |
+
+Why trim by default: it is the only fix that works for every provider, since Runway and Google always treat the input as their literal first frame. The reference option is a no-re-encode alternative for the two providers that support it, and the recommended choice on serverless runtimes where ffmpeg cannot run.
+
 ## 6. Storage
 
 BabyChain runs without media storage by default. In that mode it keeps the provider URL or inline data URL returned by the inference provider. For production chains, enable storage so completed step outputs are copied into your own bucket/blob store before the step is marked succeeded. API responses, canvas previews, downstream handoff, and Agentic Workflow checkpoints then prefer the stored public URL.

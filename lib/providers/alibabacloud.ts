@@ -4,6 +4,7 @@ import { lookupAllowedNetworkAddress } from '@/lib/security/network-safety';
 import type { JsonObject, JsonValue } from '@/lib/chains/types';
 import { getMediaDrivenModelVariant } from '@/lib/models/media-driven-variants';
 import { BabyChainError } from '@/lib/utils/errors';
+import { VIDEO_HANDOFF_AS_REFERENCE } from '@/lib/config/natural-video';
 
 import type {
   Provider,
@@ -572,9 +573,18 @@ function mergeVideoInput(args: {
       ...args.imageFiles.slice(firstFile === args.imageFiles[0] ? 1 : 0),
       ...args.handoffFiles.slice(firstFile === args.handoffFiles[0] ? 1 : 0),
     ];
+    // A chain handoff first frame becomes a subject reference when enabled, so
+    // the clip opens already in motion. A caller-provided first image keeps
+    // first_frame, and an explicit generation_media_role still wins.
+    const firstFrameFallback =
+      !args.imageFiles[0] &&
+      Boolean(args.handoffFiles[0]) &&
+      VIDEO_HANDOFF_AS_REFERENCE
+        ? 'reference_image'
+        : 'first_frame';
     if (firstFile) {
       media.push({
-        type: mediaImageType(args.mediaRole, 'first_frame'),
+        type: mediaImageType(args.mediaRole, firstFrameFallback),
         url: firstFile,
       });
     }

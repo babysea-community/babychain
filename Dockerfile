@@ -46,6 +46,11 @@ LABEL org.opencontainers.image.title="BabyChain" \
 	org.opencontainers.image.created="$BUILD_DATE" \
 	org.opencontainers.image.licenses="Apache-2.0"
 
+# ffmpeg powers the optional video lead-in trim (VIDEO_TRIM_LEAD_IN_MS in
+# lib/config/natural-video.ts). It is a no-op unless that constant is raised
+# above 0, so the image ships ready without forcing it on.
+RUN apk add --no-cache ffmpeg
+
 RUN rm -rf /usr/local/lib/node_modules/npm /usr/local/bin/npm /usr/local/bin/npx
 
 COPY --chown=node:node --from=prod-deps /app/node_modules ./node_modules

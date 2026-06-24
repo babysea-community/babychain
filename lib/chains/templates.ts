@@ -357,6 +357,10 @@ export function assertChainInputRequirements(
     requireMediaDrivenStepInput(input, 'modify');
   }
 
+  if (agentDownstreamInputs) {
+    rejectAgentPlannedDownstreamPrompts(input);
+  }
+
   rejectCallerHandoffInputs(input);
 
   if (hasInitialImageInput(input, { byokMode })) {
@@ -892,6 +896,38 @@ function requireModifyModelForModifyInput(
     message: 'Provide modify_model when using modify_model_input.',
     path: ['modify_model'],
   });
+}
+
+// In chain_agent mode the Agentic Workflow authors every downstream step
+// prompt, so a caller-supplied refine/video/modify prompt would be silently
+// discarded. Reject it up front with a clear contract: steer the planner with
+// metadata.model_context, or switch to self_control to write prompts directly.
+// The base image prompt stays caller-authored and is intentionally excluded.
+const AGENT_PLANNED_DOWNSTREAM_INPUT_KEYS = [
+  'refine_model_input',
+  'video_model_input',
+  'modify_model_input',
+] as const;
+
+function rejectAgentPlannedDownstreamPrompts(input: ChainInput) {
+  for (const paramsKey of AGENT_PLANNED_DOWNSTREAM_INPUT_KEYS) {
+    const params = input[paramsKey];
+
+    if (!isPlainRecord(params)) {
+      continue;
+    }
+
+    if (optionalString(params.generation_prompt) === undefined) {
+      continue;
+    }
+
+    throw new BabyChainError(
+      'invalid_chain_input',
+      `${paramsKey}.generation_prompt is not allowed in chain_agent mode: the Agentic Workflow writes downstream prompts. Steer it with metadata.model_context, or use execution.type "self_control" to author the prompt yourself.`,
+      400,
+      { path: [paramsKey, 'generation_prompt'] },
+    );
+  }
 }
 
 function requireVideoDuration(input: Record<string, unknown>) {

@@ -576,6 +576,53 @@ describe('provider adapters', () => {
     });
   });
 
+  describe('chain handoff media role', () => {
+    async function submittedFirstMediaType(params: Record<string, unknown>) {
+      let body: { input?: { media?: Array<{ type?: string }> } } | null = null;
+      const fetchImpl = vi.fn(async (_url: string | URL | Request, init) => {
+        body = JSON.parse(String((init as RequestInit | undefined)?.body));
+        return new Response(JSON.stringify({ request_id: 'req_ref' }), {
+          status: 200,
+        });
+      }) as unknown as typeof fetch;
+
+      const provider = createAlibabaCloudProvider({
+        apiKey: 'dashscope_test_key',
+        fetchImpl,
+      });
+
+      // The stub omits output URLs, so the async route rejects after the
+      // request body (the part under test) has already been captured.
+      await provider
+        .submit({
+          idempotencyKey: 'idem_ref',
+          modelIdentifier: 'alibabacloud/wan2.7-i2v-2026-04-25',
+          params: { generation_prompt: 'animate the portrait', ...params },
+          stepKind: 'video',
+        })
+        .catch(() => undefined);
+
+      return (body as { input?: { media?: Array<{ type?: string }> } } | null)
+        ?.input?.media?.[0]?.type;
+    }
+
+    it('pins the auto chain handoff image as the first frame by default', async () => {
+      expect(
+        await submittedFirstMediaType({
+          generation_input_file: ['https://cdn.example.com/previous.png'],
+        }),
+      ).toBe('first_frame');
+    });
+
+    it('pins a caller-provided first image as the first frame', async () => {
+      expect(
+        await submittedFirstMediaType({
+          generation_input_image_file: ['https://cdn.example.com/start.png'],
+        }),
+      ).toBe('first_frame');
+    });
+  });
+
   it('normalizes BFL jpg output format to jpeg', async () => {
     let submittedBody: Record<string, unknown> = {};
     const fetchImpl = vi.fn(async (_url: string | URL | Request, init) => {

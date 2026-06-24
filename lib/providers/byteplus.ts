@@ -3,6 +3,7 @@ import 'server-only';
 import { lookupAllowedNetworkAddress } from '@/lib/security/network-safety';
 import type { JsonObject } from '@/lib/chains/types';
 import { BabyChainError } from '@/lib/utils/errors';
+import { VIDEO_HANDOFF_AS_REFERENCE } from '@/lib/config/natural-video';
 
 import type {
   Provider,
@@ -372,11 +373,19 @@ async function submitVideoTask(
 
   const hasFirstFrame = content.some((item) => item.role === 'first_frame');
   const explicitImageRole = readMediaRole(ctx.params.generation_media_role);
+  // When enabled, a chain handoff image (the previous step's output, which
+  // arrives first in inputFiles) is sent as a subject reference instead of a
+  // pinned first frame, so the clip can open already in motion. Only the
+  // handoff is affected - a caller-provided first image keeps first_frame.
+  const handoffAsReference =
+    VIDEO_HANDOFF_AS_REFERENCE &&
+    handoffFiles.some((file) => !isVideoInputValue(file));
 
   for (const [index, file] of inputFiles.entries()) {
     const inferredRole =
       index === 0 &&
       !hasFirstFrame &&
+      !handoffAsReference &&
       videoFiles.length === 0 &&
       audioFiles.length === 0
         ? 'first_frame'

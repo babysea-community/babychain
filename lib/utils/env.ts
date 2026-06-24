@@ -22,11 +22,11 @@ const OptionalLongSecretSchema = z.preprocess(
 );
 const OptionalUrlSchema = z.preprocess(
   emptyStringToUndefined,
-  z.string().trim().url().optional(),
+  z.url().trim().optional(),
 );
 
 const EnvSchema = z.object({
-  NEXT_PUBLIC_SITE_URL: z.string().trim().url(),
+  NEXT_PUBLIC_SITE_URL: z.url().trim(),
   /**
    * BabySea SDK credentials. Optional. Leave unset for BYOK deployments.
    * Required only when `BABYCHAIN_PROVIDER_MODE=babysea`.

@@ -8,11 +8,16 @@ import { extname } from 'node:path';
 
 import { parseDataUrlOutputFile } from '@/lib/chains/output-files';
 import { lookupAllowedNetworkAddress } from '@/lib/security/network-safety';
+import {
+  VIDEO_FFMPEG_PATH,
+  VIDEO_TRIM_LEAD_IN_MS,
+} from '@/lib/config/natural-video';
 
 import { createAwsS3StorageProvider } from './aws-s3';
 import { invalidateRunCdnCache } from './cloudfront';
 import { createVercelBlobStorageProvider } from './vercel-blob';
 import type { BabyChainStorageProviderId, StorageProvider } from './types';
+import { trimVideoLeadIn } from './video-trim';
 
 export type { BabyChainStorageProviderId, StorageProvider } from './types';
 
@@ -58,18 +63,27 @@ export async function persistOutputFiles(input: {
   for (const [index, outputFile] of input.outputFiles.entries()) {
     try {
       const media = await readOutputMedia(outputFile);
+      const bytes =
+        VIDEO_TRIM_LEAD_IN_MS > 0
+          ? await trimVideoLeadIn({
+              bytes: media.bytes,
+              contentType: media.contentType,
+              leadInMs: VIDEO_TRIM_LEAD_IN_MS,
+              ffmpegPath: VIDEO_FFMPEG_PATH,
+            })
+          : media.bytes;
       const extension = extensionForContentType(media.contentType, outputFile);
       const key = `runs/${input.runId}/${input.stepKey}/output-${index}.${extension}`;
       const stored = await provider.store({
         contentType: media.contentType,
-        data: media.bytes,
+        data: bytes,
         key,
       });
       const url = stored.publicUrl ?? outputFile;
 
       outputFiles.push(url);
       assets.push({
-        byte_length: media.bytes.byteLength,
+        byte_length: bytes.byteLength,
         content_type: media.contentType,
         original_url: safeStorageOriginalReference(outputFile),
         output_index: index,

@@ -43,14 +43,11 @@ export const CreateRunRequestSchema = z.object({
   input: boundedJsonRecord('input', MAX_RUN_INPUT_BYTES).default({}),
   metadata: boundedJsonRecord('metadata', MAX_RUN_METADATA_BYTES).default({}),
   execution: CreateRunExecutionSchema,
-  webhook_url: z.preprocess(
-    emptyStringToUndefined,
-    z.string().trim().url().optional(),
-  ),
+  webhook_url: z.preprocess(emptyStringToUndefined, z.url().trim().optional()),
 });
 
 export const ContinueAgentRunRequestSchema = z.object({
-  checkpoint_id: z.string().uuid(),
+  checkpoint_id: z.uuid(),
   selected_prompt: z
     .string()
     .trim()
@@ -62,7 +59,7 @@ export const ContinueAgentRunRequestSchema = z.object({
   ).default({}),
 });
 
-export const RunIdSchema = z.string().uuid();
+export const RunIdSchema = z.uuid();
 
 export const CronRequestSchema = z.object({
   limit: z.coerce

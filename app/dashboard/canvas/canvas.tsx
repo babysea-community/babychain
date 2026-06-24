@@ -627,6 +627,14 @@ function runErrorMessage(run: RunJson) {
   return run.error?.message?.trim() || 'The run failed.';
 }
 
+// Last-known run snapshot per run id, held at module scope so it survives the
+// canvas unmounting on client-side navigation (e.g. opening the Library and
+// returning). On remount the resume effect seeds the run mode, step statuses,
+// and agent checkpoints from this cache synchronously, so the agent runner
+// mode and checkpoint cards repaint immediately instead of flashing
+// self_control and popping in only after the first poll round-trip resolves.
+const runSnapshotCache = new Map<string, RunJson>();
+
 type CanvasProps = {
   byokProviders: ByokProviderKey[];
   canvasId?: string;
@@ -3029,7 +3037,11 @@ function InfoNodeComponent({ id, data }: NodeProps) {
                 scene, wardrobe, color grade, and camera direction it should
                 apply to every step the agent plans after your first model card;
                 it reinterprets each of those steps around your brief while
-                keeping the subject the same.
+                keeping the subject the same. Anything that must be visible from
+                the first frame — such as text or a logo on clothing — belongs
+                in your first model card&rsquo;s prompt (or a refine step),
+                because the agent never rewrites your base image and video
+                models cannot add detail that is not already in it.
               </p>
               <textarea
                 disabled={running}
@@ -4335,6 +4347,7 @@ function CanvasInner(props: CanvasProps) {
   ]);
 
   const applyRunToFlow = useCallback((flowId: string, run: RunJson) => {
+    runSnapshotCache.set(run.id, run);
     const restoredMode = runModeFromExecution(run);
     if (restoredMode) {
       setRunModeByFlow((prev) => {
@@ -4566,6 +4579,11 @@ function CanvasInner(props: CanvasProps) {
       flowRunIdRef.current.set(firstFlowId, initialRunId);
       setRunIdsByFlow((prev) => new Map(prev).set(firstFlowId, initialRunId));
       setRunningFlows((prev) => new Set(prev).add(firstFlowId));
+      // Seed mode/status/checkpoints from the last-known snapshot so a
+      // navigation-back repaints the agent runner and checkpoint cards
+      // instantly instead of waiting for the first poll round-trip.
+      const cached = runSnapshotCache.get(initialRunId);
+      if (cached) applyRunToFlow(firstFlowId, cached);
       // notifyFailure=false: repainting an old failed run on page load should
       // not re-toast an error the user already saw.
       void pollFlow(firstFlowId, initialRunId, 0, false);
@@ -4581,10 +4599,19 @@ function CanvasInner(props: CanvasProps) {
         flowRunIdRef.current.set(flowId, runId);
         setRunIdsByFlow((prev) => new Map(prev).set(flowId, runId));
         setRunningFlows((prev) => new Set(prev).add(flowId));
+        const cached = runSnapshotCache.get(runId);
+        if (cached) applyRunToFlow(flowId, cached);
         void pollFlow(flowId, runId, 0, false);
       }
     }
-  }, [hydrated, canvasId, initialRunId, initialFlowRuns, pollFlow]);
+  }, [
+    hydrated,
+    canvasId,
+    initialRunId,
+    initialFlowRuns,
+    pollFlow,
+    applyRunToFlow,
+  ]);
 
   const runFlow = useCallback(
     async (flowId: string, save: boolean) => {

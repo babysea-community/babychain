@@ -514,6 +514,50 @@ describe('chain templates', () => {
     expect(selectedSteps[2]!.dependsOn).toEqual(['refine']);
   });
 
+  it('rejects caller-authored downstream prompts in chain_agent mode', () => {
+    const template = getChainTemplate('chain');
+
+    expect(() =>
+      parseTemplateInput(
+        template!,
+        {
+          image_model: TEXT_IMAGE_MODEL,
+          video_model: VIDEO_MODEL,
+          image_model_input: {
+            generation_prompt: 'A premium product render',
+          },
+          video_model_input: {
+            generation_prompt: 'Animate the generated image',
+          },
+        },
+        { agentDownstreamInputs: true },
+      ),
+    ).toThrow(
+      'video_model_input.generation_prompt is not allowed in chain_agent mode',
+    );
+  });
+
+  it('allows the base image prompt and omitted downstream prompts in chain_agent mode', () => {
+    const template = getChainTemplate('chain');
+
+    expect(() =>
+      parseTemplateInput(
+        template!,
+        {
+          image_model: TEXT_IMAGE_MODEL,
+          video_model: VIDEO_MODEL,
+          image_model_input: {
+            generation_prompt: 'A premium product render',
+          },
+          video_model_input: {
+            generation_duration: 4,
+          },
+        },
+        { agentDownstreamInputs: true },
+      ),
+    ).not.toThrow();
+  });
+
   it('requires refine_model to accept image input', () => {
     const template = getChainTemplate('chain');
 
