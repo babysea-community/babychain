@@ -68,21 +68,27 @@ Canvas studio, agentic planner, and durable chain API for image and video model 
 
 <br/>
 
-<img src="public/agent-autopilot.png" alt="BabyChain dashboard" />
+<img src="public/runner-self-control-1.png" alt="BabyChain mode" />
 
-**Agentic · Autopilot** applies each planned step automatically and hands every output to the next model.
+<img src="public/runner-self-control-2.png" alt="BabyChain mode" />
+
+**Self Control**: you write every prompt and parameter.
+
+<br/>
+
+<img src="public/runner-agent-copilot-1.png" alt="BabyChain mode" />
+
+<img src="public/runner-agent-copilot-2.png" alt="BabyChain mode" />
+
+**Agentic Copilot**: proposes the prompt and fields for the next step; you lock the values and approve before it runs.
 
 <br />
 
-<img src="public/agent-copilot.png" alt="BabyChain dashboard" />
+<img src="public/runner-agent-autopilot-1.png" alt="BabyChain mode" />
 
-**Agentic · Copilot** proposes the prompt and fields for the next step; you lock the values and approve before it runs.
+<img src="public/runner-agent-autopilot-2.png" alt="BabyChain mode" />
 
-<br />
-
-<img src="public/results-from-autopilot.png" alt="BabyChain dashboard" />
-
-Runs, ordered steps, outputs, provider metadata, callbacks, and replay checks stay in server-side storage.
+**Agentic Autopilot**: applies each planned step automatically and hands every output to the next model.
 
 </div>
 
@@ -1042,7 +1048,7 @@ Use the Vercel button to clone the starter and create the project. Then set ever
 
 BabyChain still needs a reachable PostgreSQL database. Follow [4. Database](#4-database) to create the database, build `DATABASE_URL`, allow Vercel to reach port `5432`, and run `pnpm run aurora:migrate` once against the production database before the first real run.
 
-**Cron and function limits.** The checked-in [`vercel.json`](vercel.json) schedules `/api/cron/process-runs` once per day as a conservative recovery sweep. Duration budgets are set in the route modules: chain create/get/continue, the BabySea webhook, and the recovery cron export `maxDuration = 300`, while output and cancel routes use `60`. Make sure those route-level durations are supported by your Vercel plan. On plans that support it, you can change the cron schedule to `* * * * *` for one-minute recovery and adjust route durations only where your plan allows the budget.
+**Cron and function limits.** The checked-in [`vercel.json`](vercel.json) schedules `/api/cron/process-runs` once per day as a conservative recovery sweep. Daily keeps the starter deployable on Vercel's free (Hobby) plan, where sub-daily cron is not available; the cron is only a backstop, because runs advance in real time through `GET` polling and the inbound BabySea webhook, not the cron. Duration budgets are set in the route modules: chain create/get/continue, the BabySea webhook, and the recovery cron export `maxDuration = 300`, while output and cancel routes use `60`. Make sure those route-level durations are supported by your Vercel plan. On plans that support it, you can change the cron schedule to `* * * * *` for one-minute recovery and adjust route durations only where your plan allows the budget.
 
 ### AWS CloudFormation
 
@@ -1087,7 +1093,15 @@ Use Google Cloud Run when you want managed HTTPS, autoscaling, Cloud Logging, Se
 
 ## 9. Security and Compliance
 
-The project publishes its trust signals through public GitHub, GitLab, or other CI provider checks so contributors can inspect the actual CI configuration, jobs, and reports.
+BabyChain keeps its runtime safeguards in code rather than in claims:
+
+- **Server-side credentials only.** Provider keys, the BabySea key, the Amazon Nova token, and database/storage credentials stay inside the deployment. Callers only ever hold a BabyChain API key, which is stored hashed with explicit scopes (`chains:run`, `chains:read`, `runs:cancel`).
+- **SSRF-safe outbound calls.** Caller webhook URLs and any caller-supplied media URLs must be HTTPS without embedded credentials, and are DNS-resolved and rejected when they resolve to loopback, private, link-local, or cloud-metadata addresses, so a run cannot be turned into a request against internal services.
+- **Signed messages both ways.** Terminal callbacks are HMAC-signed (`X-BabyChain-Signature`) so receivers can verify origin; inbound BabySea webhooks are signature-verified and recorded idempotently before they advance a run.
+- **Auditable, bounded state.** Every state change writes an append-only `audit_event`, and callback and webhook histories are pruned on retention windows.
+- **Error visibility.** Server and browser errors and traces flow to Sentry when it is configured.
+
+The project also publishes its CI trust signals through public GitHub, GitLab, or other CI provider checks so contributors can inspect the actual configuration, jobs, and reports.
 
 ## 10. Community
 

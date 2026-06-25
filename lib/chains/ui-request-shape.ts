@@ -25,7 +25,7 @@ export type ChainRunRequestBody = {
 
 // Optional request parts that mirror the run the canvas actually launches: the
 // execution config (self_control vs chain_agent copilot/autopilot) and run
-// metadata (the owner's model_context / Creator Brief). Without these the curl
+// metadata (the owner's model_context/Creator Brief). Without these the curl
 // would silently fall back to a default self_control run with no brief.
 export type ChainRunRequestExtras = {
   execution?: Record<string, unknown>;

@@ -34,7 +34,7 @@ jobs:
       - name: Check secrets
         run: |
           if [ -z "$VERCEL_TOKEN" ] || [ -z "$VERCEL_ORG_ID" ] || [ -z "$VERCEL_PROJECT_ID" ]; then
-            echo "::warning::VERCEL_TOKEN / VERCEL_ORG_ID / VERCEL_PROJECT_ID not configured for this environment; skipping deploy."
+            echo "::warning::VERCEL_TOKEN/VERCEL_ORG_ID/VERCEL_PROJECT_ID not configured for this environment; skipping deploy."
             echo "deploy=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi

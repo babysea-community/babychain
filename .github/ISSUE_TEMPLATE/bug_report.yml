@@ -22,7 +22,7 @@ body:
   - type: input
     id: component
     attributes:
-      label: Component / area
+      label: Component/area
       description: Which part of the project is affected?
       placeholder: "e.g. SDK, primitive, starter app, CLI, docs, package build"
     validations:
@@ -72,7 +72,7 @@ body:
   - type: textarea
     id: logs
     attributes:
-      label: Logs / output
+      label: Logs/output
       description: Paste relevant logs, stack traces, or screenshots. Redact secrets, tokens, customer data, private URLs, and personal data.
       render: shell
 

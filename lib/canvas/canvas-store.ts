@@ -405,8 +405,8 @@ export async function deleteCanvas(
     return false;
   }
 
-  // Reclaim the canvas's stored image/video files (S3 / Vercel Blob) for its
-  // run. The chain_run / chain_step history rows are intentionally left
+  // Reclaim the canvas's stored image/video files (S3/Vercel Blob) for its
+  // run. The chain_run/chain_step history rows are intentionally left
   // in place; only the binary assets are removed. Cleanup is best-effort so a
   // storage hiccup never blocks the delete the owner already requested.
   if (deleted.run_id) {

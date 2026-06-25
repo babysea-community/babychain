@@ -34,7 +34,7 @@ Read CONTRIBUTING.md and SECURITY.md before opening a PR.
 <!-- Describe how you verified the change. Include commands run and their results. -->
 
 - [ ] `format`, `lint`, and `typecheck` pass locally
-- [ ] Unit / integration tests added or updated
+- [ ] Unit/integration tests added or updated
 - [ ] Manual verification (describe below)
 
 ```

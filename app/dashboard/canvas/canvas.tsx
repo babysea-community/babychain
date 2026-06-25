@@ -4958,7 +4958,7 @@ function CanvasInner(props: CanvasProps) {
           );
           // Mirror the run the canvas actually launches: the selected run mode
           // (self_control vs chain_agent copilot/autopilot) and the owner's
-          // model_context / Creator Brief. Without these the copied curl would
+          // model_context/Creator Brief. Without these the copied curl would
           // silently run as a default self_control run with no brief.
           const runMode = runModeByFlow.get(flowId) ?? 'self_control';
           const infoNode = nodesRef.current.find(

@@ -176,7 +176,7 @@ describe('validateChainAgentResult', () => {
     );
     expect(proposal.generation_prompt_extend).toBe(false);
 
-    // User edit / copilot approval (no flag): the user's choice is honored,
+    // User edit/copilot approval (no flag): the user's choice is honored,
     // never overridden back to false.
     const userEdit = completeChainAgentSelectedParams(
       {

@@ -16,7 +16,7 @@ env:
 
 jobs:
   javascript:
-    name: JavaScript / TypeScript package
+    name: JavaScript/TypeScript package
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -26,7 +26,7 @@ jobs:
       - uses: actions/setup-node@v6
         with:
           node-version: 24
-      - name: Detect, install, and check JavaScript / TypeScript package
+      - name: Detect, install, and check JavaScript/TypeScript package
         shell: bash
         run: |
           set -euo pipefail
@@ -170,7 +170,7 @@ jobs:
       - uses: actions/setup-node@v6
         with:
           node-version: 24
-      - name: Audit JavaScript / TypeScript production dependencies
+      - name: Audit JavaScript/TypeScript production dependencies
         shell: bash
         run: |
           set -euo pipefail

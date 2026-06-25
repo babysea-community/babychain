@@ -33,7 +33,7 @@ body:
   - type: input
     id: component
     attributes:
-      label: Component / area
+      label: Component/area
       description: Which part of the project would this touch?
       placeholder: "e.g. SDK, primitive, starter app, CLI, docs, CI"
 

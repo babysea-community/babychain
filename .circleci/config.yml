@@ -12,7 +12,7 @@ jobs:
             - oss-javascript-v1-{{ .Branch }}
             - oss-javascript-v1-main
       - run:
-          name: Detect, install, and check JavaScript / TypeScript package
+          name: Detect, install, and check JavaScript/TypeScript package
           command: |
             set -eu
             root_dir="$PWD"
@@ -164,7 +164,7 @@ jobs:
     steps:
       - checkout
       - run:
-          name: Audit JavaScript / TypeScript production dependencies
+          name: Audit JavaScript/TypeScript production dependencies
           command: |
             set -eu
             js_dir="${JS_PACKAGE_DIR:-}"
