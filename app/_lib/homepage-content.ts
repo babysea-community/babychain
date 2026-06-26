@@ -1,5 +1,6 @@
 import { createFontAwesomeIcon } from '@/components/icons/font-awesome-icon';
 import { InlineGitHub } from '@/components/icons/inline-git';
+import { InlineSentry } from '@/components/icons/inline-sponsor';
 import type { ModelChainCatalogEntry } from '@/lib/chains/catalog';
 import type { ModelCatalogEntry } from '@/lib/models/model-catalog';
 
@@ -286,6 +287,24 @@ export const communityPrograms = {
     { org: 'Alibaba Cloud', name: 'Alibaba AI Catalyst Program' },
     { org: 'Black Forest Labs', name: 'FLUX Creators' },
     { org: 'Runway', name: 'Runway Builders' },
+  ],
+};
+
+export const communitySponsors = {
+  eyebrow: 'Sponsors',
+  title: 'Proudly supported by our sponsors.',
+  description:
+    'BabyChain is supported by companies that believe in open-source developer tooling. Thank you to every sponsor who helps keep this project running.',
+  sponsors: [
+    {
+      icon: InlineSentry,
+      name: 'Sentry',
+      useCases: [
+        'Error monitoring',
+        'Performance tracing',
+        'Release health tracking',
+      ],
+    },
   ],
 };
 

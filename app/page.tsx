@@ -49,6 +49,7 @@ import {
   agenticWorkflow,
   catalogIntro,
   communityPrograms,
+  communitySponsors,
   createHomepageMetrics,
   databaseEngine,
   homepageCta,
@@ -381,6 +382,39 @@ export default function HomePage() {
                   <div className="mt-2 text-lg font-semibold tracking-tight text-foreground">
                     {program.name}
                   </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        <section id="sponsors">
+          <div className="mx-auto max-w-[1520px] border border-border bg-card">
+            <div className="border-b border-border p-5 md:p-7">
+              <SectionHeading
+                eyebrow={communitySponsors.eyebrow}
+                title={communitySponsors.title}
+                description={communitySponsors.description}
+                maxWidthClass="max-w-5xl"
+              />
+            </div>
+            <div className="grid gap-px bg-border">
+              {communitySponsors.sponsors.map((sponsor) => (
+                <div className="bg-card p-5 md:p-7" key={sponsor.name}>
+                  <sponsor.icon
+                    aria-label={sponsor.name}
+                    className="h-8 w-auto"
+                  />
+                  <ul className="mt-4 space-y-1">
+                    {sponsor.useCases.map((useCase) => (
+                      <li
+                        className="font-mono text-xs uppercase tracking-[0.18em] text-muted-foreground"
+                        key={useCase}
+                      >
+                        {useCase}
+                      </li>
+                    ))}
+                  </ul>
                 </div>
               ))}
             </div>
