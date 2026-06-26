@@ -398,23 +398,13 @@ export default function HomePage() {
                 maxWidthClass="max-w-5xl"
               />
             </div>
-            <div className="grid gap-px bg-border">
+            <div className="grid gap-px bg-border sm:grid-cols-2 lg:grid-cols-4">
               {communitySponsors.sponsors.map((sponsor) => (
                 <div className="bg-card p-5 md:p-7" key={sponsor.name}>
                   <sponsor.icon
                     aria-label={sponsor.name}
                     className="h-8 w-auto"
                   />
-                  <ul className="mt-4 space-y-1">
-                    {sponsor.useCases.map((useCase) => (
-                      <li
-                        className="font-mono text-xs uppercase tracking-[0.18em] text-muted-foreground"
-                        key={useCase}
-                      >
-                        {useCase}
-                      </li>
-                    ))}
-                  </ul>
                 </div>
               ))}
             </div>

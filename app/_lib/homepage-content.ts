@@ -294,16 +294,11 @@ export const communitySponsors = {
   eyebrow: 'Sponsors',
   title: 'Proudly supported by our sponsors.',
   description:
-    'BabyChain is supported by companies that believe in open-source developer tooling. Thank you to every sponsor who helps keep this project running.',
+    'Thank you to every sponsor who helps keep this project running.',
   sponsors: [
     {
       icon: InlineSentry,
       name: 'Sentry',
-      useCases: [
-        'Error monitoring',
-        'Performance tracing',
-        'Release health tracking',
-      ],
     },
   ],
 };
