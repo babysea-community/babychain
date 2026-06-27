@@ -292,9 +292,9 @@ export const communityPrograms = {
 
 export const communitySponsors = {
   eyebrow: 'Sponsors',
-  title: 'Proudly supported by our sponsors.',
+  title: 'Huge thanks for the support.',
   description:
-    'Thank you to every sponsor who helps keep this project running.',
+    'Huge thanks to the companies and teams who support us, and to future sponsors who want to help open generative media infrastructure move faster.',
   sponsors: [
     {
       icon: InlineSentry,

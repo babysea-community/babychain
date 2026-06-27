@@ -400,7 +400,10 @@ export default function HomePage() {
             </div>
             <div className="grid gap-px bg-border sm:grid-cols-2 lg:grid-cols-4">
               {communitySponsors.sponsors.map((sponsor) => (
-                <div className="bg-card p-5 md:p-7" key={sponsor.name}>
+                <div
+                  className="flex items-center justify-center bg-card p-5 md:p-7"
+                  key={sponsor.name}
+                >
                   <sponsor.icon
                     aria-label={sponsor.name}
                     className="h-8 w-auto"
