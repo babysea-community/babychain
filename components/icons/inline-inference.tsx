@@ -18,6 +18,8 @@ import { cn } from '../../lib/utils';
 // 10. Recraft
 // 11. Runway
 // 12. Tencent Cloud
+// 13. Fal
+// 14. Replicate
 // -------------------------------------------------------
 
 export function InlineAlibabaCloud({
@@ -511,6 +513,81 @@ export function InlineTencentCloud({
         d="M15766 11325c-773,-2075 -2754,-3455 -4970,-3458 -2654,0 -4763,1965 -5173,4407 203,0 410,-66 682,-66 272,0 613,66 886,66 341,-1697 1837,-2917 3608,-2917 1496,0 2792,882 3402,2169 0,0 69,69 69,0 473,-66 1017,-201 1496,-201l0 0z"
         fill="#006EFF"
       />
+    </svg>
+  );
+}
+
+export function InlineFal({
+  className,
+  ...props
+}: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width="482"
+      height="482"
+      viewBox="0 0 24 24"
+      className={cn(className)}
+      {...props}
+    >
+      <path
+        clipRule="evenodd"
+        d="M15.477 0c.415 0 .749.338.788.752a7.775 7.775 0 006.985 6.984c.413.04.752.373.752.788v6.952c0 .415-.338.748-.752.788a7.775 7.775 0 00-6.985 6.984c-.04.414-.373.752-.788.752H8.525c-.416 0-.749-.338-.789-.752a7.775 7.775 0 00-6.984-6.984c-.414-.04-.752-.373-.752-.788V8.524c0-.415.338-.748.752-.788A7.775 7.775 0 007.736.752C7.776.338 8.11 0 8.526 0h6.95zM4.819 11.98a7.226 7.226 0 007.223 7.23 7.226 7.226 0 007.223-7.23c0-3.994-3.234-7.23-7.223-7.23a7.227 7.227 0 00-7.223 7.23z"
+        fill="#EC0648"
+        fillRule="evenodd"
+      />
+    </svg>
+  );
+}
+
+export function InlineReplicate({
+  className,
+  ...props
+}: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width="482"
+      height="482"
+      viewBox="0 0 482 482"
+      className={cn(className)}
+      {...props}
+    >
+      <path
+        fill="#000000"
+        d="M479.9996 207.247V261.4871H289.6325V482H228.9597V207.247Z"
+      />
+      <path
+        fill="#000000"
+        d="M479.9996 104.625V158.9604H175.1051V482H114.4327V104.625Z"
+      />
+      <path fill="#000000" d="M479.9996 2.0004V56.3349H60.6725V482H0V2.0004Z" />
+    </svg>
+  );
+}
+
+export function InlineReplicateLight({
+  className,
+  ...props
+}: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width="482"
+      height="482"
+      viewBox="0 0 482 482"
+      className={cn(className)}
+      {...props}
+    >
+      <path
+        fill="#FAFAFA"
+        d="M479.9996 207.247V261.4871H289.6325V482H228.9597V207.247Z"
+      />
+      <path
+        fill="#FAFAFA"
+        d="M479.9996 104.625V158.9604H175.1051V482H114.4327V104.625Z"
+      />
+      <path fill="#FAFAFA" d="M479.9996 2.0004V56.3349H60.6725V482H0V2.0004Z" />
     </svg>
   );
 }

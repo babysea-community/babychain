@@ -56,6 +56,10 @@ export function SectionHeading({
             We are part of{' '}
             <span className="text-primary">the AI community</span>.
           </>
+        ) : title === 'Huge thanks for the support.' ? (
+          <>
+            <span className="text-primary">Huge thanks</span> for the support.
+          </>
         ) : (
           title
         )}
