@@ -519,16 +519,6 @@ For the first run, choose models that match the provider keys in `.env.local`. F
 
 Click **Run only** to stream outputs onto the canvas, or **RUN + SAVE** to also store the finished flow in the Library. A successful setup shows card badges moving from `queued` to `running` to `succeeded`; the same run can be fetched through `GET /api/v1/chains/get/{runId}`.
 
-### 5. Optional: seed demo canvases
-
-After migration, you can seed fixed demo canvases for the configured owner:
-
-```bash
-pnpm run aurora:seed-demo
-```
-
-The seed script requires `OWNER_EMAIL` and `DATABASE_URL` in `.env.local`. It opens the database connection with SSL, so use it against Aurora/RDS unless your local PostgreSQL accepts SSL connections. The seeded canvases reference BFL, Alibaba Cloud, and Runway models, so configure the matching provider keys before running them.
-
 ### API
 
 | Action                                | Method and path                        |

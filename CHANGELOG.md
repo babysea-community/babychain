@@ -43,6 +43,7 @@ All notable changes will be documented here. The format follows [Keep a Changelo
 
 ### Removed
 
+- Removed `seed-demo-canvases.mjs` and `_test-run.mjs`.
 - Temporarily removed the character-performance and animation models - `runway/act-two`, `wan/2.2-animate-mix`, and `wan/2.2-animate-move` - and their media-driven `(Image)`/`(Video)` chain variants from the catalog; they will return as dedicated card types. They no longer route, register, or appear in the run API, canvas cards, or templates.
 - Removed the `unsupportedSceneDrift` validation guard that rejected scene/background variation when no creator brief was present; the planner now art-directs distinct variations by default, so the guard contradicted the intended behavior.
 

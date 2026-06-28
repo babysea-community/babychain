@@ -38,7 +38,6 @@
     "dev": "next dev --port=3011",
     "doctor": "node scripts/doctor.mjs",
     "aurora:migrate": "node scripts/aurora-migrate.mjs",
-    "aurora:seed-demo": "node --env-file=.env.local scripts/seed-demo-canvases.mjs",
     "sentry:check": "node scripts/sentry-project-check.mjs",
     "format": "prettier --check \"**/*.{ts,tsx,css,md,json,jsonc,mjs}\"",
     "format:fix": "prettier --write \"**/*.{ts,tsx,css,md,json,jsonc,mjs}\"",
