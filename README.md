@@ -14,22 +14,6 @@ Visual canvas studio, agentic workflow orchestration, and durable API for chaini
 
 <br />
 
-<strong>Checks</strong>
-
-[![Vercel Status](https://img.shields.io/github/deployments/babysea-community/babychain/production?style=for-the-badge&label=vercel&logo=vercel&logoColor=white&color=000000)](https://babychain.vercel.app)
-[![Docker Status](https://img.shields.io/docker/v/babyseaoss/babychain?style=for-the-badge&label=docker&logo=docker&logoColor=white&color=2560FF)](https://hub.docker.com/r/babyseaoss/babychain)
-[![GitLabCI](https://img.shields.io/gitlab/pipeline-status/babysea/babychain?branch=main&style=for-the-badge&label=gitlabci&logo=gitlab&logoColor=white&color=FC6D26)](https://gitlab.com/babysea/babychain/-/commits/main)
-[![CircleCI](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fcircleci.com%2Fapi%2Fv1.1%2Fproject%2Fcircleci%2F2uTLcwc4naeNuKDP41es88%2FLkDoyyGhqLz6j1Wi6mUHWd%2Ftree%2Fmain%3Flimit%3D1&query=%24%5B0%5D.status&style=for-the-badge&logo=circleci&logoColor=white&label=circleci&color=003740)](https://dl.circleci.com/status-badge/redirect/circleci/2uTLcwc4naeNuKDP41es88/LkDoyyGhqLz6j1Wi6mUHWd/tree/main)
-[![Sentry](https://img.shields.io/github/actions/workflow/status/babysea-community/babychain/sentry-check.yml?style=for-the-badge&label=sentry&logo=sentry&logoColor=white&color=181225)](https://github.com/babysea-community/babychain/actions/workflows/sentry-check.yml)
-[![CodeQL](https://img.shields.io/github/actions/workflow/status/babysea-community/babychain/codeql.yml?style=for-the-badge&label=codeql&logo=github&logoColor=white)](https://github.com/babysea-community/babychain/actions/workflows/codeql.yml)
-[![Package](https://img.shields.io/github/actions/workflow/status/babysea-community/babychain/package-check.yml?style=for-the-badge&label=package&logo=npm&logoColor=white)](https://github.com/babysea-community/babychain/actions/workflows/package-check.yml)
-
-<strong>One-click deploy</strong>
-
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fbabysea-community%2Fbabychain&project-name=babychain&repository-name=babychain&env=NEXT_PUBLIC_SITE_URL,OWNER_EMAIL,OWNER_PASSWORD,OWNER_SESSION_SECRET,DATABASE_URL,BABYCHAIN_API_KEY,BABYCHAIN_CRON_SECRET,BABYCHAIN_CALLBACK_SECRET,BABYCHAIN_PROVIDER_MODE,DASHSCOPE_API_KEY,BFL_API_KEY,BFL_REGION,BFL_API_BASE_URL,ARK_API_KEY,GEMINI_API_KEY,OPENAI_API_KEY,RUNWAYML_API_SECRET)
-
-<br />
-
 <img src="public/runner-self-control-1.png" alt="BabyChain mode" />
 
 <img src="public/runner-self-control-2.png" alt="BabyChain mode" />
@@ -67,8 +51,6 @@ Visual canvas studio, agentic workflow orchestration, and durable API for chaini
 - [5. Models and Modes](#5-models-and-modes)
 - [6. Storage](#6-storage)
 - [7. Agentic Workflow](#7-agentic-workflow)
-- [8. Community](#8-community)
-- [9. License](#9-license)
 
 ---
 
@@ -740,11 +722,3 @@ Nova 2 Lite is Amazon's cost-efficient multimodal model for simple automation, d
 |    ✅     | 1K\*                  |        4        | 5 minutes | `system` and `messages` |
 
 \* Amazon Nova models support up to 20K tokens for prompt caching, primarily for text prompts. See [Prompt caching](https://docs.aws.amazon.com/bedrock/latest/userguide/prompt-caching.html).
-
-## 8. Community
-
-Issues, pull requests, design discussion, and security reports should follow [`CONTRIBUTING.md`](CONTRIBUTING.md), [`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md), and [`SECURITY.md`](SECURITY.md).
-
-## 9. License
-
-[Apache License 2.0](LICENSE).
