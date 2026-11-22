@@ -4,7 +4,7 @@
 
 # BabyChain
 
-Canvas studio, agentic planner, and durable chain API for image and video model workflows with one final callback.
+Visual canvas studio, agentic workflow orchestration, and durable API for chaining image and video generation models.
 
 ### Every output becomes the next input.
 
@@ -13,14 +13,6 @@ Canvas studio, agentic planner, and durable chain API for image and video model 
 [![Website](https://custom-icon-badges.demolab.com/badge/visit-website-33AAFF?style=for-the-badge&logo=babychain)](https://babychain.babysea.live)
 
 <br />
-
-<strong>Project details</strong>
-
-[![BabySea OSS Starter](https://custom-icon-badges.demolab.com/badge/oss-starter-2563EB?style=for-the-badge&logo=babysea&logoColor=white)](#babysea-oss-taxonomy)
-[![BabySea OSS Status Production](https://custom-icon-badges.demolab.com/badge/status-production-C026D3?style=for-the-badge&logo=babysea&logoColor=white)](#status)
-[![License](https://custom-icon-badges.demolab.com/badge/license-apache_2.0-059669?style=for-the-badge&logo=apache&logoColor=white)](LICENSE)
-
-<br/>
 
 <strong>Checks</strong>
 
@@ -94,36 +86,6 @@ Canvas studio, agentic planner, and durable chain API for image and video model 
 
 <br />
 
-## BabySea OSS taxonomy
-
-BabySea open source projects are organized into three categories:
-
-[![BabySea OSS SDK](https://custom-icon-badges.demolab.com/badge/oss-sdk-7C3AED?style=for-the-badge&logo=babysea&logoColor=white)](#babysea-oss-taxonomy)
-[![BabySea OSS Primitive](https://custom-icon-badges.demolab.com/badge/oss-primitive-EA580c?style=for-the-badge&logo=babysea&logoColor=white)](#babysea-oss-taxonomy)
-[![BabySea OSS Starter](https://custom-icon-badges.demolab.com/badge/oss-starter-2563EB?style=for-the-badge&logo=babysea&logoColor=white)](#babysea-oss-taxonomy)
-
-| Category      | Description                                                                                                                                       |
-| :------------ | :------------------------------------------------------------------------------------------------------------------------------------------------ |
-| **SDK**       | Typed developer entry points for creating, tracking, and managing BabySea workloads from application code.                                        |
-| **Primitive** | Reusable infrastructure boundaries extracted from BabySea's execution control plane. Each primitive focuses on one system concern.                |
-| **Starter**   | Deployable reference applications that combine product UI, auth, storage, and BabySea execution patterns. Some starters may also include billing. |
-
-## Status
-
-BabySea OSS projects are published into three status levels:
-
-[![BabySea OSS Status Working](https://custom-icon-badges.demolab.com/badge/status-working-DB2777?style=for-the-badge&logo=babysea&logoColor=white)](#status)
-[![BabySea OSS Status Production](https://custom-icon-badges.demolab.com/badge/status-production-C026D3?style=for-the-badge&logo=babysea&logoColor=white)](#status)
-[![BabySea OSS Status Alpha](https://custom-icon-badges.demolab.com/badge/status-alpha-D97706?style=for-the-badge&logo=babysea&logoColor=white)](#status)
-
-| Status         | Description                                                                                                                                                                          |
-| :------------- | :----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Working**    | Fully implemented and deployable. All documented capabilities function as described. Suitable for personal and small-team use. No breaking-change guarantees between versions.       |
-| **Production** | Working plus a hardened public runtime contract. Validated against a stated infrastructure stack with deterministic behavior, explicit failure modes, and a documented upgrade path. |
-| **Alpha**      | Early-stage implementation. Core structure exists but some capabilities may be incomplete, undocumented, or subject to breaking changes. Not recommended for production deployments. |
-
-See [`CHANGELOG.md`](CHANGELOG.md) to track releases and public contract changes.
-
 ---
 
 ## Contents
@@ -136,9 +98,8 @@ See [`CHANGELOG.md`](CHANGELOG.md) to track releases and public contract changes
 - [6. Storage](#6-storage)
 - [7. Agentic Workflow](#7-agentic-workflow)
 - [8. Deployment](#8-deployment)
-- [9. Security and Compliance](#9-security-and-compliance)
-- [10. Community](#10-community)
-- [11. License](#11-license)
+- [9. Community](#10-community)
+- [10. License](#11-license)
 
 ---
 
@@ -1081,22 +1042,10 @@ Use Fly.io when you want a long-running Docker deployment with Fly-managed TLS, 
 
 Use Google Cloud Run when you want managed HTTPS, autoscaling, Cloud Logging, Secret Manager integration, and Cloud Scheduler queued-run recovery around the BabyChain Docker image. Full end-to-end guide: [docs/deployment/google-cloud-run.md](docs/deployment/google-cloud-run.md).
 
-## 9. Security and Compliance
-
-BabyChain keeps its runtime safeguards in code rather than in claims:
-
-- **Server-side credentials only.** Provider keys, the BabySea key, the Amazon Nova token, and database/storage credentials stay inside the deployment. Callers only ever hold a BabyChain API key, which is stored hashed with explicit scopes (`chains:run`, `chains:read`, `runs:cancel`).
-- **SSRF-safe outbound calls.** Caller webhook URLs and any caller-supplied media URLs must be HTTPS without embedded credentials, and are DNS-resolved and rejected when they resolve to loopback, private, link-local, or cloud-metadata addresses, so a run cannot be turned into a request against internal services.
-- **Signed messages both ways.** Terminal callbacks are HMAC-signed (`X-BabyChain-Signature`) so receivers can verify origin; inbound BabySea webhooks are signature-verified and recorded idempotently before they advance a run.
-- **Auditable, bounded state.** Every state change writes an append-only `audit_event`, and callback and webhook histories are pruned on retention windows.
-- **Error visibility.** Server and browser errors and traces flow to Sentry when it is configured.
-
-The project also publishes its CI trust signals through public GitHub, GitLab, or other CI provider checks so contributors can inspect the actual configuration, jobs, and reports.
-
-## 10. Community
+## 9. Community
 
 Issues, pull requests, design discussion, and security reports should follow [`CONTRIBUTING.md`](CONTRIBUTING.md), [`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md), and [`SECURITY.md`](SECURITY.md).
 
-## 11. License
+## 10. License
 
 [Apache License 2.0](LICENSE).
