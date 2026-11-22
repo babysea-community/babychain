@@ -14,6 +14,52 @@ Visual canvas studio, agentic workflow orchestration, and durable API for chaini
 
 <br />
 
+<strong>Checks</strong>
+
+[![Vercel Status](https://img.shields.io/github/deployments/babysea-community/babychain/production?style=for-the-badge&label=vercel&logo=vercel&logoColor=white&color=000000)](https://babychain.vercel.app)
+[![Docker Status](https://img.shields.io/docker/v/babyseaoss/babychain?style=for-the-badge&label=docker&logo=docker&logoColor=white&color=2560FF)](https://hub.docker.com/r/babyseaoss/babychain)
+[![GitLabCI](https://img.shields.io/gitlab/pipeline-status/babysea/babychain?branch=main&style=for-the-badge&label=gitlabci&logo=gitlab&logoColor=white&color=FC6D26)](https://gitlab.com/babysea/babychain/-/commits/main)
+[![CircleCI](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fcircleci.com%2Fapi%2Fv1.1%2Fproject%2Fcircleci%2F2uTLcwc4naeNuKDP41es88%2FLkDoyyGhqLz6j1Wi6mUHWd%2Ftree%2Fmain%3Flimit%3D1&query=%24%5B0%5D.status&style=for-the-badge&logo=circleci&logoColor=white&label=circleci&color=003740)](https://dl.circleci.com/status-badge/redirect/circleci/2uTLcwc4naeNuKDP41es88/LkDoyyGhqLz6j1Wi6mUHWd/tree/main)
+[![Sentry](https://img.shields.io/github/actions/workflow/status/babysea-community/babychain/sentry-check.yml?style=for-the-badge&label=sentry&logo=sentry&logoColor=white&color=181225)](https://github.com/babysea-community/babychain/actions/workflows/sentry-check.yml)
+[![CodeQL](https://img.shields.io/github/actions/workflow/status/babysea-community/babychain/codeql.yml?style=for-the-badge&label=codeql&logo=github&logoColor=white)](https://github.com/babysea-community/babychain/actions/workflows/codeql.yml)
+[![Package](https://img.shields.io/github/actions/workflow/status/babysea-community/babychain/package-check.yml?style=for-the-badge&label=package&logo=npm&logoColor=white)](https://github.com/babysea-community/babychain/actions/workflows/package-check.yml)
+
+<br/>
+
+<strong>Built with</strong>
+
+[![Next.js](https://custom-icon-badges.demolab.com/badge/next_js-000000?style=for-the-badge&logo=nextdotjs&logoColor=white)](https://nextjs.org)
+[![React](https://custom-icon-badges.demolab.com/badge/react-53C1DE?style=for-the-badge&logo=react&logoColor=white)](https://react.dev)
+[![React Flow](https://custom-icon-badges.demolab.com/badge/react_flow-FF0073?style=for-the-badge&logo=react-flow-1)](https://reactflow.dev)
+[![Semantic Lady](https://custom-icon-badges.demolab.com/badge/semantic_lady-EC4899?style=for-the-badge&logo=semantic-lady)](https://github.com/babysea-community/semantic-lady)
+[![BabySea](https://custom-icon-badges.demolab.com/badge/babysea-14B8A6?style=for-the-badge&logo=babysea&logoColor=white)](https://babysea.ai)
+[![AWS Aurora](https://custom-icon-badges.demolab.com/badge/aws_aurora-3B46CA?style=for-the-badge&logo=aws-aurora&logoColor=white)](https://aws.amazon.com/rds/aurora)
+[![Vercel](https://custom-icon-badges.demolab.com/badge/vercel-000000?style=for-the-badge&logo=vercel&logoColor=white)](https://vercel.com)
+[![Amazon Nova](https://custom-icon-badges.demolab.com/badge/amazon_nova-7B2FBE?style=for-the-badge&logo=amazon-nova&logoColor=white)](https://docs.aws.amazon.com/nova/latest/userguide/what-is-nova.html)
+[![AWS S3](https://custom-icon-badges.demolab.com/badge/aws_s3-3F8624?style=for-the-badge&logo=aws-s3-2&logoColor=white)](https://docs.aws.amazon.com/s3)
+[![Vercel Blob](https://custom-icon-badges.demolab.com/badge/vercel_blob-E46000?style=for-the-badge&logo=vercel-blob-3)](https://vercel.com/docs/vercel-blob)
+[![Inference Providers](https://custom-icon-badges.demolab.com/badge/inference_providers-0EA5E9?style=for-the-badge&logo=cpu&logoColor=white)](SUPPORTED_MODELS.md)
+[![Sentry](https://custom-icon-badges.demolab.com/badge/sentry-181225?style=for-the-badge&logo=sentry&logoColor=white)](https://sentry.io)
+
+<br/>
+
+<strong>One-click deploy</strong>
+
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fbabysea-community%2Fbabychain&project-name=babychain&repository-name=babychain&env=NEXT_PUBLIC_SITE_URL,OWNER_EMAIL,OWNER_PASSWORD,OWNER_SESSION_SECRET,DATABASE_URL,BABYCHAIN_API_KEY,BABYCHAIN_CRON_SECRET,BABYCHAIN_CALLBACK_SECRET,BABYCHAIN_PROVIDER_MODE,DASHSCOPE_API_KEY,BFL_API_KEY,BFL_REGION,BFL_API_BASE_URL,ARK_API_KEY,GEMINI_API_KEY,OPENAI_API_KEY,RUNWAYML_API_SECRET)
+
+<br />
+
+<strong>Custom deploy</strong>
+
+[![Deploy with AWS CloudFormation](public/deploy-button/aws-cloudformation.svg)](docs/deployment/aws-cloudformation.md)
+[![Run on AWS EC2](public/deploy-button/aws-ec2.svg)](docs/deployment/aws-ec2.md)
+[![Deploy with Coolify](public/deploy-button/coolify.svg)](docs/deployment/coolify.md)
+[![Deploy with Docker](public/deploy-button/docker.svg)](docs/deployment/docker.md)
+[![Deploy on Fly.io](public/deploy-button/flyio.svg)](docs/deployment/fly-io.md)
+[![Deploy on Google Cloud Run](public/deploy-button/google-cloud-run.svg)](docs/deployment/google-cloud-run.md)
+
+<br/>
+
 <img src="public/runner-self-control-1.png" alt="BabyChain mode" />
 
 <img src="public/runner-self-control-2.png" alt="BabyChain mode" />
@@ -51,6 +97,9 @@ Visual canvas studio, agentic workflow orchestration, and durable API for chaini
 - [5. Models and Modes](#5-models-and-modes)
 - [6. Storage](#6-storage)
 - [7. Agentic Workflow](#7-agentic-workflow)
+- [8. Deployment](#8-deployment)
+- [9. Community](#10-community)
+- [10. License](#11-license)
 
 ---
 
@@ -117,13 +166,230 @@ See [`SUPPORTED_MODELS.md`](SUPPORTED_MODELS.md) for supported model names and m
 
 Solid edges are control/request flow; dotted edges are data/media flow. Everything inside the **Vercel trust boundary** runs with server-side credentials that API callers never receive. **Semantic Lady** is the schema brain for BYOK mode: it supplies `generation_*` fields, validation, defaults, and provider routing without ever executing a provider call, while `babysea` mode runs the same contract through the BabySea SDK.
 
-### System container
+### System containers
+
+```mermaid
+%%{init: {"theme": "base", "flowchart": {"htmlLabels": true, "curve": "basis", "nodeSpacing": 48, "rankSpacing": 64, "padding": 18}, "themeVariables": {"fontFamily": "ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif", "fontSize": "14px", "lineColor": "#64748b", "primaryTextColor": "#0f172a"}} }%%
+flowchart TB
+  subgraph Legend["Legend"]
+    direction LR
+    LEG_A["control path"] --> LEG_B["service"]
+    LEG_C["media/data path"] -.-> LEG_D["store"]
+  end
+
+  subgraph Clients["External callers · no provider credentials"]
+    direction LR
+    OWNER["Owner browser<br/>dashboard · canvas · library"]
+    APP["Product backend<br/>Bearer BabyChain API key"]
+    SCHED["Scheduler<br/>Vercel Cron or external"]
+  end
+
+  subgraph Vercel["Vercel trust boundary · Next.js App Router"]
+    direction TB
+
+    subgraph Surfaces["HTTP surfaces"]
+      direction LR
+      UI["Dashboard<br/>/dashboard/*"]
+      CHAIN_API["Chain API<br/>create · get · continue · cancel"]
+      MODEL_API["Model API<br/>catalog · schema"]
+      RECOVERY["Recovery cron<br/>queued-run sweep"]
+      BABYSEA_HOOK["BabySea webhook receiver<br/>optional signed updates"]
+    end
+
+    subgraph Core["Runtime core"]
+      direction LR
+      RUNNER["Chain runner<br/>one action per invocation"]
+      SL["Semantic Lady<br/>generation_* schema brain"]
+      AGENT["Agentic Workflow<br/>Copilot · Autopilot"]
+    end
+
+    SECRETS[["Server secrets<br/>provider keys · BabySea key<br/>Amazon Nova token · DB/storage creds"]]
+  end
+
+  subgraph Aurora["AWS Aurora · babychain_private"]
+    DB[("durable state<br/>runs · steps · canvases<br/>checkpoints · keys · audit<br/>callbacks · webhooks")]
+  end
+
+  subgraph Nova["Amazon Nova (Amazon Bedrock)"]
+    NOVA_API["Converse API<br/>planner reasoning + repair"]
+  end
+
+  subgraph Media["Durable media storage"]
+    S3["AWS S3<br/>CloudFront optional"]
+    BLOB["Vercel Blob"]
+  end
+
+  subgraph Providers["Generation backends"]
+    BYOK["BYOK providers<br/>Alibaba · BFL · BytePlus<br/>Google · OpenAI · Runway"]
+    BABYSEA["BabySea API<br/>babysea mode"]
+  end
+
+  SENTRY["Sentry<br/>errors · traces"]
+
+  OWNER --> UI
+  APP --> CHAIN_API
+  APP --> MODEL_API
+  SCHED --> RECOVERY
+  UI --> CHAIN_API
+  CHAIN_API --> RUNNER
+  MODEL_API --> SL
+  RECOVERY --> RUNNER
+  BABYSEA -.-> BABYSEA_HOOK
+  BABYSEA_HOOK --> RUNNER
+
+  RUNNER --> SL
+  RUNNER --> BYOK
+  RUNNER --> BABYSEA
+  RUNNER --> AGENT
+  AGENT --> SL
+  AGENT --> NOVA_API
+  RUNNER --> APP
+
+  RUNNER <--> DB
+  UI <--> DB
+  RUNNER -.-> S3
+  RUNNER -.-> BLOB
+  S3 -.-> AGENT
+  BLOB -.-> AGENT
+  SECRETS -.-> RUNNER
+  SECRETS -.-> AGENT
+  RUNNER -.-> SENTRY
+  UI -.-> SENTRY
+
+  classDef client fill:#f8fafc,stroke:#94a3b8,stroke-width:1.4px,color:#0f172a
+  classDef surface fill:#dbeafe,stroke:#2563eb,stroke-width:1.6px,color:#0f172a
+  classDef core fill:#e0f2fe,stroke:#0284c7,stroke-width:1.8px,color:#082f49
+  classDef schema fill:#fce7f3,stroke:#db2777,stroke-width:2px,color:#500724
+  classDef data fill:#eef2ff,stroke:#4f46e5,stroke-width:2px,color:#111827
+  classDef ai fill:#f5f3ff,stroke:#7c3aed,stroke-width:2px,color:#2e1065
+  classDef storage fill:#fff7ed,stroke:#ea580c,stroke-width:1.8px,color:#431407
+  classDef provider fill:#ecfeff,stroke:#0891b2,stroke-width:1.6px,color:#164e63
+  classDef secret fill:#fee2e2,stroke:#dc2626,stroke-width:1.8px,color:#450a0a
+  classDef obs fill:#f1f5f9,stroke:#64748b,stroke-width:1.4px,color:#0f172a
+
+  class OWNER,APP,SCHED,LEG_A,LEG_B,LEG_C,LEG_D client
+  class UI,CHAIN_API,MODEL_API,RECOVERY,BABYSEA_HOOK surface
+  class RUNNER,AGENT core
+  class SL schema
+  class DB data
+  class NOVA_API ai
+  class S3,BLOB storage
+  class BYOK,BABYSEA provider
+  class SECRETS secret
+  class SENTRY obs
+
+  style Vercel fill:#eff6ff,stroke:#2563eb,stroke-width:2px,color:#0f172a
+  style Surfaces fill:#f8fafc,stroke:#93c5fd,stroke-width:1px,color:#0f172a
+  style Core fill:#f0f9ff,stroke:#7dd3fc,stroke-width:1px,color:#0f172a
+  style Aurora fill:#eef2ff,stroke:#4f46e5,stroke-width:2px,color:#0f172a
+  style Nova fill:#faf5ff,stroke:#7c3aed,stroke-width:2px,color:#0f172a
+  style Media fill:#fff7ed,stroke:#ea580c,stroke-width:2px,color:#0f172a
+  style Providers fill:#ecfeff,stroke:#0891b2,stroke-width:2px,color:#0f172a
+  style Clients fill:#f8fafc,stroke:#94a3b8,stroke-width:2px,color:#0f172a
+  style Legend fill:#ffffff,stroke:#cbd5e1,stroke-width:1px,color:#0f172a
+```
 
 Aurora is the single system of record: every run, ordered step, output URL, API key hash, audit event, callback delivery, inbound BabySea webhook delivery, agent checkpoint, and saved canvas lives in the `babychain_private` schema. The Vercel runtime is stateless: the `processRun` engine advances one action per invocation (start a step, poll a running step, or finalize) and is driven from four entry points: creating a run, polling `GET /api/v1/chains/get/{runId}`, the recovery cron, and the inbound `/api/webhooks/babysea` signed webhook. Because all state round-trips through Aurora, any function instance can resume a run mid-chain, so long chains survive serverless time limits.
 
 Two provider modes share the same routes and run contract. **BYOK mode** resolves model fields, validation, and provider routing through **Semantic Lady**, then the runner calls the inference provider directly with server-side keys. **`babysea` mode** submits through the BabySea SDK and receives completion on the signed inbound webhook. For `chain_agent` runs the runner grounds **Amazon Nova (Amazon Bedrock)** with the same Semantic Lady downstream schema and records every suggestion in `chain_agent_checkpoint`. When media storage is enabled, each succeeded step's outputs are copied into your own AWS S3 (or CloudFront) or Vercel Blob store and the stored URL is preferred for API responses, downstream handoff, and Agentic Workflow checkpoints. Errors and traces from server and browser flow to Sentry. Provider, BabySea, Amazon Nova, database, and storage credentials never leave the trust boundary; callers only ever hold a BabyChain API key.
 
 ### Runtime: Agentic Workflow Copilot run
+
+```mermaid
+%%{init: {"theme": "base", "sequence": {"mirrorActors": false, "actorMargin": 72, "messageMargin": 46, "boxMargin": 12, "noteMargin": 14}} }%%
+sequenceDiagram
+    autonumber
+    actor Caller as Product backend
+
+  box rgb(239, 246, 255) Vercel trust boundary
+    participant API as Chain API
+    participant Runner as Durable runner
+    participant SL as Semantic Lady
+    participant Agent as Agentic planner
+  end
+
+  box rgb(236, 254, 255) External execution
+    participant BYOK as BYOK providers
+    participant BabySea as BabySea API
+    participant Store as Media storage
+    participant Nova as Amazon Nova<br/>(Amazon Bedrock)
+  end
+
+  participant DB as AWS Aurora<br/>babychain_private
+  participant Hook as webhook_url
+
+  Caller->>API: POST /api/v1/chains/runs<br/>chain_agent + copilot
+  API->>SL: validate models + generation fields
+  SL-->>API: fields, roles, defaults, routes
+  API->>DB: create run + steps<br/>idempotency key scoped to caller
+  API->>Runner: processRun(runId)
+  alt BYOK mode
+    Runner->>BYOK: submit first step<br/>deterministic submit key
+    BYOK-->>Runner: provider job id
+  else babysea mode
+    Runner->>BabySea: submit first step<br/>BabySea SDK
+    BabySea-->>Runner: BabySea generation id
+  end
+  Runner->>DB: step running<br/>provider ids + timeline
+  API-->>Caller: run = running
+
+  loop Advance one action per request
+    Caller->>API: GET /api/v1/chains/get/{runId}
+    API->>Runner: processRun(runId)
+    alt BYOK polling
+      Runner->>BYOK: poll provider job
+      BYOK-->>Runner: status + output URL
+    else BabySea polling
+      Runner->>BabySea: poll BabySea generation
+      BabySea-->>Runner: status + output URL
+    else BabySea webhook, if configured
+      BabySea-->>API: signed webhook update
+      API->>Runner: resume from webhook
+    end
+    opt Storage enabled
+      Runner->>Store: copy succeeded output
+      Store-->>Runner: stable media URL
+    end
+    Runner->>DB: persist step result<br/>or terminal failure
+  end
+
+  Note over Runner,Agent: Downstream step is planned only after prior media exists.
+  Runner->>SL: read next model schema + defaults
+  SL-->>Runner: required fields + enum limits
+  Runner->>Agent: build planning context<br/>prior media + schema
+  Agent->>Nova: Converse request<br/>reasoning pass (low effort)
+  Nova-->>Agent: prompt candidates + params
+  Agent->>SL: complete + validate proposal
+  SL-->>Agent: schema-valid selected fields
+  opt First pass fails validation
+    Agent->>Nova: greedy self-repair<br/>reasoning off
+    Nova-->>Agent: repaired structured JSON
+  end
+  Agent-->>Runner: validated suggestion
+  Runner->>DB: insert chain_agent_checkpoint<br/>status = suggested
+  Runner->>DB: run = awaiting_agent
+  API-->>Caller: run + agent_checkpoints[]
+
+  Caller->>API: POST /api/v1/chains/continue/{runId}<br/>checkpoint_id + optional edits
+  API->>SL: validate selected prompt + params
+  SL-->>API: accepted
+  API->>DB: checkpoint approved<br/>run = queued
+  API->>Runner: processRun(runId)
+  alt BYOK mode
+    Runner->>BYOK: submit approved step
+  else babysea mode
+    Runner->>BabySea: submit approved step
+  end
+
+  Note over Agent,DB: Autopilot skips the approval pause and writes an approved chain_agent_checkpoint.
+  Note over Runner,BabySea: Repeat submit, poll, store, checkpoint until the chain is terminal.
+
+  Runner->>DB: run succeeded/failed/canceled<br/>callback claimed
+  opt webhook_url supplied
+    Runner-->>Hook: one signed terminal callback
+    Runner->>DB: callback_delivery recorded
+  end
+```
 
 In **Copilot**, the run pauses at each downstream step with `status = awaiting_agent` and a `suggested` checkpoint; the caller approves, optionally editing `selected_prompt`/`selected_params` via `POST /api/v1/chains/continue/{runId}`, and BabyChain re-validates the edit against Semantic Lady before submitting. In **Autopilot**, the planner's schema-valid suggestion is auto-approved and the run continues without pausing. If a caller stops polling, the recovery cron advances or finalizes in-flight runs and the one final signed callback is still delivered.
 
@@ -347,7 +613,143 @@ DATABASE_URL=postgresql://USER:PASSWORD@CLUSTER.cluster-xxxxxxxxxxxx.REGION.rds.
 
 Aurora presents an Amazon RDS CA that is not in the Node.js trust store. For Aurora/RDS endpoints, include `?sslmode=require` in `DATABASE_URL` so the connection clearly requests TLS. BabyChain's pool strips `sslmode`/`ssl` query params and connects with TLS using `rejectUnauthorized: false`, so no manual CA bundle is required. To connect to a local PostgreSQL instead, point `DATABASE_URL` at `localhost` (TLS is auto-disabled for `localhost`/`127.0.0.1`).
 
-**Apply the schema**
+### AWS Console
+
+The fastest path is **RDS → Create database** in the AWS Console. These are the selections used by the BabyChain demo deployment. They create an Aurora Serverless v2 cluster that works with the checked-in `pg` connection code after you allow network access to port `5432` and run `pnpm run aurora:migrate`.
+
+| Setting                       | Selection                                           |
+| :---------------------------- | :-------------------------------------------------- |
+| Engine type                   | Aurora (PostgreSQL Compatible)                      |
+| Database creation method      | Full configuration                                  |
+| Engine version                | Aurora PostgreSQL (Compatible with PostgreSQL 17.7) |
+| Templates                     | Production                                          |
+| Cluster scalability type      | Serverless v2                                       |
+| Capacity range (ACUs)         | Minimum `1`, Maximum `2`                            |
+| DB cluster identifier         | your cluster name                                   |
+| Master username               | your master username                                |
+| Credentials management        | Self managed                                        |
+| Master password               | your database password                              |
+| Configuration options         | Aurora Standard                                     |
+| Multi-AZ deployment           | Don't create an Aurora Replica                      |
+| Compute resource              | Don't connect to an EC2 compute resource            |
+| Network type                  | Dual-stack mode                                     |
+| Virtual private cloud (VPC)   | Create new VPC                                      |
+| DB subnet group               | Create new DB Subnet Group                          |
+| Public access                 | Yes                                                 |
+| VPC security group (firewall) | Create new                                          |
+| New VPC security group name   | `vpcsecurity-babychain` (or your own name)          |
+| Availability Zone             | No preference                                       |
+| RDS Proxy                     | Create an RDS Proxy                                 |
+| Certificate authority         | `rds-ca-rsa2048-g1` (default)                       |
+| RDS Data API                  | Enable the RDS Data API                             |
+| Database port                 | `5432`                                              |
+| Monitoring                    | Database Insights - Standard                        |
+| Performance Insights          | Disabled                                            |
+| Enhanced Monitoring           | Disabled                                            |
+| Log exports                   | iam-db-auth-error log, PostgreSQL log               |
+
+Notes:
+
+- **Capacity minimum `1` ACU** keeps the demo database warm. If you choose a lower minimum that can pause, the first request after idle may take 10-30s to wake the cluster; BabyChain's 30s connection timeout is designed to absorb that cold start.
+- **Public access: Yes** only makes the cluster addressable from outside the VPC. You must still add a security-group inbound rule for **TCP 5432** from the runtime that needs access. For local setup, use your current IP as `/32`. For a short demo on Vercel without static egress, you may temporarily allow a broader source, but do not leave `5432` open to `0.0.0.0/0` for production.
+- **RDS Proxy** is useful for runtimes inside the same VPC, such as Lambda, ECS, EC2, or a Vercel private-networking setup. A normal public Vercel function cannot reach a private RDS Proxy endpoint by itself. If you deploy BabyChain on standard Vercel networking, use the Aurora writer endpoint in `DATABASE_URL` unless you have Vercel private networking configured.
+- **RDS Data API** can be enabled for admin tooling, but BabyChain does not use it. The app uses the standard PostgreSQL wire protocol through `pg` and `DATABASE_URL`.
+- The **DB cluster identifier** is not automatically the PostgreSQL database name. If you did not explicitly create a database named `babychain`, use `/postgres` in `DATABASE_URL`, for example `postgresql://USER:PASSWORD@WRITER-ENDPOINT:5432/postgres?sslmode=require`.
+
+Once the cluster is **Available**, copy the **writer endpoint** from the Connectivity & security tab, build `DATABASE_URL` as shown above, add the required inbound security-group rule for port `5432`, then run `pnpm run aurora:migrate`.
+
+### AWS CLI
+
+The steps below create an Aurora cluster reachable from your app (Vercel functions, a Codespace, or your laptop). Replace `REGION`, IDs, and the CIDR/IP placeholders.
+
+**1. VPC and subnets**
+
+Aurora must live in a VPC across at least two Availability Zones. The default VPC works; for production create a dedicated VPC (e.g. `10.0.0.0/16`) with two private subnets for the DB and (optionally) two public subnets for a bastion/NAT.
+
+```bash
+# Use the default VPC + its subnets, or note your own IDs:
+aws ec2 describe-vpcs --filters Name=isDefault,Values=true \
+  --query 'Vpcs[0].VpcId' --output text
+aws ec2 describe-subnets --filters Name=vpc-id,Values=<VPC_ID> \
+  --query 'Subnets[].SubnetId' --output text
+```
+
+**2. DB subnet group**
+
+Tells Aurora which subnets to span; needs ≥2 AZs):
+
+```bash
+aws rds create-db-subnet-group \
+  --db-subnet-group-name babychain-subnets \
+  --db-subnet-group-description "BabyChain Aurora subnets" \
+  --subnet-ids <SUBNET_A> <SUBNET_B>
+```
+
+**3. Security group**
+
+The VPC firewall. Open **TCP 5432** only to the sources that must reach the database:
+
+```bash
+aws ec2 create-security-group \
+  --group-name babychain-aurora \
+  --description "BabyChain Aurora Postgres access" \
+  --vpc-id <VPC_ID>
+# => returns <SG_ID>
+
+# Allow Postgres from your app. For a fixed egress IP use a /32; for
+# serverless platforms with dynamic IPs, scope to the VPC CIDR or use an
+# RDS Proxy/PrivateLink instead of opening it publicly.
+aws ec2 authorize-security-group-ingress \
+  --group-id <SG_ID> --protocol tcp --port 5432 --cidr <YOUR_IP>/32
+```
+
+> Security: never leave `5432` open to `0.0.0.0/0` for a real deployment. Prefer a private subnet + RDS Proxy, AWS PrivateLink, or a bastion/VPN. `0.0.0.0/0` is acceptable only for a short-lived throwaway demo, and rotate the password afterward.
+
+**4. Cluster and instance**
+
+Create the Aurora PostgreSQL cluster + a writer instance. The engine version and capacity below match the console selections (Aurora PostgreSQL 17.7, Serverless v2 with 1-2 ACUs):
+
+```bash
+# Confirm the exact Aurora PostgreSQL 17.7 version string for your region first:
+#   aws rds describe-db-engine-versions --engine aurora-postgresql \
+#     --query 'DBEngineVersions[].EngineVersion' --output text
+aws rds create-db-cluster \
+  --db-cluster-identifier babychain \
+  --engine aurora-postgresql \
+  --engine-version 17.7 \
+  --master-username postgres \
+  --master-user-password '<STRONG_PASSWORD>' \
+  --db-subnet-group-name babychain-subnets \
+  --vpc-security-group-ids <SG_ID> \
+  --database-name postgres \
+  --port 5432 \
+  --serverless-v2-scaling-configuration MinCapacity=1,MaxCapacity=2
+
+aws rds create-db-instance \
+  --db-instance-identifier babychain-1 \
+  --db-cluster-identifier babychain \
+  --engine aurora-postgresql \
+  --db-instance-class db.serverless \
+  --publicly-accessible
+```
+
+> The console's **RDS Proxy** and **RDS Data API** are optional and not required here: BabyChain connects to the Aurora writer endpoint with `pg`, so the CLI path omits them. Add them later only for an in-VPC runtime or admin tooling that needs them.
+
+**5. Public reachability**
+
+The writer instance above is created with `--publicly-accessible` to match the console's **Public access: Yes**. To actually reach it from your laptop or a Codespace, the subnets also need a route to an internet gateway and your IP must be allowed in the security group (step 3). For Vercel/production you can instead keep the cluster private and connect from within the VPC (VPC peering/PrivateLink) or via RDS Proxy.
+
+**6. Endpoint and build database**
+
+Get the writer endpoint and build `DATABASE_URL`:
+
+```bash
+aws rds describe-db-clusters --db-cluster-identifier babychain \
+  --query 'DBClusters[0].Endpoint' --output text
+# DATABASE_URL=postgresql://postgres:<PASSWORD>@<ENDPOINT>:5432/postgres?sslmode=require
+```
+
+**7. Apply the schema**
 
 ```bash
 pnpm run aurora:migrate
@@ -586,3 +988,64 @@ Nova 2 Lite is Amazon's cost-efficient multimodal model for simple automation, d
 |    ✅     | 1K\*                  |        4        | 5 minutes | `system` and `messages` |
 
 \* Amazon Nova models support up to 20K tokens for prompt caching, primarily for text prompts. See [Prompt caching](https://docs.aws.amazon.com/bedrock/latest/userguide/prompt-caching.html).
+
+## 8. Deployment
+
+### Vercel
+
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fbabysea-community%2Fbabychain&project-name=babychain&repository-name=babychain&env=NEXT_PUBLIC_SITE_URL,OWNER_EMAIL,OWNER_PASSWORD,OWNER_SESSION_SECRET,DATABASE_URL,BABYCHAIN_API_KEY,BABYCHAIN_CRON_SECRET,BABYCHAIN_CALLBACK_SECRET,BABYCHAIN_PROVIDER_MODE,DASHSCOPE_API_KEY,BFL_API_KEY,BFL_REGION,BFL_API_BASE_URL,ARK_API_KEY,GEMINI_API_KEY,OPENAI_API_KEY,RUNWAYML_API_SECRET)
+
+Use the Vercel button to clone the starter and create the project. Then set every value from [`.env.example`](.env.example) in the Vercel project, especially `NEXT_PUBLIC_SITE_URL`, `DATABASE_URL`, the `OWNER_*` dashboard credentials, the `BABYCHAIN_*` secrets, and the provider keys for your chosen mode.
+
+BabyChain still needs a reachable PostgreSQL database. Follow [4. Database](#4-database) to create the database, build `DATABASE_URL`, allow Vercel to reach port `5432`, and run `pnpm run aurora:migrate` once against the production database before the first real run.
+
+**Cron and function limits.** The checked-in [`vercel.json`](vercel.json) schedules `/api/cron/process-runs` once per day as a conservative recovery sweep. Daily keeps the starter deployable on Vercel's free (Hobby) plan, where sub-daily cron is not available; the cron is only a backstop, because runs advance in real time through `GET` polling and the inbound BabySea webhook, not the cron. Duration budgets are set in the route modules: chain create/get/continue, the BabySea webhook, and the recovery cron export `maxDuration = 300`, while output and cancel routes use `60`. Make sure those route-level durations are supported by your Vercel plan. On plans that support it, you can change the cron schedule to `* * * * *` for one-minute recovery and adjust route durations only where your plan allows the budget.
+
+### AWS CloudFormation
+
+[![Deploy with AWS CloudFormation](public/deploy-button/aws-cloudformation.svg)](docs/deployment/aws-cloudformation.md)
+
+Use AWS CloudFormation when you want a managed AWS deployment with ECS Fargate, an Application Load Balancer, ECR, Secrets Manager, CloudWatch Logs, and optional EventBridge queued-run recovery. Full end-to-end guide: [docs/deployment/aws-cloudformation.md](docs/deployment/aws-cloudformation.md).
+
+### AWS EC2
+
+[![Run on AWS EC2](public/deploy-button/aws-ec2.svg)](docs/deployment/aws-ec2.md)
+
+Use AWS EC2 when you want one inspectable VM and are ready to manage the instance lifecycle yourself. The guide covers the Elastic IP or final domain, ECR image, Systems Manager Parameter Store values, IAM instance profile, security group, key pair, user data, SSH inspection, updates, and cleanup. Full end-to-end guide: [docs/deployment/aws-ec2.md](docs/deployment/aws-ec2.md).
+
+### Coolify
+
+[![Deploy with Coolify](public/deploy-button/coolify.svg)](docs/deployment/coolify.md)
+
+Use Coolify when you want a Docker Compose deployment with managed builds, runtime environment values, domain/TLS routing, and a scheduled task for queued-run recovery. Full end-to-end guide: [docs/deployment/coolify.md](docs/deployment/coolify.md).
+
+### Docker
+
+[![Deploy with Docker](public/deploy-button/docker.svg)](docs/deployment/docker.md)
+
+Use Docker when you want a portable production image for your own host or orchestrator. Pull `babyseaoss/babychain:latest` for local evaluation, or build the Dockerfile with your final `NEXT_PUBLIC_SITE_URL` for production. The guide covers runtime secret injection, port/TLS setup, a host scheduler for `/api/cron/process-runs`, and Docker Hub publishing. Full end-to-end guide: [docs/deployment/docker.md](docs/deployment/docker.md).
+
+```bash
+docker pull babyseaoss/babychain:latest
+docker run --rm --env-file .env.local -p 3000:3000 babyseaoss/babychain:latest
+```
+
+### Fly.io
+
+[![Deploy on Fly.io](public/deploy-button/flyio.svg)](docs/deployment/fly-io.md)
+
+Use Fly.io when you want a long-running Docker deployment with Fly-managed TLS, regional placement, Fly secrets, and an external scheduler for queued-run recovery. Full end-to-end guide: [docs/deployment/fly-io.md](docs/deployment/fly-io.md).
+
+### Google Cloud Run
+
+[![Deploy on Google Cloud Run](public/deploy-button/google-cloud-run.svg)](docs/deployment/google-cloud-run.md)
+
+Use Google Cloud Run when you want managed HTTPS, autoscaling, Cloud Logging, Secret Manager integration, and Cloud Scheduler queued-run recovery around the BabyChain Docker image. Full end-to-end guide: [docs/deployment/google-cloud-run.md](docs/deployment/google-cloud-run.md).
+
+## 9. Community
+
+Issues, pull requests, design discussion, and security reports should follow [`CONTRIBUTING.md`](CONTRIBUTING.md), [`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md), and [`SECURITY.md`](SECURITY.md).
+
+## 10. License
+
+[Apache License 2.0](LICENSE).
