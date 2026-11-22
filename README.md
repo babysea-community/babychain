@@ -22,26 +22,13 @@ Visual canvas studio, agentic workflow orchestration, and durable API for chaini
 [![CircleCI](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fcircleci.com%2Fapi%2Fv1.1%2Fproject%2Fcircleci%2F2uTLcwc4naeNuKDP41es88%2FLkDoyyGhqLz6j1Wi6mUHWd%2Ftree%2Fmain%3Flimit%3D1&query=%24%5B0%5D.status&style=for-the-badge&logo=circleci&logoColor=white&label=circleci&color=003740)](https://dl.circleci.com/status-badge/redirect/circleci/2uTLcwc4naeNuKDP41es88/LkDoyyGhqLz6j1Wi6mUHWd/tree/main)
 [![Sentry](https://img.shields.io/github/actions/workflow/status/babysea-community/babychain/sentry-check.yml?style=for-the-badge&label=sentry&logo=sentry&logoColor=white&color=181225)](https://github.com/babysea-community/babychain/actions/workflows/sentry-check.yml)
 [![CodeQL](https://img.shields.io/github/actions/workflow/status/babysea-community/babychain/codeql.yml?style=for-the-badge&label=codeql&logo=github&logoColor=white)](https://github.com/babysea-community/babychain/actions/workflows/codeql.yml)
-[![Package](https://img.shields.io/github/actions/workflow/status/babysea-community/babychain/package-check.yml?style=for-the-badge&label=package&logo=npm&logoColor=white)](https://github.com/babysea-community/babychain/actions/workflows/package-check.yml)
-
-<br/>
+[![Package](https://img.shields.io/github/actions/workflow/status/babysea-community/babychain/package-check.yml?style=for-the-badge&label=package&logo=npm&logoColor=white)](https://github.com/babysea-community/babychain/actions/workflows/package-check.y
 
 <strong>One-click deploy</strong>
 
 [![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fbabysea-community%2Fbabychain&project-name=babychain&repository-name=babychain&env=NEXT_PUBLIC_SITE_URL,OWNER_EMAIL,OWNER_PASSWORD,OWNER_SESSION_SECRET,DATABASE_URL,BABYCHAIN_API_KEY,BABYCHAIN_CRON_SECRET,BABYCHAIN_CALLBACK_SECRET,BABYCHAIN_PROVIDER_MODE,DASHSCOPE_API_KEY,BFL_API_KEY,BFL_REGION,BFL_API_BASE_URL,ARK_API_KEY,GEMINI_API_KEY,OPENAI_API_KEY,RUNWAYML_API_SECRET)
 
 <br />
-
-<strong>Custom deploy</strong>
-
-[![Deploy with AWS CloudFormation](public/deploy-button/aws-cloudformation.svg)](docs/deployment/aws-cloudformation.md)
-[![Run on AWS EC2](public/deploy-button/aws-ec2.svg)](docs/deployment/aws-ec2.md)
-[![Deploy with Coolify](public/deploy-button/coolify.svg)](docs/deployment/coolify.md)
-[![Deploy with Docker](public/deploy-button/docker.svg)](docs/deployment/docker.md)
-[![Deploy on Fly.io](public/deploy-button/flyio.svg)](docs/deployment/fly-io.md)
-[![Deploy on Google Cloud Run](public/deploy-button/google-cloud-run.svg)](docs/deployment/google-cloud-run.md)
-
-<br/>
 
 <img src="public/runner-self-control-1.png" alt="BabyChain mode" />
 
@@ -80,9 +67,8 @@ Visual canvas studio, agentic workflow orchestration, and durable API for chaini
 - [5. Models and Modes](#5-models-and-modes)
 - [6. Storage](#6-storage)
 - [7. Agentic Workflow](#7-agentic-workflow)
-- [8. Deployment](#8-deployment)
-- [9. Community](#10-community)
-- [10. License](#11-license)
+- [8. Community](#8-community)
+- [9. License](#9-license)
 
 ---
 
@@ -755,63 +741,10 @@ Nova 2 Lite is Amazon's cost-efficient multimodal model for simple automation, d
 
 \* Amazon Nova models support up to 20K tokens for prompt caching, primarily for text prompts. See [Prompt caching](https://docs.aws.amazon.com/bedrock/latest/userguide/prompt-caching.html).
 
-## 8. Deployment
-
-### Vercel
-
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fbabysea-community%2Fbabychain&project-name=babychain&repository-name=babychain&env=NEXT_PUBLIC_SITE_URL,OWNER_EMAIL,OWNER_PASSWORD,OWNER_SESSION_SECRET,DATABASE_URL,BABYCHAIN_API_KEY,BABYCHAIN_CRON_SECRET,BABYCHAIN_CALLBACK_SECRET,BABYCHAIN_PROVIDER_MODE,DASHSCOPE_API_KEY,BFL_API_KEY,BFL_REGION,BFL_API_BASE_URL,ARK_API_KEY,GEMINI_API_KEY,OPENAI_API_KEY,RUNWAYML_API_SECRET)
-
-Use the Vercel button to clone the starter and create the project. Then set every value from [`.env.example`](.env.example) in the Vercel project, especially `NEXT_PUBLIC_SITE_URL`, `DATABASE_URL`, the `OWNER_*` dashboard credentials, the `BABYCHAIN_*` secrets, and the provider keys for your chosen mode.
-
-BabyChain still needs a reachable PostgreSQL database. Follow [4. Database](#4-database) to create the database, build `DATABASE_URL`, allow Vercel to reach port `5432`, and run `pnpm run aurora:migrate` once against the production database before the first real run.
-
-**Cron and function limits.** The checked-in [`vercel.json`](vercel.json) schedules `/api/cron/process-runs` once per day as a conservative recovery sweep. Daily keeps the starter deployable on Vercel's free (Hobby) plan, where sub-daily cron is not available; the cron is only a backstop, because runs advance in real time through `GET` polling and the inbound BabySea webhook, not the cron. Duration budgets are set in the route modules: chain create/get/continue, the BabySea webhook, and the recovery cron export `maxDuration = 300`, while output and cancel routes use `60`. Make sure those route-level durations are supported by your Vercel plan. On plans that support it, you can change the cron schedule to `* * * * *` for one-minute recovery and adjust route durations only where your plan allows the budget.
-
-### AWS CloudFormation
-
-[![Deploy with AWS CloudFormation](public/deploy-button/aws-cloudformation.svg)](docs/deployment/aws-cloudformation.md)
-
-Use AWS CloudFormation when you want a managed AWS deployment with ECS Fargate, an Application Load Balancer, ECR, Secrets Manager, CloudWatch Logs, and optional EventBridge queued-run recovery. Full end-to-end guide: [docs/deployment/aws-cloudformation.md](docs/deployment/aws-cloudformation.md).
-
-### AWS EC2
-
-[![Run on AWS EC2](public/deploy-button/aws-ec2.svg)](docs/deployment/aws-ec2.md)
-
-Use AWS EC2 when you want one inspectable VM and are ready to manage the instance lifecycle yourself. The guide covers the Elastic IP or final domain, ECR image, Systems Manager Parameter Store values, IAM instance profile, security group, key pair, user data, SSH inspection, updates, and cleanup. Full end-to-end guide: [docs/deployment/aws-ec2.md](docs/deployment/aws-ec2.md).
-
-### Coolify
-
-[![Deploy with Coolify](public/deploy-button/coolify.svg)](docs/deployment/coolify.md)
-
-Use Coolify when you want a Docker Compose deployment with managed builds, runtime environment values, domain/TLS routing, and a scheduled task for queued-run recovery. Full end-to-end guide: [docs/deployment/coolify.md](docs/deployment/coolify.md).
-
-### Docker
-
-[![Deploy with Docker](public/deploy-button/docker.svg)](docs/deployment/docker.md)
-
-Use Docker when you want a portable production image for your own host or orchestrator. Pull `babyseaoss/babychain:latest` for local evaluation, or build the Dockerfile with your final `NEXT_PUBLIC_SITE_URL` for production. The guide covers runtime secret injection, port/TLS setup, a host scheduler for `/api/cron/process-runs`, and Docker Hub publishing. Full end-to-end guide: [docs/deployment/docker.md](docs/deployment/docker.md).
-
-```bash
-docker pull babyseaoss/babychain:latest
-docker run --rm --env-file .env.local -p 3000:3000 babyseaoss/babychain:latest
-```
-
-### Fly.io
-
-[![Deploy on Fly.io](public/deploy-button/flyio.svg)](docs/deployment/fly-io.md)
-
-Use Fly.io when you want a long-running Docker deployment with Fly-managed TLS, regional placement, Fly secrets, and an external scheduler for queued-run recovery. Full end-to-end guide: [docs/deployment/fly-io.md](docs/deployment/fly-io.md).
-
-### Google Cloud Run
-
-[![Deploy on Google Cloud Run](public/deploy-button/google-cloud-run.svg)](docs/deployment/google-cloud-run.md)
-
-Use Google Cloud Run when you want managed HTTPS, autoscaling, Cloud Logging, Secret Manager integration, and Cloud Scheduler queued-run recovery around the BabyChain Docker image. Full end-to-end guide: [docs/deployment/google-cloud-run.md](docs/deployment/google-cloud-run.md).
-
-## 9. Community
+## 8. Community
 
 Issues, pull requests, design discussion, and security reports should follow [`CONTRIBUTING.md`](CONTRIBUTING.md), [`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md), and [`SECURITY.md`](SECURITY.md).
 
-## 10. License
+## 9. License
 
 [Apache License 2.0](LICENSE).
