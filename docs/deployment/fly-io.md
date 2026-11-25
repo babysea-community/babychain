@@ -1,12 +1,12 @@
 # Deploy BabyChain on Fly.io
 
-Fly.io runs BabyChain from the production `Dockerfile` in this starter. Use this guide when you want a long-running Docker deployment with Fly-managed TLS and regional placement.
+Fly.io runs from the production `Dockerfile` in this starter. Use this guide when you want a long-running Docker deployment with Fly-managed TLS and regional placement.
 
 ## Prerequisites
 
 - A Fly.io account and the `flyctl` CLI installed.
 - A reachable PostgreSQL database, preferably Aurora/RDS for production.
-- BabyChain schema applied with `pnpm run aurora:migrate` against `DATABASE_URL`.
+- The schema applied with `pnpm run aurora:migrate` against `DATABASE_URL`.
 - BYOK provider credentials. Default deployments use `BABYCHAIN_PROVIDER_MODE=byok`, so set the provider keys required by the models you plan to run. The example below uses `GEMINI_API_KEY` for Google models.
 - Optional BabySea credentials only if you switch `BABYCHAIN_PROVIDER_MODE` to `babysea`.
 - A public app URL selected before the first build, for example `https://babychain.fly.dev` or a custom domain.
@@ -30,7 +30,7 @@ Change `app` and `primary_region` in `fly.toml` before deploying if you want a d
 
 ### 2. Set runtime secrets
 
-Set the values BabyChain reads at runtime. Keep secrets in Fly; do not commit them.
+Set the values and reads at runtime. Keep secrets in Fly; do not commit them.
 
 ```bash
 fly secrets set \
@@ -93,7 +93,7 @@ fly deploy \
 
 ### 4. Schedule run recovery
 
-BabyChain processes runs immediately after creation, but non-Vercel hosts still need a periodic recovery call for interrupted or queued work.
+It processes runs immediately after creation, but non-Vercel hosts still need a periodic recovery call for interrupted or queued work.
 
 Use an external scheduler that can send an HTTP header every 1 to 5 minutes:
 

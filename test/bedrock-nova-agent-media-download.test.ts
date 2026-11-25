@@ -121,8 +121,7 @@ describe('Bedrock Nova Chain Agent media download', () => {
     expect(downloadCall).toBeDefined();
 
     const headers = (downloadCall?.[1] as RequestInit | undefined)?.headers as
-      | Record<string, string>
-      | undefined;
+      Record<string, string> | undefined;
 
     expect(headers?.['user-agent']).toBe('BabyChain/0.1');
   });

@@ -1,6 +1,6 @@
 # Deploy BabyChain on Google Cloud Run
 
-Google Cloud Run runs BabyChain from the production Docker image and gives you managed HTTPS, autoscaling, Cloud Logging, Secret Manager integration, and Cloud Scheduler for recovery jobs.
+Google Cloud Run runs from the production Docker image and gives you managed HTTPS, autoscaling, Cloud Logging, Secret Manager integration, and Cloud Scheduler for recovery jobs.
 
 ## Prerequisites
 
@@ -8,7 +8,7 @@ Google Cloud Run runs BabyChain from the production Docker image and gives you m
 - `gcloud` CLI installed and authenticated.
 - APIs enabled for Cloud Run, Cloud Build, Artifact Registry, Secret Manager, and Cloud Scheduler.
 - A reachable PostgreSQL database, preferably Aurora/RDS for production.
-- BabyChain schema applied with `pnpm run aurora:migrate` against `DATABASE_URL`.
+- The schema applied with `pnpm run aurora:migrate` against `DATABASE_URL`.
 - BYOK provider credentials. Default deployments use `BABYCHAIN_PROVIDER_MODE=byok`, so create the provider secrets required by the models you plan to run. The direct deploy command below uses `GEMINI_API_KEY` for Google models; create placeholders for unused providers if you use that command unchanged.
 - Optional BabySea credentials only if you switch `BABYCHAIN_PROVIDER_MODE` to `babysea`.
 - A final Cloud Run URL or custom domain selected before the production build.
@@ -36,12 +36,12 @@ Create the Artifact Registry repository once:
 gcloud artifacts repositories create babychain \
   --repository-format=docker \
   --location="$REGION" \
-  --description="BabyChain container images"
+  --description="Container images"
 ```
 
 ### 2. Store runtime secrets
 
-Create Secret Manager entries for the values BabyChain reads at runtime.
+Create Secret Manager entries for the values and reads at runtime.
 
 ```bash
 printf '%s' 'owner@example.com' | gcloud secrets create babychain-owner-email --data-file=-
@@ -122,7 +122,7 @@ For a custom domain, map the domain, update `SITE_URL`, rebuild, push, and redep
 
 ### 5. Add Cloud Scheduler recovery
 
-BabyChain processes runs immediately after creation, but Cloud Run deployments should still call the recovery endpoint periodically.
+It processes runs immediately after creation, but Cloud Run deployments should still call the recovery endpoint periodically.
 
 ```bash
 export CRON_SECRET="YOUR_BABYCHAIN_CRON_SECRET"

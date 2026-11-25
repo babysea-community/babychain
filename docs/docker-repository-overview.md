@@ -19,7 +19,7 @@ Available tags:
 
 ## Quick start
 
-Create an environment file from the BabyChain `.env.example` and fill at least:
+Create an environment file from the `.env.example` and fill at least:
 
 - `NEXT_PUBLIC_SITE_URL`
 - `DATABASE_URL`
@@ -76,7 +76,7 @@ curl -fsS http://localhost:3000/api/health
 
 ## Runtime requirements
 
-BabyChain requires a reachable PostgreSQL database. AWS Aurora PostgreSQL is the recommended production database. Apply the schema before the first real run:
+Requires a reachable PostgreSQL database. AWS Aurora PostgreSQL is the recommended production database. Apply the schema before the first real run:
 
 ```bash
 pnpm run aurora:migrate

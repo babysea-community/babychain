@@ -33,12 +33,7 @@ export type ChainStepStatus = (typeof CHAIN_STEP_STATUSES)[number];
 export type ChainStepKind = 'image' | 'video';
 
 export type JsonValue =
-  | string
-  | number
-  | boolean
-  | null
-  | JsonValue[]
-  | { [key: string]: JsonValue };
+  string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue };
 
 export type JsonObject = { [key: string]: JsonValue };
 

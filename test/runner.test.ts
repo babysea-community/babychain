@@ -2241,8 +2241,7 @@ function createMutableAgentStore(
     getRunWithSteps: async () => currentRecord,
     markAgentCheckpointApplied: async (checkpointId: string) => {
       let updated = null as
-        | ChainRunWithSteps['agentCheckpoints'][number]
-        | null;
+        ChainRunWithSteps['agentCheckpoints'][number] | null;
       updateRecord((record) => ({
         ...record,
         agentCheckpoints: record.agentCheckpoints.map((checkpoint) => {

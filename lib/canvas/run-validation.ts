@@ -36,8 +36,7 @@ export type CanvasRunValidationModel = {
 };
 
 export type CanvasFlowRunValidation =
-  | { ok: true; reason: null }
-  | { ok: false; reason: string };
+  { ok: true; reason: null } | { ok: false; reason: string };
 
 export function validateCanvasFlowRun({
   agentDownstreamInputs = false,

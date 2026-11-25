@@ -1,12 +1,12 @@
 # Deploy BabyChain with Coolify
 
-Coolify can deploy BabyChain from the production `Dockerfile` or from the included `docker-compose.yml`. The compose file is recommended because it keeps the build args, runtime environment, port mapping, restart policy, and healthcheck in one place.
+Coolify can deploy from the production `Dockerfile` or from the included `docker-compose.yml`. The compose file is recommended because it keeps the build args, runtime environment, port mapping, restart policy, and healthcheck in one place.
 
 ## Prerequisites
 
 - A Coolify instance connected to your Git provider.
 - A reachable PostgreSQL database, preferably Aurora/RDS for production.
-- BabyChain schema applied with `pnpm run aurora:migrate` against `DATABASE_URL`.
+- The schema applied with `pnpm run aurora:migrate` against `DATABASE_URL`.
 - BYOK provider credentials. Default deployments use `BABYCHAIN_PROVIDER_MODE=byok`, so set the provider keys required by the models you plan to run. The example below uses `GEMINI_API_KEY` for Google models.
 - Optional BabySea credentials only if you switch `BABYCHAIN_PROVIDER_MODE` to `babysea`.
 - A public domain selected before the first build, for example `https://your-domain.example.com`.
@@ -14,7 +14,7 @@ Coolify can deploy BabyChain from the production `Dockerfile` or from the includ
 ### 1. Create the Coolify resource
 
 1. Create a new **Application** in Coolify.
-2. Select the BabyChain repository and the starter directory.
+2. Select the repository and the starter directory.
 3. Choose **Docker Compose** as the build pack.
 4. Set the compose file path to `docker-compose.yml`.
 5. Set the public domain to your final `NEXT_PUBLIC_SITE_URL`.
@@ -79,7 +79,7 @@ After deployment, open the configured domain and confirm the application respond
 
 ### 4. Add the recovery schedule
 
-BabyChain processes runs immediately after creation, but Coolify deployments should still run the recovery endpoint periodically.
+It processes runs immediately after creation, but Coolify deployments should still run the recovery endpoint periodically.
 
 In Coolify, add a scheduled task for the application container:
 

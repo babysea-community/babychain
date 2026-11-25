@@ -1,8 +1,8 @@
 # Deploy BabyChain with Docker
 
-Docker is the portable deployment path for BabyChain. You can pull the published `babyseaoss/babychain` image for local evaluation or build the Dockerfile yourself with your final public Next.js values for production.
+Docker is the portable deployment path. You can pull the published `babyseaoss/babychain` image for local evaluation or build the Dockerfile yourself with your final public Next.js values for production.
 
-Use this guide when you want to run BabyChain on any Docker-capable host or publish a reusable image from GitHub Actions.
+Use this guide when you want to run on any Docker-capable host or publish a reusable image from GitHub Actions.
 
 ## What this uses
 
@@ -17,7 +17,7 @@ Use this guide when you want to run BabyChain on any Docker-capable host or publ
 - Docker installed and running on the machine that builds the image.
 - Runtime values from [`.env.example`](../../.env.example).
 - A reachable PostgreSQL database, preferably Aurora/RDS for production.
-- BabyChain schema applied with `pnpm run aurora:migrate` against `DATABASE_URL`.
+- The schema applied with `pnpm run aurora:migrate` against `DATABASE_URL`.
 - Provider keys required by your provider mode.
 
 ## Build-time values and runtime secrets

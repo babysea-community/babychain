@@ -29,7 +29,7 @@ import {
 } from '@/components/icons/inline-inference';
 import { InlineAmazonNova } from '@/components/icons/inline-llm';
 import {
-  InlineAwsS3Storage,
+  InlineAwsS3,
   InlineVercelBlob,
 } from '@/components/icons/inline-storage';
 import {
@@ -104,7 +104,7 @@ const INFERENCE_ICONS = [
   },
 ] as const;
 const STORAGE_ICONS = [
-  { Icon: InlineAwsS3Storage, label: 'AWS S3' },
+  { Icon: InlineAwsS3, label: 'AWS S3' },
   { Icon: InlineVercelBlob, label: 'Vercel Blob' },
 ] as const;
 

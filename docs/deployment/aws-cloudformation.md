@@ -1,21 +1,21 @@
 # Deploy BabyChain with AWS CloudFormation
 
-CloudFormation is the managed AWS deployment path for BabyChain. The template creates the AWS infrastructure; you still need to choose networking, create the stack, fill retained secrets, build and push the Docker image, then start the ECS service.
+CloudFormation is the managed AWS deployment path. The template creates the AWS infrastructure; you still need to choose networking, create the stack, fill retained secrets, build and push the Docker image, then start the ECS service.
 
 Use this guide when you want managed AWS infrastructure with ECS Fargate, an Application Load Balancer, ECR, Secrets Manager, CloudWatch Logs, and optional EventBridge queued-run recovery.
 
 ## What this deploys
 
-[`.aws/cloudformation.yml`](../../.aws/cloudformation.yml), [`Dockerfile`](../../Dockerfile), and [`.dockerignore`](../../.dockerignore) work together to deploy BabyChain on AWS.
+[`.aws/cloudformation.yml`](../../.aws/cloudformation.yml), [`Dockerfile`](../../Dockerfile), and [`.dockerignore`](../../.dockerignore) work together to deploy on AWS.
 
-| Resource                                  | Purpose                                                                                  |
-| :---------------------------------------- | :--------------------------------------------------------------------------------------- |
-| ECR repository                            | Stores the BabyChain image you build locally or in CI.                                   |
-| ECS cluster, task definition, and service | Runs the Next.js API engine on Fargate.                                                  |
-| Application Load Balancer                 | Exposes HTTP traffic to the ECS service.                                                 |
-| Secrets Manager secrets                   | Holds BabyChain runtime secrets and provider keys. Secrets are retained on stack delete. |
-| CloudWatch Logs                           | Stores web and cron task logs.                                                           |
-| EventBridge rule                          | Optional queued-run recovery that calls `/api/cron/process-runs`.                        |
+| Resource                                  | Purpose                                                                        |
+| :---------------------------------------- | :----------------------------------------------------------------------------- |
+| ECR repository                            | Stores the image you build locally or in CI.                                   |
+| ECS cluster, task definition, and service | Runs the Next.js API engine on Fargate.                                        |
+| Application Load Balancer                 | Exposes HTTP traffic to the ECS service.                                       |
+| Secrets Manager secrets                   | Holds runtime secrets and provider keys. Secrets are retained on stack delete. |
+| CloudWatch Logs                           | Stores web and cron task logs.                                                 |
+| EventBridge rule                          | Optional queued-run recovery that calls `/api/cron/process-runs`.              |
 
 ## Prerequisites
 
@@ -23,9 +23,9 @@ Use this guide when you want managed AWS infrastructure with ECS Fargate, an App
 - Docker running locally.
 - Permission to create CloudFormation, ECR, ECS, EC2 security group, IAM role, ELBv2, Events, Logs, and Secrets Manager resources.
 - A VPC with two or more subnets.
-- Outbound internet from ECS tasks so BabyChain can reach Aurora/PostgreSQL, BabySea, and inference providers.
+- Outbound internet from ECS tasks so it can reach Aurora/PostgreSQL, BabySea, and inference providers.
 - A reachable PostgreSQL database, preferably Aurora/RDS for production.
-- BabyChain schema applied with `pnpm run aurora:migrate` against `DATABASE_URL`.
+- The schema applied with `pnpm run aurora:migrate` against `DATABASE_URL`.
 - Runtime values from [`.env.example`](../../.env.example).
 
 For a first deployment, use public subnets with `AssignPublicIp=ENABLED`. For production, private subnets with NAT are usually better.
@@ -141,7 +141,7 @@ put_secret SENTRY_PROJECT replace-with-sentry-project
 
 Unused BYOK provider secrets can be placeholders as long as you do not select those providers' models. The Sentry values can be placeholders when you do not upload source maps. Keep `SENTRY_AUTH_TOKEN` in CI or your build environment only when you intentionally upload source maps; it is not needed by the running ECS container. For BabySea mode, replace the BabySea placeholders with real values and set `ProviderMode=babysea` on the stack update.
 
-Do not put `DATABASE_URL`, owner credentials, provider keys, or BabyChain secrets in build args. They belong in Secrets Manager and are injected at runtime.
+Do not put `DATABASE_URL`, owner credentials, provider keys, or the secrets in build args. They belong in Secrets Manager and are injected at runtime.
 
 ### 4. Build and push the image
 

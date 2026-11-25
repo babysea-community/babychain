@@ -1,8 +1,7 @@
 export type MediaDrivenVariantInputKind = 'image' | 'video';
 
 export type MediaDrivenCallerMediaField =
-  | 'generation_input_image_file'
-  | 'generation_input_video_file';
+  'generation_input_image_file' | 'generation_input_video_file';
 
 export type MediaDrivenChainRole = 'video' | 'modify';
 

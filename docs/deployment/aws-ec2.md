@@ -1,13 +1,13 @@
 # Run BabyChain on EC2
 
-EC2 gives you one inspectable VM for BabyChain. You run the VM yourself, so you must create a stable public URL, build and push a Docker image, store runtime values in Parameter Store, create an instance profile, launch Amazon Linux 2023 with user data, and operate updates and cleanup.
+EC2 gives you one inspectable VM. You run the VM yourself, so you must create a stable public URL, build and push a Docker image, store runtime values in Parameter Store, create an instance profile, launch Amazon Linux 2023 with user data, and operate updates and cleanup.
 
 Use this guide when you want one inspectable VM. Use CloudFormation when you want managed ECS/Fargate infrastructure.
 
 ## What this uses
 
 - [`.aws/ec2-user-data.sh`](../../.aws/ec2-user-data.sh) bootstraps Amazon Linux 2023.
-- [`Dockerfile`](../../Dockerfile) builds the BabyChain image.
+- [`Dockerfile`](../../Dockerfile) builds the image.
 - [`.dockerignore`](../../.dockerignore) keeps secrets and build output out of the image context.
 - Amazon ECR stores the image.
 - AWS Systems Manager Parameter Store stores runtime values.
@@ -22,7 +22,7 @@ The direct `http://$ELASTIC_IP` flow below is for first launch and evaluation on
 - Permission to create EC2, ECR, IAM, SSM Parameter Store, security group, key pair, and Elastic IP resources.
 - A VPC and subnet that can reach the internet.
 - A reachable PostgreSQL database, preferably Aurora/RDS for production.
-- BabyChain schema applied with `pnpm run aurora:migrate` against `DATABASE_URL`.
+- The schema applied with `pnpm run aurora:migrate` against `DATABASE_URL`.
 - Runtime values from [`.env.example`](../../.env.example).
 
 ### 1. Set local variables
@@ -164,7 +164,7 @@ Unused BYOK provider parameters can be placeholders as long as you do not select
 
 ### 5. Create the EC2 instance profile
 
-The instance needs ECR read access and scoped SSM read access for only the BabyChain parameter path. If you encrypt parameters with a customer-managed KMS key, add `kms:Decrypt` for that key to the inline policy.
+The instance needs ECR read access and scoped SSM read access for only the parameter path. If you encrypt parameters with a customer-managed KMS key, add `kms:Decrypt` for that key to the inline policy.
 
 ```bash
 cat >/tmp/babychain-ec2-trust-policy.json <<'JSON'
@@ -315,7 +315,7 @@ sudo systemctl status babychain-cron.timer
 sudo systemctl list-timers babychain-cron.timer
 ```
 
-The user-data script installs Docker, runs the BabyChain container on host port 80, writes `/opt/babychain/babychain.env` with mode `0600`, and creates the systemd timer that calls `/api/cron/process-runs` locally.
+The user-data script installs Docker, runs the container on host port 80, writes `/opt/babychain/babychain.env` with mode `0600`, and creates the systemd timer that calls `/api/cron/process-runs` locally.
 
 ### 8. Update the running instance
 

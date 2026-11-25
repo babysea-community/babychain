@@ -111,12 +111,7 @@ type InferenceIconKey =
   | 'runway';
 
 type ByokProviderKey =
-  | 'alibabacloud'
-  | 'bfl'
-  | 'byteplus'
-  | 'google'
-  | 'openai'
-  | 'runway';
+  'alibabacloud' | 'bfl' | 'byteplus' | 'google' | 'openai' | 'runway';
 
 type ProviderMode = 'babysea' | 'byok';
 
