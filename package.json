@@ -1,7 +1,7 @@
 {
   "name": "babychain",
   "version": "0.4.1",
-  "description": "Canvas studio, agentic planner, and durable chain API for image and video model workflows with one final callback.",
+  "description": "Visual canvas studio, agentic workflow orchestration, and durable API for chaining image and video generation models, with resumable execution and a final callback.",
   "private": true,
   "license": "Apache-2.0",
   "homepage": "https://babychain.babysea.live",

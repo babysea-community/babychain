@@ -38,7 +38,7 @@ ENV NEXT_TELEMETRY_DISABLED=1
 ENV PORT=3000
 
 LABEL org.opencontainers.image.title="BabyChain" \
-	org.opencontainers.image.description="Canvas studio, agentic planner, and durable chain API for image and video model workflows with one final callback." \
+	org.opencontainers.image.description="Visual canvas studio, agentic workflow orchestration, and durable API for chaining image and video generation models, with resumable execution and a final callback." \
 	org.opencontainers.image.url="https://babychain.babysea.live" \
 	org.opencontainers.image.source="https://github.com/babysea-community/babychain" \
 	org.opencontainers.image.version="$BABYCHAIN_VERSION" \

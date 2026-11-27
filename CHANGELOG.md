@@ -4,6 +4,10 @@ All notable changes will be documented here. The format follows [Keep a Changelo
 
 ## [Unreleased]
 
+### Changed
+
+- Removed the package-level Node.js version cap so Vercel can use the runtime configured in project settings.
+
 ## [0.4.1] - 2026-06-24
 
 ### Added

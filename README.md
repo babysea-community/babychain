@@ -654,45 +654,45 @@ Aurora presents an Amazon RDS CA that is not in the Node.js trust store. For Aur
 
 ### AWS Console
 
-The fastest path is **RDS → Create database** in the AWS Console. These are the selections used by the BabyChain demo deployment. They create an Aurora Serverless v2 cluster that works with the checked-in `pg` connection code after you allow network access to port `5432` and run `pnpm run aurora:migrate`.
+The fastest path is **RDS → Create database** in the AWS Console. These are the selections used by the BabyChain demo deployment. They create an Aurora Serverless cluster that works with the checked-in `pg` connection code after you allow network access to port `5432` and run `pnpm run aurora:migrate`.
 
-| Setting                       | Selection                                           |
-| :---------------------------- | :-------------------------------------------------- |
-| Engine type                   | Aurora (PostgreSQL Compatible)                      |
-| Database creation method      | Full configuration                                  |
-| Engine version                | Aurora PostgreSQL (Compatible with PostgreSQL 17.7) |
-| Templates                     | Production                                          |
-| Cluster scalability type      | Serverless v2                                       |
-| Capacity range (ACUs)         | Minimum `1`, Maximum `2`                            |
-| DB cluster identifier         | your cluster name                                   |
-| Master username               | your master username                                |
-| Credentials management        | Self managed                                        |
-| Master password               | your database password                              |
-| Configuration options         | Aurora Standard                                     |
-| Multi-AZ deployment           | Don't create an Aurora Replica                      |
-| Compute resource              | Don't connect to an EC2 compute resource            |
-| Network type                  | Dual-stack mode                                     |
-| Virtual private cloud (VPC)   | Create new VPC                                      |
-| DB subnet group               | Create new DB Subnet Group                          |
-| Public access                 | Yes                                                 |
-| VPC security group (firewall) | Create new                                          |
-| New VPC security group name   | `vpcsecurity-babychain` (or your own name)          |
-| Availability Zone             | No preference                                       |
-| RDS Proxy                     | Create an RDS Proxy                                 |
-| Certificate authority         | `rds-ca-rsa2048-g1` (default)                       |
-| RDS Data API                  | Enable the RDS Data API                             |
-| Database port                 | `5432`                                              |
-| Monitoring                    | Database Insights - Standard                        |
-| Performance Insights          | Disabled                                            |
-| Enhanced Monitoring           | Disabled                                            |
-| Log exports                   | iam-db-auth-error log, PostgreSQL log               |
+| Setting                             | Selection                                                  |
+| :---------------------------------- | :--------------------------------------------------------- |
+| Engine type                         | Aurora (PostgreSQL Compatible)                             |
+| Choose a database creation method   | Full configuration                                         |
+| Templates                           | Production                                                 |
+| Cluster scalability type            | Aurora serverless                                          |
+| Capacity range (ACUs)               | Minimum `1`, Maximum `2`                                   |
+| Engine version                      | Aurora PostgreSQL (Compatible with PostgreSQL 17.9)        |
+| DB cluster identifier               | `your cluster name`                                        |
+| Master username                     | `your master username`                                     |
+| Credentials management              | Self managed                                               |
+| Master password                     | `your database password`                                   |
+| Configuration options               | Aurora Standard                                            |
+| Multi-AZ deployment                 | Don't create an Aurora Replica                             |
+| Compute resource                    | Don’t connect to an EC2 compute resource                   |
+| Network access type                 | VPC                                                        |
+| Network type                        | Dual-stack mode                                            |
+| Virtual private cloud (VPC)         | `Create new VPC` or use `default` if available             |
+| DB subnet group                     | Create a new DB subnet group or use `default` if available |
+| Public access                       | Yes                                                        |
+| VPC security group (firewall)       | Choose existing and use `default` or your configured group |
+| Availability Zone                   | No preference                                              |
+| RDS Proxy                           | Create an RDS Proxy                                        |
+| Certificate authority (optional)    | Default                                                    |
+| RDS Data API                        | Enable the RDS Data API                                    |
+| Database port                       | `5432`                                                     |
+| Monitoring                          | Database Insights - Standard                               |
+| Enable collecting detailed activity | Unchecked / disabled                                       |
+| Enhanced Monitoring                 | Unchecked / disabled                                       |
+| Log exports                         | iam-db-auth-error log, PostgreSQL log                      |
 
 Notes:
 
 - **Capacity minimum `1` ACU** keeps the demo database warm. If you choose a lower minimum that can pause, the first request after idle may take 10-30s to wake the cluster; BabyChain's 30s connection timeout is designed to absorb that cold start.
 - **Public access: Yes** only makes the cluster addressable from outside the VPC. You must still add a security-group inbound rule for **TCP 5432** from the runtime that needs access. For local setup, use your current IP as `/32`. For a short demo on Vercel without static egress, you may temporarily allow a broader source, but do not leave `5432` open to `0.0.0.0/0` for production.
 - **RDS Proxy** is useful for runtimes inside the same VPC, such as Lambda, ECS, EC2, or a Vercel private-networking setup. A normal public Vercel function cannot reach a private RDS Proxy endpoint by itself. If you deploy BabyChain on standard Vercel networking, use the Aurora writer endpoint in `DATABASE_URL` unless you have Vercel private networking configured.
-- **RDS Data API** can be enabled for admin tooling, but BabyChain does not use it. The app uses the standard PostgreSQL wire protocol through `pg` and `DATABASE_URL`.
+- **RDS Data API** is enabled for optional admin tooling, but BabyChain does not use it. The app uses the standard PostgreSQL wire protocol through `pg` and `DATABASE_URL`.
 - The **DB cluster identifier** is not automatically the PostgreSQL database name. If you did not explicitly create a database named `babychain`, use `/postgres` in `DATABASE_URL`, for example `postgresql://USER:PASSWORD@WRITER-ENDPOINT:5432/postgres?sslmode=require`.
 
 Once the cluster is **Available**, copy the **writer endpoint** from the Connectivity & security tab, build `DATABASE_URL` as shown above, add the required inbound security-group rule for port `5432`, then run `pnpm run aurora:migrate`.
@@ -746,16 +746,16 @@ aws ec2 authorize-security-group-ingress \
 
 **4. Cluster and instance**
 
-Create the Aurora PostgreSQL cluster + a writer instance. The engine version and capacity below match the console selections (Aurora PostgreSQL 17.7, Serverless v2 with 1-2 ACUs):
+Create the Aurora PostgreSQL cluster + a writer instance. The engine version and capacity below match the console selections (Aurora PostgreSQL 17.9, Serverless v2 with 1-2 ACUs):
 
 ```bash
-# Confirm the exact Aurora PostgreSQL 17.7 version string for your region first:
+# Confirm the exact Aurora PostgreSQL 17.9 version string for your region first:
 #   aws rds describe-db-engine-versions --engine aurora-postgresql \
 #     --query 'DBEngineVersions[].EngineVersion' --output text
 aws rds create-db-cluster \
   --db-cluster-identifier babychain \
   --engine aurora-postgresql \
-  --engine-version 17.7 \
+  --engine-version 17.9 \
   --master-username postgres \
   --master-user-password '<STRONG_PASSWORD>' \
   --db-subnet-group-name babychain-subnets \
@@ -772,7 +772,7 @@ aws rds create-db-instance \
   --publicly-accessible
 ```
 
-> The console's **RDS Proxy** and **RDS Data API** are optional and not required here: BabyChain connects to the Aurora writer endpoint with `pg`, so the CLI path omits them. Add them later only for an in-VPC runtime or admin tooling that needs them.
+> BabyChain connects to the Aurora writer endpoint with `pg`; the CLI path omits **RDS Proxy** and **RDS Data API**, which are optional for the app. Add them separately for an in-VPC runtime or admin tooling that needs them.
 
 **5. Public reachability**
 

@@ -306,7 +306,7 @@ export const communitySponsors = {
 export const siteFooter = {
   brand: 'BabyChain',
   description:
-    'Canvas studio, agentic planner, and durable chain API for image and video model workflows with one final callback.',
+    'Visual canvas studio, agentic workflow orchestration, and durable API for chaining image and video generation models, with resumable execution and a final callback.',
   githubPipeline: {
     eyebrow: 'Repository CI/CD',
     href: 'https://github.com/babysea-community/babychain/actions',
