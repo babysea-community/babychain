@@ -438,7 +438,7 @@ This path is for a new user starting from an empty clone. It gets the dashboard,
 
 ### Prerequisites
 
-- **Node.js** `>=24.14.0 <25`.
+- **Node.js** supported by pnpm `11.7.0` for local development. Vercel's Node.js Version setting controls the deployment runtime; `package.json` does not constrain it.
 - **pnpm** `11.7.0` (the version declared in [`package.json`](package.json)).
 - **PostgreSQL** reachable from your machine. AWS Aurora PostgreSQL is the production target; local PostgreSQL also works for development.
 - **Inference credentials for the models you select.** For the default BYOK mode, configure provider keys for the image/video models you plan to run. A first image-to-video run needs an image-capable model key and a video-capable model key, or one provider key that supports both roles. See [5. Models and Modes](#5-models-and-modes).
@@ -1035,6 +1035,8 @@ Nova 2 Lite is Amazon's cost-efficient multimodal model for simple automation, d
 [![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fbabysea-community%2Fbabychain&project-name=babychain&repository-name=babychain&env=NEXT_PUBLIC_SITE_URL,OWNER_EMAIL,OWNER_PASSWORD,OWNER_SESSION_SECRET,DATABASE_URL,BABYCHAIN_API_KEY,BABYCHAIN_CRON_SECRET,BABYCHAIN_CALLBACK_SECRET,BABYCHAIN_PROVIDER_MODE,DASHSCOPE_API_KEY,BFL_API_KEY,BFL_REGION,BFL_API_BASE_URL,ARK_API_KEY,GEMINI_API_KEY,OPENAI_API_KEY,RUNWAYML_API_SECRET)
 
 Use the Vercel button to clone the starter and create the project. Then set every value from [`.env.example`](.env.example) in the Vercel project, especially `NEXT_PUBLIC_SITE_URL`, `DATABASE_URL`, the `OWNER_*` dashboard credentials, the `BABYCHAIN_*` secrets, and the provider keys for your chosen mode.
+
+Vercel's Node.js Version setting controls the runtime; `package.json` intentionally omits `engines.node` so it does not override the project setting.
 
 BabyChain still needs a reachable PostgreSQL database. Follow [4. Database](#4-database) to create the database, build `DATABASE_URL`, allow Vercel to reach port `5432`, and run `pnpm run aurora:migrate` once against the production database before the first real run.
 
